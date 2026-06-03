@@ -50,7 +50,6 @@ if (prevs) setPreventivi(prevs.map((p: any) => ({
   ...p,
   nome_cliente: p.clienti?.nome || p.nome_cliente || 'Senza cliente'
 })))
-    if (prevs) setPreventivi(prevs)
 
     setLoading(false)
   }

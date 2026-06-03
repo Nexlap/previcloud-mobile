@@ -1,12 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useState } from 'react'
 import {
-    ActivityIndicator, Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text, TouchableOpacity,
-    View
+    ActivityIndicator, Alert, Modal, ScrollView, StyleSheet,
+    Text, TouchableOpacity, View
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
 
@@ -19,6 +15,9 @@ interface Preventivo {
   is_ultimo: boolean
   created_at: string
   template: string | null
+  preventivo_padre_id: string | null
+  cliente_id: string | null
+  nome_cliente: string | null
 }
 
 interface Trascrizione {
@@ -47,17 +46,20 @@ export default function ClienteDettaglio() {
   const [tab, setTab] = useState<'preventivi' | 'chiamate'>('preventivi')
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
+  const [cronologiaAperta, setCronologiaAperta] = useState<string | null>(null)
+  const [cronologia, setCronologia] = useState<{ [key: string]: Preventivo[] }>({})
+  const [cronologiaVersioneAperta, setCronologiaVersioneAperta] = useState<string | null>(null)
 
   useEffect(() => { carica() }, [])
 
   async function carica() {
-    const { data: cl } = await supabase
-      .from('clienti').select('*').eq('id', id).single()
+    const { data: cl } = await supabase.from('clienti').select('*').eq('id', id).single()
     if (cl) setCliente(cl)
 
     const { data: prevs } = await supabase
       .from('preventivi').select('*')
       .eq('cliente_id', id)
+      .eq('is_ultimo', true)
       .order('created_at', { ascending: false })
     if (prevs) setPreventivi(prevs)
 
@@ -69,27 +71,57 @@ export default function ClienteDettaglio() {
 
     setLoading(false)
   }
-async function eliminaPreventivo(id: string) {
-  Alert.alert('Elimina', 'Vuoi eliminare questo preventivo?', [
-    { text: 'Annulla', style: 'cancel' },
-    { text: 'Elimina', style: 'destructive', onPress: async () => {
-      await supabase.from('preventivi').delete().eq('id', id)
-      setPreventivi(p => p.filter(x => x.id !== id))
-    }}
-  ])
-}
 
-async function cambiaStato(id: string, stato: string) {
-  await supabase.from('preventivi').update({ stato }).eq('id', id)
-  setPreventivi(p => p.map(x => x.id === id ? { ...x, stato } : x))
-}
-  async function eliminaCliente() {
-    Alert.alert('Elimina cliente', 'Vuoi eliminare questo cliente? I preventivi associati non verranno eliminati.', [
+  async function eliminaPreventivo(prevId: string) {
+    Alert.alert('Elimina', 'Vuoi eliminare questo preventivo?', [
       { text: 'Annulla', style: 'cancel' },
-      { text: 'Elimina', style: 'destructive', onPress: async () => {
-        await supabase.from('clienti').delete().eq('id', id)
-        router.back()
-      }}
+      {
+        text: 'Elimina', style: 'destructive', onPress: async () => {
+          await supabase.from('preventivi').delete().eq('id', prevId)
+          setPreventivi(p => p.filter(x => x.id !== prevId))
+        }
+      }
+    ])
+  }
+
+  async function cambiaStato(prevId: string, stato: string) {
+    await supabase.from('preventivi').update({ stato }).eq('id', prevId)
+    setPreventivi(p => p.map(x => x.id === prevId ? { ...x, stato } : x))
+  }
+
+  async function caricaCronologia(preventivoId: string, padreId: string | null) {
+    if (cronologiaAperta === preventivoId) {
+      setCronologiaAperta(null)
+      return
+    }
+    if (!padreId) return
+
+    const versioni: Preventivo[] = []
+    let currentId: string | null = padreId
+
+    while (currentId) {
+      const { data }: { data: Preventivo | null } = await supabase
+        .from('preventivi').select('*').eq('id', currentId).single()
+      if (!data) break
+      versioni.unshift(data)
+      currentId = data.preventivo_padre_id
+    }
+
+    if (versioni.length > 0) {
+      setCronologia(c => ({ ...c, [preventivoId]: versioni }))
+      setCronologiaAperta(preventivoId)
+    }
+  }
+
+  async function eliminaCliente() {
+    Alert.alert('Elimina cliente', 'Vuoi eliminare questo cliente?', [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Elimina', style: 'destructive', onPress: async () => {
+          await supabase.from('clienti').delete().eq('id', id)
+          router.back()
+        }
+      }
     ])
   }
 
@@ -161,16 +193,12 @@ async function cambiaStato(id: string, stato: string) {
           <TouchableOpacity
             style={[styles.tabBtn, tab === 'preventivi' && styles.tabBtnActive]}
             onPress={() => setTab('preventivi')}>
-            <Text style={[styles.tabText, tab === 'preventivi' && styles.tabTextActive]}>
-              Preventivi
-            </Text>
+            <Text style={[styles.tabText, tab === 'preventivi' && styles.tabTextActive]}>Preventivi</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabBtn, tab === 'chiamate' && styles.tabBtnActive]}
             onPress={() => setTab('chiamate')}>
-            <Text style={[styles.tabText, tab === 'chiamate' && styles.tabTextActive]}>
-              Chiamate
-            </Text>
+            <Text style={[styles.tabText, tab === 'chiamate' && styles.tabTextActive]}>Chiamate</Text>
           </TouchableOpacity>
         </View>
 
@@ -179,8 +207,7 @@ async function cambiaStato(id: string, stato: string) {
           preventivi.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>Nessun preventivo per questo cliente</Text>
-              <TouchableOpacity style={styles.emptyBtn}
-                onPress={() => router.push('/(tabs)/nuovo')}>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(tabs)/nuovo')}>
                 <Text style={styles.emptyBtnText}>Genera preventivo</Text>
               </TouchableOpacity>
             </View>
@@ -202,56 +229,99 @@ async function cambiaStato(id: string, stato: string) {
                     </Text>
                   </View>
                   <View style={styles.prevRightRow}>
-  <TouchableOpacity
-    style={styles.prevRight}
-    onPress={() => setModalStato(p.id)}
-  >
-    <Text style={styles.prevImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
-    <Text style={[styles.prevStato,
-      p.stato === 'accettato' ? { color: '#0E9F8E' } :
-      p.stato === 'rifiutato' ? { color: '#EF4444' } :
-      p.stato === 'inviato' ? { color: '#1D4ED8' } : {}
-    ]}>{p.stato} ▼</Text>
-  </TouchableOpacity>
-  <TouchableOpacity onPress={() => eliminaPreventivo(p.id)}>
-    <Text style={{ fontSize: 16 }}>🗑</Text>
-  </TouchableOpacity>
-</View>
+                    <TouchableOpacity
+                      style={styles.prevRight}
+                      onPress={() => setModalStato(p.id)}
+                    >
+                      <Text style={styles.prevImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
+                      <Text style={[styles.prevStato,
+                        p.stato === 'accettato' ? { color: '#0E9F8E' } :
+                        p.stato === 'rifiutato' ? { color: '#EF4444' } :
+                        p.stato === 'inviato' ? { color: '#1D4ED8' } : {}
+                      ]}>{p.stato} ▼</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => eliminaPreventivo(p.id)}>
+                      <Text style={{ fontSize: 16 }}>🗑</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-{aperto === p.id && p.testo_preventivo && (
-  <View style={styles.prevDetail}>
-    <Text style={styles.prevTesto}>{p.testo_preventivo}</Text>
 
-    <TouchableOpacity
-      style={styles.statoDropdown}
-      onPress={() => setModalStato(p.id)}
-    >
-      <Text style={styles.statoDropdownText}>
-        Stato: <Text style={styles.statoDropdownVal}>{p.stato}</Text>
-      </Text>
-      <Text style={styles.statoDropdownArrow}>▼</Text>
-    </TouchableOpacity>
+                {aperto === p.id && p.testo_preventivo && (
+                  <View style={styles.prevDetail}>
+                    <Text style={styles.prevTesto}>{p.testo_preventivo}</Text>
 
-    {p.is_ultimo && (
-      <TouchableOpacity
-        style={styles.editBtn}
-        onPress={() => router.push({
-          pathname: '/(tabs)/preventivo-pdf',
-          params: {
-            testo: p.testo_preventivo || '',
-            versione_padre_id: p.id,
-            cliente_id: id
-          }
-        })}>
-        <Text style={styles.editBtnText}>✏️ Modifica e genera v{(p.versione || 1) + 1}</Text>
-      </TouchableOpacity>
-    )}
+                    {p.versione && p.versione > 1 && (
+                      <TouchableOpacity
+                        style={styles.cronologiaBtn}
+                        onPress={() => caricaCronologia(p.id, p.preventivo_padre_id)}
+                      >
+                        <Text style={styles.cronologiaBtnText}>
+                          {cronologiaAperta === p.id
+                            ? '▲ Nascondi cronologia'
+                            : `▼ Mostra cronologia (${p.versione - 1} vers. precedenti)`}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
 
-    <TouchableOpacity onPress={() => eliminaPreventivo(p.id)}>
-      <Text style={{ fontSize: 13, color: '#EF4444' }}>🗑 Elimina preventivo</Text>
-    </TouchableOpacity>
-  </View>
-)}
+                    {cronologiaAperta === p.id && cronologia[p.id]?.map(v => (
+                      <View key={v.id}>
+                        <TouchableOpacity
+                          style={styles.cronologiaItem}
+                          onPress={() => setCronologiaVersioneAperta(
+                            cronologiaVersioneAperta === v.id ? null : v.id
+                          )}
+                        >
+                          <Text style={styles.cronologiaVer}>v{v.versione || 1}</Text>
+                          <Text style={styles.cronologiaData}>
+                            {new Date(v.created_at).toLocaleDateString('it-IT')}
+                          </Text>
+                          <Text style={styles.cronologiaImporto}>
+                            {v.importo_totale ? `€${v.importo_totale}` : '—'}
+                          </Text>
+                        </TouchableOpacity>
+
+                        {cronologiaVersioneAperta === v.id && (
+                          <View style={styles.cronologiaDetail}>
+                            <Text style={styles.prevTesto}>{v.testo_preventivo}</Text>
+                            <TouchableOpacity
+                              style={styles.ripristinaBtn}
+                              onPress={() => router.push({
+                                pathname: '/(tabs)/preventivo-pdf',
+                                params: {
+                                  testo: v.testo_preventivo || '',
+                                  versione_padre_id: p.id,
+                                  cliente_id: p.cliente_id || ''
+                                }
+                              })}
+                            >
+                              <Text style={styles.ripristinaBtnText}>
+                                ✏️ Apri nell'editor e genera nuova versione
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+
+                    {p.is_ultimo && (
+                      <TouchableOpacity
+                        style={styles.editBtn}
+                        onPress={() => router.push({
+                          pathname: '/(tabs)/preventivo-pdf',
+                          params: {
+                            testo: p.testo_preventivo || '',
+                            versione_padre_id: p.id,
+                            cliente_id: id
+                          }
+                        })}
+                      >
+                        <Text style={styles.editBtnText}>
+                          ✏️ Modifica e genera v{(p.versione || 1) + 1}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </TouchableOpacity>
             ))
           )
@@ -287,7 +357,8 @@ async function cambiaStato(id: string, stato: string) {
                       onPress={() => router.push({
                         pathname: '/(tabs)/nuovo',
                         params: { trascrizione: t.testo }
-                      })}>
+                      })}
+                    >
                       <Text style={styles.editBtnText}>💬 Genera preventivo da questa chiamata</Text>
                     </TouchableOpacity>
                   </View>
@@ -299,40 +370,41 @@ async function cambiaStato(id: string, stato: string) {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
       <Modal
-  visible={modalStato !== null}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setModalStato(null)}
->
-  <TouchableOpacity
-    style={styles.modalOverlay}
-    activeOpacity={1}
-    onPress={() => setModalStato(null)}
-  >
-    <View style={styles.modalBox}>
-      <Text style={styles.modalTitle}>Cambia stato</Text>
-      {['bozza', 'inviato', 'accettato', 'rifiutato'].map(s => (
+        visible={modalStato !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalStato(null)}
+      >
         <TouchableOpacity
-          key={s}
-          style={styles.modalOption}
-          onPress={() => {
-            if (modalStato) cambiaStato(modalStato, s)
-            setModalStato(null)
-          }}
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setModalStato(null)}
         >
-          <Text style={styles.modalOptionIcon}>
-            {s === 'bozza' ? '📝' : s === 'inviato' ? '📤' : s === 'accettato' ? '✅' : '❌'}
-          </Text>
-          <Text style={styles.modalOptionText}>{s}</Text>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Cambia stato</Text>
+            {['bozza', 'inviato', 'accettato', 'rifiutato'].map(s => (
+              <TouchableOpacity
+                key={s}
+                style={styles.modalOption}
+                onPress={() => {
+                  if (modalStato) cambiaStato(modalStato, s)
+                  setModalStato(null)
+                }}
+              >
+                <Text style={styles.modalOptionIcon}>
+                  {s === 'bozza' ? '📝' : s === 'inviato' ? '📤' : s === 'accettato' ? '✅' : '❌'}
+                </Text>
+                <Text style={styles.modalOptionText}>{s}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setModalStato(null)}>
+              <Text style={styles.modalCancelText}>Annulla</Text>
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
-      ))}
-      <TouchableOpacity style={styles.modalCancel} onPress={() => setModalStato(null)}>
-        <Text style={styles.modalCancelText}>Annulla</Text>
-      </TouchableOpacity>
-    </View>
-  </TouchableOpacity>
-</Modal>
+      </Modal>
     </View>
   )
 }
@@ -344,63 +416,72 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4, width: 50 },
   backText: { color: '#9CA3AF', fontSize: 22 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
-  deleteBtn: { width: 50, alignItems: 'flex-end' },
+  deleteBtn: { width: 50, alignItems: 'flex-end' as const },
   deleteBtnText: { fontSize: 20 },
   scroll: { flex: 1 },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
-  avatarRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
+  avatarRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' as const },
   avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontSize: 22, fontWeight: '700' },
+  avatarText: { color: '#fff', fontSize: 22, fontWeight: '700' as const },
   avatarInfo: { flex: 1, gap: 3 },
-  clienteNome: { fontSize: 18, fontWeight: '700', color: '#0D1B2A' },
+  clienteNome: { fontSize: 18, fontWeight: '700' as const, color: '#0D1B2A' },
   clienteInfo: { fontSize: 13, color: '#6B7280' },
-  clienteNote: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', marginTop: 4 },
+  clienteNote: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' as const, marginTop: 4 },
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  statVal: { fontSize: 20, fontWeight: '700', color: '#0D1B2A' },
+  statVal: { fontSize: 20, fontWeight: '700' as const, color: '#0D1B2A' },
   statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   tabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' },
   tabBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' as const },
   tabBtnActive: { backgroundColor: '#0D1B2A' },
-  tabText: { fontSize: 14, fontWeight: '500', color: '#9CA3AF' },
+  tabText: { fontSize: 14, fontWeight: '500' as const, color: '#9CA3AF' },
   tabTextActive: { color: '#fff' },
-  empty: { alignItems: 'center', paddingTop: 40 },
+  empty: { alignItems: 'center' as const, paddingTop: 40 },
   emptyText: { fontSize: 14, color: '#9CA3AF', marginBottom: 12 },
   emptyBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
-  emptyBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  emptyBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
   prevCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
   prevCardOld: { opacity: 0.6 },
   prevRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
   prevLeft: { flex: 1 },
   prevBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  prevVersione: { fontSize: 13, fontWeight: '700', color: '#0D1B2A' },
-  prevUltimo: { fontSize: 11, color: '#0E9F8E', fontWeight: '600' },
+  prevVersione: { fontSize: 13, fontWeight: '700' as const, color: '#0D1B2A' },
+  prevUltimo: { fontSize: 11, color: '#0E9F8E', fontWeight: '600' as const },
   prevData: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  prevRight: { alignItems: 'flex-end' },
-  prevImporto: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
+  prevRightRow: { alignItems: 'flex-end' as const, gap: 6 },
+  prevRight: { alignItems: 'flex-end' as const },
+  prevImporto: { fontSize: 14, fontWeight: '600' as const, color: '#0D1B2A' },
   prevStato: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   prevDetail: { padding: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
   prevTesto: { fontSize: 12, color: '#6B7280', lineHeight: 18, fontFamily: 'monospace' },
   editBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' as const },
-  editBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  editBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
   chiamataCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
   chiamataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
-  chiamataTitolo: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
+  chiamataTitolo: { fontSize: 14, fontWeight: '500' as const, color: '#0D1B2A' },
   chiamataData: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   chiamataArrow: { fontSize: 12, color: '#9CA3AF' },
   chiamataDetail: { padding: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
   chiamataTesto: { fontSize: 12, color: '#6B7280', lineHeight: 18 },
+  cronologiaBtn: { paddingVertical: 8, alignItems: 'center' as const },
+  cronologiaBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' as const },
+  cronologiaItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F7F8FA', borderRadius: 8, padding: 10 },
+  cronologiaVer: { fontSize: 13, fontWeight: '700' as const, color: '#9CA3AF' },
+  cronologiaData: { fontSize: 12, color: '#9CA3AF' },
+  cronologiaImporto: { fontSize: 12, color: '#9CA3AF' },
+  cronologiaDetail: { backgroundColor: '#F7F8FA', borderRadius: 10, padding: 12, gap: 10 },
+  ripristinaBtn: { backgroundColor: '#0E9F8E', borderRadius: 10, padding: 10, alignItems: 'center' as const },
+  ripristinaBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
   statoDropdown: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' as const, backgroundColor: '#F7F8FA', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E5E7EB' },
-statoDropdownText: { fontSize: 13, color: '#6B7280' },
-statoDropdownVal: { fontWeight: '600' as const, color: '#0D1B2A' },
-statoDropdownArrow: { fontSize: 11, color: '#9CA3AF' },
-modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center' as const, alignItems: 'center' as const, padding: 32 },
-modalBox: { backgroundColor: '#fff', borderRadius: 20, padding: 20, width: '100%' },
-modalTitle: { fontSize: 16, fontWeight: '600' as const, color: '#0D1B2A', marginBottom: 16, textAlign: 'center' as const },
-modalOption: { flexDirection: 'row', alignItems: 'center' as const, gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-modalOptionIcon: { fontSize: 20 },
-modalOptionText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500' as const, textTransform: 'capitalize' as const },
-modalCancel: { paddingTop: 14, alignItems: 'center' as const },
-modalCancelText: { fontSize: 14, color: '#9CA3AF' },
-prevRightRow: { alignItems: 'flex-end' as const, gap: 6 },
+  statoDropdownText: { fontSize: 13, color: '#6B7280' },
+  statoDropdownVal: { fontWeight: '600' as const, color: '#0D1B2A' },
+  statoDropdownArrow: { fontSize: 11, color: '#9CA3AF' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center' as const, alignItems: 'center' as const, padding: 32 },
+  modalBox: { backgroundColor: '#fff', borderRadius: 20, padding: 20, width: '100%' },
+  modalTitle: { fontSize: 16, fontWeight: '600' as const, color: '#0D1B2A', marginBottom: 16, textAlign: 'center' as const },
+  modalOption: { flexDirection: 'row', alignItems: 'center' as const, gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  modalOptionIcon: { fontSize: 20 },
+  modalOptionText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500' as const, textTransform: 'capitalize' as const },
+  modalCancel: { paddingTop: 14, alignItems: 'center' as const },
+  modalCancelText: { fontSize: 14, color: '#9CA3AF' },
 })

@@ -61,23 +61,35 @@ export default function Storico() {
     setPreventivi(p => p.map(x => x.id === id ? { ...x, stato } : x))
   }
 
-  async function caricaCronologia(preventivoId: string, padreId: string | null) {
-    if (!padreId) return
-    if (cronologiaAperta === preventivoId) {
-      setCronologiaAperta(null)
-      return
-    }
-    const { data } = await supabase
+async function caricaCronologia(preventivoId: string, padreId: string | null) {
+  if (cronologiaAperta === preventivoId) {
+    setCronologiaAperta(null)
+    return
+  }
+
+  if (!padreId) return
+
+  // Risali tutta la catena dei padri
+  const versioni: Preventivo[] = []
+  let currentId: string | null = padreId
+
+  while (currentId) {
+    const { data }: { data: Preventivo | null } = await supabase
       .from('preventivi')
       .select('*')
-      .eq('preventivo_padre_id', padreId)
-      .eq('is_ultimo', false)
-      .order('versione', { ascending: true })
-    if (data) {
-      setCronologia(c => ({ ...c, [preventivoId]: data }))
-      setCronologiaAperta(preventivoId)
-    }
+      .eq('id', currentId)
+      .single()
+
+    if (!data) break
+    versioni.unshift(data)
+    currentId = data.preventivo_padre_id
   }
+
+  if (versioni.length > 0) {
+    setCronologia(c => ({ ...c, [preventivoId]: versioni }))
+    setCronologiaAperta(preventivoId)
+  }
+}
 
   if (loading) return (
     <View style={styles.center}>
@@ -106,31 +118,38 @@ export default function Storico() {
         ) : (
           preventivi.map(p => (
             <View key={p.id} style={styles.card}>
-              <TouchableOpacity style={styles.cardRow} onPress={() => {
-                if (p.cliente_id) {
-                  router.push({ pathname: '/(tabs)/cliente-dettaglio', params: { id: p.cliente_id, nome: p.nome_cliente || 'Cliente' } })
-                } else {
-                  setAperto(aperto === p.id ? null : p.id)
-                }
-              }}>
-                <View style={styles.cardIcon}>
-                  <Text style={styles.cardIconText}>📄</Text>
-                </View>
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
-                  <Text style={styles.cardData}>
-                    {new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}
-                  </Text>
-                </View>
-                <View style={styles.cardRight}>
-                  <Text style={styles.cardImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
-                  <Text style={[styles.cardStato,
-                    p.stato === 'accettato' ? { color: '#0E9F8E' } :
-                    p.stato === 'rifiutato' ? { color: '#EF4444' } : {}
-                  ]}>{p.stato}</Text>
-                </View>
-              </TouchableOpacity>
-
+<View style={styles.cardRowContainer}>
+  <TouchableOpacity style={[styles.cardRow, { flex: 1 }]} onPress={() => {
+    if (p.cliente_id) {
+      router.push({ pathname: '/(tabs)/cliente-dettaglio', params: { id: p.cliente_id, nome: p.nome_cliente || 'Cliente' } })
+    } else {
+      setAperto(aperto === p.id ? null : p.id)
+    }
+  }}>
+    <View style={styles.cardIcon}>
+      <Text style={styles.cardIconText}>📄</Text>
+    </View>
+    <View style={styles.cardBody}>
+      <Text style={styles.cardCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
+      <Text style={styles.cardData}>
+        {new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}
+      </Text>
+    </View>
+    <View style={styles.cardRight}>
+      <Text style={styles.cardImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
+      <Text style={[styles.cardStato,
+        p.stato === 'accettato' ? { color: '#0E9F8E' } :
+        p.stato === 'rifiutato' ? { color: '#EF4444' } : {}
+      ]}>{p.stato}</Text>
+    </View>
+  </TouchableOpacity>
+  <TouchableOpacity
+    style={styles.cardMenuBtn}
+    onPress={() => setAperto(aperto === p.id ? null : p.id)}
+  >
+    <Text style={styles.cardMenuBtnText}>⋯</Text>
+  </TouchableOpacity>
+</View>
               {aperto === p.id && (
                 <View style={styles.detail}>
                   {p.testo_preventivo && (
@@ -160,13 +179,49 @@ export default function Storico() {
                     </TouchableOpacity>
                   )}
 
-                  {cronologiaAperta === p.id && cronologia[p.id]?.map(v => (
-                    <View key={v.id} style={styles.cronologiaItem}>
-                      <Text style={styles.cronologiaVer}>v{v.versione || 1}</Text>
-                      <Text style={styles.cronologiaData}>{new Date(v.created_at).toLocaleDateString('it-IT')}</Text>
-                      <Text style={styles.cronologiaImporto}>{v.importo_totale ? `€${v.importo_totale}` : '—'}</Text>
-                    </View>
-                  ))}
+{cronologiaAperta === p.id && cronologia[p.id]?.map(v => (
+  <TouchableOpacity
+    key={v.id}
+    style={styles.cronologiaItem}
+    onPress={() => setAperto(aperto === v.id ? p.id : v.id)}
+  >
+    <Text style={styles.cronologiaVer}>v{v.versione || 1}</Text>
+    <Text style={styles.cronologiaData}>{new Date(v.created_at).toLocaleDateString('it-IT')}</Text>
+    <Text style={styles.cronologiaImporto}>{v.importo_totale ? `€${v.importo_totale}` : '—'}</Text>
+  </TouchableOpacity>
+))}
+
+{cronologiaAperta === p.id && cronologia[p.id]?.map(v => (
+  aperto === v.id && (
+    <View key={`detail-${v.id}`} style={styles.cronologiaDetail}>
+      <Text style={styles.prevTesto}>{v.testo_preventivo}</Text>
+      <TouchableOpacity
+        style={styles.ripristinaBtn}
+        onPress={async () => {
+          Alert.alert(
+            'Ripristina versione',
+            `Vuoi ripristinare la v${v.versione || 1}? La versione attuale diventerà inattiva.`,
+            [
+              { text: 'Annulla', style: 'cancel' },
+              { text: 'Ripristina', onPress: async () => {
+                // Disattiva versione corrente
+                await supabase.from('preventivi').update({ is_ultimo: false }).eq('id', p.id)
+                // Attiva versione vecchia
+                await supabase.from('preventivi').update({ is_ultimo: true }).eq('id', v.id)
+                Alert.alert('✓ Ripristinato', `La v${v.versione || 1} è ora la versione attiva.`)
+                carica()
+                setAperto(null)
+                setCronologiaAperta(null)
+              }}
+            ]
+          )
+        }}
+      >
+        <Text style={styles.ripristinaBtnText}>↩ Ripristina questa versione</Text>
+      </TouchableOpacity>
+    </View>
+  )
+))}
 
                   <TouchableOpacity
                     style={styles.editBtn}
@@ -239,8 +294,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 15, color: '#9CA3AF', marginBottom: 16 },
   emptyBtn: { backgroundColor: '#0D1B2A', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12 },
   emptyBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  card: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
-  cardRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  card: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB' },  cardRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   cardIcon: { width: 38, height: 38, backgroundColor: '#F0FDF4', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   cardIconText: { fontSize: 18 },
   cardBody: { flex: 1 },
@@ -273,4 +327,11 @@ const styles = StyleSheet.create({
   modalOptionText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500' as const, textTransform: 'capitalize' as const },
   modalCancel: { paddingTop: 14, alignItems: 'center' as const },
   modalCancelText: { fontSize: 14, color: '#9CA3AF' },
+  cronologiaDetail: { backgroundColor: '#F7F8FA', borderRadius: 10, padding: 12, marginTop: 4, gap: 10 },
+ripristinaBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' as const },
+ripristinaBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
+prevTesto: { fontSize: 12, lineHeight: 20, color: '#6B7280', fontFamily: 'monospace' },
+cardRowContainer: { flexDirection: 'row', alignItems: 'center' },
+cardMenuBtn: { paddingHorizontal: 14, paddingVertical: 20 },
+cardMenuBtnText: { fontSize: 22, color: '#9CA3AF' },
 })
