@@ -95,6 +95,16 @@ export default function Home() {
           </View>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.callCard} onPress={() => router.push('/(tabs)/registra')}>
+             <View style={styles.callIcon}>
+                <Text style={styles.callIconText}>📞</Text>
+             </View>
+             <View style={styles.ctaBody}>
+          <Text style={styles.ctaTitle}>Registra chiamata</Text>
+            <Text style={styles.ctaSub}>Trascrivi e genera preventivo automatico</Text>
+  </View>
+</TouchableOpacity>
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Ultimi preventivi</Text>
@@ -167,4 +177,7 @@ const styles = StyleSheet.create({
   prevStato: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   settingsBtn: { marginHorizontal: 16, backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 16 },
   settingsText: { fontSize: 14, color: '#6B7280' },
+  callCard: { marginHorizontal: 16, marginBottom: 16, backgroundColor: '#0E9F8E', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 },
+  callIcon: { width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  callIconText: { fontSize: 24 },
 })
