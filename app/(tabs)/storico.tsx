@@ -18,6 +18,7 @@ interface Preventivo {
   cliente_id: string | null
   preventivo_padre_id: string | null
   clienti?: { nome: string } | null
+  titolo: string | null
 }
 
 export default function Storico() {
@@ -131,6 +132,8 @@ async function caricaCronologia(preventivoId: string, padreId: string | null) {
     </View>
     <View style={styles.cardBody}>
       <Text style={styles.cardCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
+      <Text style={styles.cardCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
+      {p.titolo && <Text style={styles.cardTitolo}>{p.titolo}</Text>}
       <Text style={styles.cardData}>
         {new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}
       </Text>
@@ -334,4 +337,5 @@ prevTesto: { fontSize: 12, lineHeight: 20, color: '#6B7280', fontFamily: 'monosp
 cardRowContainer: { flexDirection: 'row', alignItems: 'center' },
 cardMenuBtn: { paddingHorizontal: 14, paddingVertical: 20 },
 cardMenuBtnText: { fontSize: 22, color: '#9CA3AF' },
+cardTitolo: { fontSize: 11, color: '#0E9F8E', marginTop: 1 },
 })
