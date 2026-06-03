@@ -1,9 +1,12 @@
+import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text, TouchableOpacity,
+  View
 } from 'react-native'
-import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 
 interface Profile {
@@ -17,6 +20,8 @@ interface Preventivo {
   importo_totale: number | null
   stato: string
   created_at: string
+  is_ultimo: boolean
+  cliente_id: string | null
 }
 
 export default function Home() {
@@ -34,9 +39,17 @@ export default function Home() {
       .from('profiles').select('nome_azienda, plan').eq('id', user.id).single()
     if (prof) setProfile(prof)
 
-    const { data: prevs } = await supabase
-      .from('preventivi').select('id, nome_cliente, importo_totale, stato, created_at')
-      .eq('user_id', user.id).order('created_at', { ascending: false }).limit(5)
+   const { data: prevs } = await supabase
+  .from('preventivi')
+  .select('id, nome_cliente, importo_totale, stato, created_at, is_ultimo, cliente_id, clienti(nome)')
+  .eq('user_id', user.id)
+  .eq('is_ultimo', true)
+  .order('created_at', { ascending: false })
+  .limit(5)
+if (prevs) setPreventivi(prevs.map((p: any) => ({
+  ...p,
+  nome_cliente: p.clienti?.nome || p.nome_cliente || 'Senza cliente'
+})))
     if (prevs) setPreventivi(prevs)
 
     setLoading(false)
@@ -105,6 +118,16 @@ export default function Home() {
   </View>
 </TouchableOpacity>
 
+<TouchableOpacity style={styles.clientiBtn} onPress={() => router.push('/(tabs)/clienti')}>
+  <View style={styles.callIcon}>
+    <Text style={styles.callIconText}>👥</Text>
+  </View>
+  <View style={styles.ctaBody}>
+    <Text style={styles.ctaTitle}>Rubrica clienti</Text>
+    <Text style={styles.ctaSub}>Gestisci i tuoi clienti e i loro preventivi</Text>
+  </View>
+</TouchableOpacity>
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Ultimi preventivi</Text>
@@ -118,17 +141,23 @@ export default function Home() {
             </View>
           ) : (
             preventivi.map(p => (
-              <View key={p.id} style={styles.prevRow}>
-                <View style={styles.prevLeft}>
-                  <Text style={styles.prevCliente}>{p.nome_cliente || 'Cliente'}</Text>
-                  <Text style={styles.prevData}>{new Date(p.created_at).toLocaleDateString('it-IT')}</Text>
-                </View>
-                <View style={styles.prevRight}>
-                  <Text style={styles.prevImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
-                  <Text style={styles.prevStato}>{p.stato}</Text>
-                </View>
-              </View>
-            ))
+               <TouchableOpacity key={p.id} style={styles.prevRow}
+    onPress={() => {
+      if (p.cliente_id) {
+        router.push({ pathname: '/(tabs)/cliente-dettaglio', params: { id: p.cliente_id, nome: p.nome_cliente || 'Cliente' } })
+      }
+    }}
+  >
+    <View style={styles.prevLeft}>
+      <Text style={styles.prevCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
+      <Text style={styles.prevData}>{new Date(p.created_at).toLocaleDateString('it-IT')}</Text>
+    </View>
+    <View style={styles.prevRight}>
+      <Text style={styles.prevImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
+      <Text style={styles.prevStato}>{p.stato}</Text>
+    </View>
+  </TouchableOpacity>
+))
           )}
         </View>
 
@@ -180,4 +209,5 @@ const styles = StyleSheet.create({
   callCard: { marginHorizontal: 16, marginBottom: 16, backgroundColor: '#0E9F8E', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16 },
   callIcon: { width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   callIconText: { fontSize: 24 },
+  clientiBtn: { marginHorizontal: 16, marginBottom: 16, backgroundColor: '#fff', borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 16, borderWidth: 1, borderColor: '#E5E7EB' },
 })
