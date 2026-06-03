@@ -1,9 +1,14 @@
+import Constants from 'expo-constants'
+import * as ImagePicker from 'expo-image-picker'
+import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
+  ScrollView,
+  StyleSheet,
+  Text, TextInput, TouchableOpacity,
+  View
 } from 'react-native'
-import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 
 export default function Settings() {
@@ -18,8 +23,17 @@ export default function Settings() {
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [logoUrl, setLogoUrl] = useState('')
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [token, setToken] = useState('')
+  const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
-  useEffect(() => { carica() }, [])
+  useEffect(() => {
+  carica()
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) setToken(session.access_token)
+  })
+}, [])
 
   async function carica() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -34,6 +48,8 @@ export default function Settings() {
       listino: data.listino || '',
       tono: data.tono || 'professionale e diretto',
     })
+    if (data?.logo_url) setLogoUrl(data.logo_url)
+
     setLoading(false)
   }
 
@@ -55,6 +71,56 @@ export default function Settings() {
     setForm(f => ({ ...f, listino: f.listino ? f.listino + '\n' + v : v }))
   }
 
+  async function scegliLogo() {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+  if (status !== 'granted') {
+    Alert.alert('Permesso negato', 'Serve accesso alla galleria per caricare il logo.')
+    return
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+  mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  allowsEditing: true,
+  aspect: [4, 1],
+  quality: 0.3,
+  base64: true,
+  exif: false,
+})
+
+  if (result.canceled || !result.assets[0]) return
+
+  setUploadingLogo(true)
+  try {
+    const asset = result.assets[0]
+if (!asset.base64) throw new Error('Impossibile leggere l\'immagine')
+
+const sizeKB = (asset.base64.length * 0.75) / 1024
+if (sizeKB > 500) {
+  Alert.alert('Immagine troppo grande', 'Scegli un\'immagine più piccola (max 500KB)')
+  setUploadingLogo(false)
+  return
+}
+    const res = await fetch(`${backendUrl}/api/upload-logo`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        logo_base64: asset.base64,
+        mime_type: asset.mimeType || 'image/jpeg'
+      })
+    })
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+    setLogoUrl(data.logo_url)
+    Alert.alert('✓ Logo caricato', 'Il logo apparirà su tutti i tuoi preventivi PDF.')
+  } catch (err: any) {
+    Alert.alert('Errore', err.message)
+  }
+  setUploadingLogo(false)
+}
+  
   const categorie = ['idraulico', 'elettricista', 'falegname', 'estetista', 'imbianchino', 'fotografo', 'altro']
   const toni = ['professionale e diretto', 'cordiale e disponibile', 'formale e preciso', 'semplice e informale']
 
@@ -125,7 +191,30 @@ export default function Settings() {
             ))}
           </View>
         </View>
-
+            
+            <View style={styles.card}>
+  <Text style={styles.cardTitle}>Logo aziendale</Text>
+  <Text style={styles.cardSub}>Appare nell'intestazione di tutti i preventivi PDF</Text>
+  {logoUrl ? (
+    <Image source={{ uri: logoUrl }} style={styles.logoPreview} resizeMode="contain" />
+  ) : (
+    <View style={styles.logoPlaceholder}>
+      <Text style={styles.logoPlaceholderText}>Nessun logo caricato</Text>
+    </View>
+  )}
+  <TouchableOpacity
+    style={[styles.logoBtn, uploadingLogo && styles.saveBtnDisabled]}
+    onPress={scegliLogo}
+    disabled={uploadingLogo}
+  >
+    {uploadingLogo
+      ? <ActivityIndicator color="#fff" size="small" />
+      : <Text style={styles.logoBtnText}>
+          {logoUrl ? '🔄 Cambia logo' : '📷 Carica logo'}
+        </Text>
+    }
+  </TouchableOpacity>
+</View>
         <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={salva} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salva impostazioni</Text>}
         </TouchableOpacity>
@@ -160,4 +249,9 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, alignItems: 'center' },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  logoPreview: { width: '100%', height: 80, backgroundColor: '#F7F8FA', borderRadius: 10, marginBottom: 10 },
+logoPlaceholder: { width: '100%', height: 80, backgroundColor: '#F7F8FA', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed' as const },
+logoPlaceholderText: { fontSize: 13, color: '#9CA3AF' },
+logoBtn: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 12, alignItems: 'center' as const },
+logoBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' as const },
 })

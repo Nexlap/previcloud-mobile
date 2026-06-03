@@ -1,9 +1,12 @@
+import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert
+  ActivityIndicator, Alert,
+  ScrollView,
+  StyleSheet,
+  Text, TouchableOpacity,
+  View
 } from 'react-native'
-import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 
 interface Preventivo {
@@ -13,6 +16,7 @@ interface Preventivo {
   stato: string
   testo_preventivo: string | null
   created_at: string
+  versione: number | null
 }
 
 export default function Storico() {
@@ -111,6 +115,20 @@ export default function Storico() {
                   <TouchableOpacity style={styles.deleteBtn} onPress={() => elimina(p.id)}>
                     <Text style={styles.deleteBtnText}>🗑 Elimina</Text>
                   </TouchableOpacity>
+                  <TouchableOpacity
+  style={styles.editBtn}
+  onPress={() => router.push({
+    pathname: '/(tabs)/preventivo-pdf',
+    params: {
+      testo: p.testo_preventivo || '',
+      versione_padre_id: p.id
+    }
+  })}
+>
+  <Text style={styles.editBtnText}>
+    ✏️ Modifica e genera v{(p.versione || 1) + 1}
+  </Text>
+</TouchableOpacity>
                 </View>
               )}
             </View>
@@ -153,4 +171,6 @@ const styles = StyleSheet.create({
   statoBtnTextActive: { color: '#fff' },
   deleteBtn: { alignSelf: 'flex-start' },
   deleteBtnText: { fontSize: 13, color: '#EF4444' },
+  editBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' as const, marginBottom: 8 },
+ editBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
 })

@@ -1,13 +1,17 @@
-import { useState, useRef, useEffect } from 'react'
-import { useLocalSearchParams } from 'expo-router'
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Alert
-} from 'react-native'
-import { router } from 'expo-router'
-import { supabase } from '../../lib/supabase'
 import Constants from 'expo-constants'
+import { router, useLocalSearchParams } from 'expo-router'
+import { useEffect, useRef, useState } from 'react'
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text, TextInput, TouchableOpacity,
+  View
+} from 'react-native'
+import { supabase } from '../../lib/supabase'
 
 interface Messaggio {
   role: 'user' | 'assistant'
@@ -134,12 +138,32 @@ export default function Nuovo() {
             </View>
           </View>
           <TouchableOpacity
-            style={[styles.saveBtn, salvato && styles.saveBtnDone]}
-            onPress={salva} disabled={salvato}>
-            <Text style={styles.saveBtnText}>
-              {salvato ? '✓ Salvato nello storico' : 'Salva nello storico'}
-            </Text>
-          </TouchableOpacity>
+  style={[styles.saveBtn, salvato && styles.saveBtnDone]}
+  onPress={salva}
+  disabled={salvato}>
+  <Text style={styles.saveBtnText}>
+    {salvato ? '✓ Salvato nello storico' : 'Salva nello storico'}
+  </Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+  style={[styles.saveBtn, salvato && styles.saveBtnDone]}
+  onPress={salva}
+  disabled={salvato}>
+  <Text style={styles.saveBtnText}>
+    {salvato ? '✓ Salvato nello storico' : 'Salva nello storico'}
+  </Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+  style={styles.pdfBtn}
+  onPress={() => router.push({
+    pathname: '/(tabs)/preventivo-pdf',
+    params: { testo: preventivo }
+  })}>
+  <Text style={styles.pdfBtnText}>📄 Genera PDF professionale</Text>
+</TouchableOpacity>
+
         </ScrollView>
       ) : (
         <>
@@ -222,4 +246,6 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: '#0E9F8E', borderRadius: 14, padding: 14, alignItems: 'center' },
   saveBtnDone: { backgroundColor: '#D1FAE5' },
   saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  pdfBtn: { backgroundColor: '#0E9F8E', borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 8 },
+pdfBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 })
