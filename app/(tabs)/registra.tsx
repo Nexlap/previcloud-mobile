@@ -4,7 +4,7 @@ import {
   ScrollView, ActivityIndicator, Alert, Platform
 } from 'react-native'
 import { Audio } from 'expo-av'
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
 import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import Constants from 'expo-constants'

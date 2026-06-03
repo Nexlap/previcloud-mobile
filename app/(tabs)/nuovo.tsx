@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useLocalSearchParams } from 'expo-router'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, KeyboardAvoidingView,
@@ -22,6 +23,7 @@ export default function Nuovo() {
   const [token, setToken] = useState('')
   const scrollRef = useRef<ScrollView>(null)
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
+  const { trascrizione: trascrizioneParam, trascrizioneId: trascrizioneIdParam } = useLocalSearchParams<{ trascrizione: string, trascrizioneId: string }>()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -29,6 +31,13 @@ export default function Nuovo() {
       setToken(session.access_token)
     })
   }, [])
+
+  useEffect(() => {
+  if (trascrizioneParam && messaggi.length === 0) {
+    const msg = `Ho avuto una chiamata con un cliente. Ecco la trascrizione:\n\n${trascrizioneParam}\n\nEstrai le informazioni rilevanti e genera il preventivo.`
+    setInput(msg)
+  }
+}, [trascrizioneParam])
 
   async function invia() {
     if (!input.trim() || loading) return
