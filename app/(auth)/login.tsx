@@ -1,6 +1,8 @@
+import * as LocalAuthentication from 'expo-local-authentication'
 import { router } from 'expo-router'
+import * as SecureStore from 'expo-secure-store'
 import * as WebBrowser from 'expo-web-browser'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
@@ -15,6 +17,19 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [loadingGoogle, setLoadingGoogle] = useState(false)
+  const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
+  const [biometricoAttivato, setBiometricoAttivato] = useState(false)
+
+  useEffect(() => {
+    async function checkBiometrico() {
+      const disponibile = await LocalAuthentication.hasHardwareAsync()
+      const enrollato = await LocalAuthentication.isEnrolledAsync()
+      setBiometricoDisponibile(disponibile && enrollato)
+      const attivato = await SecureStore.getItemAsync('biometrico_attivato')
+      if (attivato === 'true') setBiometricoAttivato(true)
+    }
+    checkBiometrico()
+  }, [])
 
   async function handleSubmit() {
     if (!email || !password) {
@@ -28,51 +43,73 @@ export default function Login() {
       else Alert.alert('Fatto!', 'Controlla la tua email per confermare.')
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) Alert.alert('Errore', 'Email o password non corretti.')
-      else router.replace('/(tabs)')
+      if (error) {
+        Alert.alert('Errore', 'Email o password non corretti.')
+      } else {
+        if (biometricoDisponibile && !biometricoAttivato) {
+          Alert.alert(
+            'Accesso rapido',
+            'Vuoi usare l\'impronta digitale per i prossimi accessi?',
+            [
+              { text: 'No', onPress: () => router.replace('/(tabs)') },
+              {
+                text: 'Sì', onPress: async () => {
+                  await SecureStore.setItemAsync('saved_email', email)
+                  await SecureStore.setItemAsync('saved_password', password)
+                  await SecureStore.setItemAsync('biometrico_attivato', 'true')
+                  setBiometricoAttivato(true)
+                  router.replace('/(tabs)')
+                }
+              }
+            ]
+          )
+        } else {
+          router.replace('/(tabs)')
+        }
+      }
     }
     setLoading(false)
   }
 
-async function handleGoogle() {
-    setLoadingGoogle(true)
+  async function loginBiometrico() {
+    setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'preventivoai://auth/callback',
-          skipBrowserRedirect: true,
-        }
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Accedi a PreventivoAI',
+        cancelLabel: 'Annulla',
+        fallbackLabel: 'Usa password',
       })
-      if (error) throw error
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
-          'preventivoai://auth/callback'
-        )
-        if (result.type === 'success' && result.url) {
-          const url = result.url
-          const hashPart = url.includes('#') ? url.split('#')[1] : url.split('?')[1]
-          const searchParams = new URLSearchParams(hashPart)
-          const accessToken = searchParams.get('access_token')
-          const refreshToken = searchParams.get('refresh_token')
-          if (accessToken && refreshToken) {
-            await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            })
-            router.replace('/(tabs)')
+      if (result.success) {
+        const savedEmail = await SecureStore.getItemAsync('saved_email')
+        const savedPassword = await SecureStore.getItemAsync('saved_password')
+        if (savedEmail && savedPassword) {
+          const { error } = await supabase.auth.signInWithPassword({
+            email: savedEmail,
+            password: savedPassword,
+          })
+          if (error) {
+            Alert.alert('Errore', 'Sessione scaduta. Accedi con email e password.')
+            await SecureStore.deleteItemAsync('biometrico_attivato')
+            setBiometricoAttivato(false)
           } else {
-            const { data: sessionData } = await supabase.auth.getSession()
-            if (sessionData.session) router.replace('/(tabs)')
+            router.replace('/(tabs)')
           }
         }
       }
     } catch (err: any) {
       Alert.alert('Errore', err.message)
     }
-    setLoadingGoogle(false)
+    setLoading(false)
   }
+
+  async function handleGoogle() {
+    Alert.alert(
+      'Login con Google',
+      'Il login con Google sarà disponibile nella versione completa dell\'app. Per ora usa email e password.',
+      [{ text: 'OK' }]
+    )
+  }
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -89,6 +126,13 @@ async function handleGoogle() {
               <Text style={[styles.toggleText, mode === 'register' && styles.toggleTextActive]}>Registrati</Text>
             </TouchableOpacity>
           </View>
+
+          {biometricoAttivato && (
+            <TouchableOpacity style={styles.biometricoBtn} onPress={loginBiometrico}>
+              <Text style={styles.biometricoBtnIcon}>👆</Text>
+              <Text style={styles.biometricoBtnText}>Accedi con impronta digitale</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.inputWrap}>
             <Text style={styles.label}>EMAIL</Text>
@@ -157,4 +201,7 @@ const styles = StyleSheet.create({
   googleIcon: { fontSize: 18, fontWeight: '700', color: '#EA4335' },
   googleBtnText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500' },
   googleText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500' },
+  biometricoBtn: { flexDirection: 'row', alignItems: 'center' as const, justifyContent: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: '#0E9F8E', gap: 10, marginBottom: 16 },
+  biometricoBtnIcon: { fontSize: 22 },
+  biometricoBtnText: { fontSize: 15, color: '#0E9F8E', fontWeight: '600' as const },
 })

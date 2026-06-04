@@ -12,7 +12,6 @@ export default function RootLayout() {
         router.replace('/(auth)/login')
         return
       }
-      // Controlla se il profilo è configurato
       const { data: profile } = await supabase
         .from('profiles')
         .select('nome_azienda')

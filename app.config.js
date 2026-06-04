@@ -20,10 +20,13 @@ export default {
   "expo-secure-store",
   "expo-web-browser"
     ],
-    extra: {
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-      backendUrl: process.env.EXPO_PUBLIC_BACKEND_URL,
-    }
+extra: {
+  eas: {
+    projectId: "a842ab0e-24f7-41b4-b93a-6b97a75b9621"
+  },
+  supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  backendUrl: process.env.EXPO_PUBLIC_BACKEND_URL,
+}
   }
 }

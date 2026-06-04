@@ -75,9 +75,15 @@ if (prevs) setPreventivi(prevs.map((p: any) => ({
           <Text style={styles.logo}>Preventivo<Text style={styles.logoAccent}>AI</Text></Text>
           <Text style={styles.headerSub}>Ciao {nome} 👋</Text>
         </View>
-        <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Esci</Text>
-        </TouchableOpacity>
+        
+ <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+  <TouchableOpacity onPress={() => router.push('/(tabs)/profilo')}>
+    <Text style={{ fontSize: 22 }}>👤</Text>
+  </TouchableOpacity>
+  <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
+    <Text style={styles.logoutText}>Esci</Text>
+  </TouchableOpacity>
+</View>
       </View>
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
