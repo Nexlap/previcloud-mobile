@@ -225,7 +225,17 @@ async function caricaCronologia(preventivoId: string, padreId: string | null) {
     </View>
   )
 ))}
-
+{p.stato === 'bozza' && (
+  <TouchableOpacity
+    style={styles.riprendiBtn}
+    onPress={() => router.push({
+      pathname: '/(tabs)/nuovo',
+      params: { preventivo_id: p.id }
+    })}
+  >
+    <Text style={styles.riprendiBtnText}>💬 Riprendi bozza</Text>
+  </TouchableOpacity>
+)}
                   <TouchableOpacity
                     style={styles.editBtn}
                     onPress={() => router.push({
@@ -338,4 +348,6 @@ cardRowContainer: { flexDirection: 'row', alignItems: 'center' },
 cardMenuBtn: { paddingHorizontal: 14, paddingVertical: 20 },
 cardMenuBtnText: { fontSize: 22, color: '#9CA3AF' },
 cardTitolo: { fontSize: 11, color: '#0E9F8E', marginTop: 1 },
+riprendiBtn: { backgroundColor: '#0E9F8E', borderRadius: 10, padding: 10, alignItems: 'center' as const, marginBottom: 8 },
+riprendiBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
 })
