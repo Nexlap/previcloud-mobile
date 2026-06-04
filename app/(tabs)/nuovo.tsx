@@ -23,6 +23,7 @@ export default function Nuovo() {
   const scrollRef = useRef<ScrollView>(null)
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
   const navigation = useNavigation()
+  const [modalitaScelta, setModalitaScelta] = useState(true)
 
   const { trascrizione: trascrizioneParam, trascrizioneId: trascrizioneIdParam, preventivo_id } = useLocalSearchParams<{
     trascrizione: string
@@ -37,12 +38,13 @@ export default function Nuovo() {
     })
   }, [])
 
-  useEffect(() => {
-    if (trascrizioneParam && messaggi.length === 0) {
-      const msg = `Ho avuto una chiamata con un cliente. Ecco la trascrizione:\n\n${trascrizioneParam}\n\nEstrai le informazioni rilevanti e genera il preventivo.`
-      setInput(msg)
-    }
-  }, [trascrizioneParam])
+useEffect(() => {
+  if (trascrizioneParam && messaggi.length === 0) {
+    setModalitaScelta(false)
+    const msg = trascrizioneParam
+    setInput(msg)
+  }
+}, [trascrizioneParam])
 
   useEffect(() => {
     if (preventivo_id) {
@@ -151,6 +153,7 @@ export default function Nuovo() {
     setSalvato(false)
     setInput('')
     setRecap('')
+    setModalitaScelta(true)
   }
 
   return (
@@ -166,8 +169,44 @@ export default function Nuovo() {
           </TouchableOpacity>
         ) : <View style={{ width: 50 }} />}
       </View>
+{modalitaScelta && !recap && !preventivo && messaggi.length === 0 ? (
+  <View style={styles.sceltaContainer}>
+    <Text style={styles.sceltaTitolo}>Come vuoi iniziare?</Text>
+    <Text style={styles.sceltaSub}>Scegli il metodo più comodo per te</Text>
 
-      {recap ? (
+    <TouchableOpacity style={styles.sceltaCard} 
+    onPress={() => {
+  router.push('/(tabs)/registra')
+}}
+    >
+      <Text style={styles.sceltaCardIcon}>🎙</Text>
+      <View style={styles.sceltaCardBody}>
+        <Text style={styles.sceltaCardTitle}>Registra voce</Text>
+        <Text style={styles.sceltaCardSub}>Parla del lavoro, trascrivo e genero automaticamente</Text>
+      </View>
+      <Text style={styles.sceltaCardArrow}>›</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={styles.sceltaCard} onPress={() => setModalitaScelta(false)}>
+      <Text style={styles.sceltaCardIcon}>✍️</Text>
+      <View style={styles.sceltaCardBody}>
+        <Text style={styles.sceltaCardTitle}>Scrivi tu</Text>
+        <Text style={styles.sceltaCardSub}>Descrivi il lavoro a testo, l'AI fa le domande giuste</Text>
+      </View>
+      <Text style={styles.sceltaCardArrow}>›</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={[styles.sceltaCard, styles.sceltaCardDisabled]}>
+      <Text style={styles.sceltaCardIcon}>📋</Text>
+      <View style={styles.sceltaCardBody}>
+        <Text style={styles.sceltaCardTitle}>Builder manuale</Text>
+        <Text style={styles.sceltaCardSub}>Seleziona i servizi dal listino e assembla</Text>
+      </View>
+      <Text style={styles.sceltaCardBadge}>Presto</Text>
+    </TouchableOpacity>
+</View>
+      ) : recap ? (
+
         <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16 }}>
           <View style={styles.recapCard}>
             <View style={styles.recapHeader}>
@@ -322,4 +361,15 @@ const styles = StyleSheet.create({
   recapEditText: { color: '#374151', fontSize: 14, fontWeight: '500' as const },
   riprendiBtn: { backgroundColor: '#0E9F8E', borderRadius: 10, padding: 10, alignItems: 'center' as const, marginBottom: 8 },
   riprendiBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
+  sceltaContainer: { flex: 1, padding: 20, gap: 14 },
+sceltaTitolo: { fontSize: 24, fontWeight: '700', color: '#0D1B2A', marginTop: 8 },
+sceltaSub: { fontSize: 14, color: '#9CA3AF', marginBottom: 8 },
+sceltaCard: { backgroundColor: '#fff', borderRadius: 16, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+sceltaCardDisabled: { opacity: 0.5 },
+sceltaCardIcon: { fontSize: 28 },
+sceltaCardBody: { flex: 1, gap: 3 },
+sceltaCardTitle: { fontSize: 16, fontWeight: '600', color: '#0D1B2A' },
+sceltaCardSub: { fontSize: 12, color: '#9CA3AF', lineHeight: 17 },
+sceltaCardArrow: { fontSize: 22, color: '#9CA3AF' },
+sceltaCardBadge: { fontSize: 11, color: '#0E9F8E', fontWeight: '600' as const, backgroundColor: '#F0FDF4', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
 })

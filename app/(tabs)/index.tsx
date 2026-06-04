@@ -103,26 +103,15 @@ if (prevs) setPreventivi(prevs.map((p: any) => ({
           </View>
         </View>
 
-        <TouchableOpacity style={styles.ctaCard} onPress={() => router.push('/(tabs)/nuovo')}>
-          <View style={styles.ctaIcon}>
-            <Text style={styles.ctaIconText}>+</Text>
-          </View>
-          <View style={styles.ctaBody}>
-            <Text style={styles.ctaTitle}>Genera preventivo</Text>
-            <Text style={styles.ctaSub}>Incolla il messaggio del cliente</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.callCard} onPress={() => router.push('/(tabs)/registra')}>
-             <View style={styles.callIcon}>
-                <Text style={styles.callIconText}>📞</Text>
-             </View>
-             <View style={styles.ctaBody}>
-          <Text style={styles.ctaTitle}>🎙 Nuovo preventivo vocale</Text>
-            <Text style={styles.ctaSub}>Trascrivi e genera preventivo automatico</Text>
+<TouchableOpacity style={styles.ctaCard} onPress={() => router.push('/(tabs)/nuovo')}>
+  <View style={styles.ctaIcon}>
+    <Text style={styles.ctaIconText}>+</Text>
+  </View>
+  <View style={styles.ctaBody}>
+    <Text style={styles.ctaTitle}>Nuovo preventivo</Text>
+    <Text style={styles.ctaSub}>Voce, testo o builder manuale</Text>
   </View>
 </TouchableOpacity>
-
 <TouchableOpacity style={styles.clientiBtn} onPress={() => router.push('/(tabs)/clienti')}>
   <View style={styles.callIcon}>
     <Text style={styles.callIconText}>👥</Text>

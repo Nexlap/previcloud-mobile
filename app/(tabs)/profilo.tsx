@@ -3,7 +3,7 @@ import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
 import { useEffect, useState } from 'react'
 import {
-    Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View
+  Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
 
