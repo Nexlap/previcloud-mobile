@@ -112,7 +112,7 @@ if (prevs) setPreventivi(prevs.map((p: any) => ({
                 <Text style={styles.callIconText}>📞</Text>
              </View>
              <View style={styles.ctaBody}>
-          <Text style={styles.ctaTitle}>Registra chiamata</Text>
+          <Text style={styles.ctaTitle}>🎙 Nuovo preventivo vocale</Text>
             <Text style={styles.ctaSub}>Trascrivi e genera preventivo automatico</Text>
   </View>
 </TouchableOpacity>

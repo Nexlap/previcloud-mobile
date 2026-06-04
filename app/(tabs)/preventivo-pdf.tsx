@@ -1,4 +1,5 @@
 import Constants from 'expo-constants'
+import * as FileSystem from 'expo-file-system/legacy'
 import * as Print from 'expo-print'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as Sharing from 'expo-sharing'
@@ -38,8 +39,8 @@ export default function PreventivoPDF() {
   const [modalTab, setModalTab] = useState<'esistente' | 'nuovo'>('esistente')
   const [titolo, setTitolo] = useState('')
   const [mostraModalTitolo, setMostraModalTitolo] = useState(false)
-  const [htmlGenerato, setHtmlGenerato] = useState('')
   const [versioneGenerata, setVersioneGenerata] = useState(1)
+  const [pdfUrlGenerato, setPdfUrlGenerato] = useState('')
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   useEffect(() => {
@@ -99,15 +100,31 @@ export default function PreventivoPDF() {
       if (data.error) throw new Error(data.error)
 
       setVersioneGenerata(data.versione)
-      setHtmlGenerato(data.html)
 
       const { uri } = await Print.printToFileAsync({ html: data.html, base64: false })
+
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
           mimeType: 'application/pdf',
           dialogTitle: 'Invia preventivo',
           UTI: 'com.adobe.pdf'
         })
+      }
+
+      // Leggi PDF come base64 e carica su Storage
+      try {
+        const pdfBase64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: 'base64' as any
+        })
+        const saveRes = await fetch(`${backendUrl}/api/salva-pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ pdf_base64: pdfBase64 })
+        })
+        const saveData = await saveRes.json()
+        if (saveData.pdf_url) setPdfUrlGenerato(saveData.pdf_url)
+      } catch (e) {
+        console.log('Salvataggio PDF fallito:', e)
       }
 
       const nomeCliente = clienteSelezionato?.nome || 'Cliente'
@@ -120,7 +137,7 @@ export default function PreventivoPDF() {
     setGenerando(false)
   }
 
-  async function salvaSuSupabase(ver: number, titoloScelto: string) {
+  async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = '') {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     await supabase.from('preventivi').insert({
@@ -133,7 +150,8 @@ export default function PreventivoPDF() {
       stato: 'bozza',
       cliente_id: clienteSelezionato?.id || null,
       nome_cliente: clienteSelezionato?.nome || null,
-      titolo: titoloScelto
+      titolo: titoloScelto,
+      pdf_url: pdfUrl || null
     })
   }
 
@@ -158,7 +176,6 @@ export default function PreventivoPDF() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 14 }}>
 
-        {/* Editor testo */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Testo preventivo</Text>
@@ -176,7 +193,6 @@ export default function PreventivoPDF() {
           />
         </View>
 
-        {/* Scelta template */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Scegli template</Text>
           <Text style={styles.cardSub}>Il template preferito viene salvato automaticamente</Text>
@@ -188,16 +204,13 @@ export default function PreventivoPDF() {
                 onPress={() => salvaTemplate(t.id)}
               >
                 <Text style={styles.templateEmoji}>{t.emoji}</Text>
-                <Text style={[styles.templateNome, template === t.id && styles.templateNomeActive]}>
-                  {t.nome}
-                </Text>
+                <Text style={[styles.templateNome, template === t.id && styles.templateNomeActive]}>{t.nome}</Text>
                 <Text style={styles.templateDesc}>{t.desc}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Associa cliente */}
         <TouchableOpacity style={styles.clienteBtn} onPress={() => setMostraModalCliente(true)}>
           <Text style={styles.clienteBtnIcon}>👤</Text>
           <View style={styles.clienteBtnBody}>
@@ -209,7 +222,6 @@ export default function PreventivoPDF() {
           <Text style={styles.clienteBtnArrow}>›</Text>
         </TouchableOpacity>
 
-        {/* Versioning info */}
         {versione_padre_id && (
           <View style={styles.versionBox}>
             <Text style={styles.versionText}>
@@ -218,7 +230,6 @@ export default function PreventivoPDF() {
           </View>
         )}
 
-        {/* Bottone genera */}
         <TouchableOpacity
           style={[styles.generateBtn, (generando || !testo.trim()) && styles.generateBtnDisabled]}
           onPress={generaPDF}
@@ -243,19 +254,11 @@ export default function PreventivoPDF() {
             </TouchableOpacity>
           </View>
           <View style={styles.modalTabs}>
-            <TouchableOpacity
-              style={[styles.modalTab, modalTab === 'esistente' && styles.modalTabActive]}
-              onPress={() => setModalTab('esistente')}>
-              <Text style={[styles.modalTabText, modalTab === 'esistente' && styles.modalTabTextActive]}>
-                Cliente esistente
-              </Text>
+            <TouchableOpacity style={[styles.modalTab, modalTab === 'esistente' && styles.modalTabActive]} onPress={() => setModalTab('esistente')}>
+              <Text style={[styles.modalTabText, modalTab === 'esistente' && styles.modalTabTextActive]}>Cliente esistente</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalTab, modalTab === 'nuovo' && styles.modalTabActive]}
-              onPress={() => setModalTab('nuovo')}>
-              <Text style={[styles.modalTabText, modalTab === 'nuovo' && styles.modalTabTextActive]}>
-                Nuovo cliente
-              </Text>
+            <TouchableOpacity style={[styles.modalTab, modalTab === 'nuovo' && styles.modalTabActive]} onPress={() => setModalTab('nuovo')}>
+              <Text style={[styles.modalTabText, modalTab === 'nuovo' && styles.modalTabTextActive]}>Nuovo cliente</Text>
             </TouchableOpacity>
           </View>
           {modalTab === 'esistente' ? (
@@ -302,10 +305,7 @@ export default function PreventivoPDF() {
               >
                 <Text style={styles.modalNewBtnText}>Aggiungi e seleziona</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalSkipBtn}
-                onPress={() => { setClienteSelezionato(null); setMostraModalCliente(false) }}
-              >
+              <TouchableOpacity style={styles.modalSkipBtn} onPress={() => { setClienteSelezionato(null); setMostraModalCliente(false) }}>
                 <Text style={styles.modalSkipText}>Salta — senza cliente</Text>
               </TouchableOpacity>
             </View>
@@ -331,16 +331,13 @@ export default function PreventivoPDF() {
               style={styles.titoloSaveBtn}
               onPress={async () => {
                 setMostraModalTitolo(false)
-                await salvaSuSupabase(versioneGenerata, titolo)
+                await salvaSuSupabase(versioneGenerata, titolo, pdfUrlGenerato)
                 Alert.alert('✓ Salvato', `"${titolo}" salvato nello storico.`)
               }}
             >
               <Text style={styles.titoloSaveBtnText}>Salva</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.titoloSkipBtn}
-              onPress={() => setMostraModalTitolo(false)}
-            >
+            <TouchableOpacity style={styles.titoloSkipBtn} onPress={() => setMostraModalTitolo(false)}>
               <Text style={styles.titoloSkipText}>Salta — non salvare</Text>
             </TouchableOpacity>
           </View>

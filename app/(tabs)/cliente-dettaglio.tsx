@@ -1,4 +1,6 @@
+import * as FileSystem from 'expo-file-system/legacy'
 import { router, useLocalSearchParams } from 'expo-router'
+import * as Sharing from 'expo-sharing'
 import { useEffect, useState } from 'react'
 import {
   ActivityIndicator, Alert, Modal, ScrollView, StyleSheet,
@@ -19,6 +21,7 @@ interface Preventivo {
   cliente_id: string | null
   nome_cliente: string | null
   titolo: string | null
+  pdf_url: string | null
 }
 
 interface Trascrizione {
@@ -60,6 +63,8 @@ export default function ClienteDettaglio() {
   const [nuovaEmail, setNuovaEmail] = useState('')
   const [nuovoIndirizzo, setNuovoIndirizzo] = useState('')
   const [nuoveNote, setNuoveNote] = useState('')
+  const [selezione, setSelezione] = useState<string[]>([])
+  const [modalitaSelezione, setModalitaSelezione] = useState(false)
 
   useEffect(() => { carica() }, [])
 
@@ -163,6 +168,51 @@ export default function ClienteDettaglio() {
     ])
   }
 
+  function toggleSelezione(prevId: string) {
+  setSelezione(s => {
+    if (s.includes(prevId)) {
+      const nuova = s.filter(x => x !== prevId)
+      if (nuova.length === 0) setModalitaSelezione(false)
+      return nuova
+    }
+    return [...s, prevId]
+  })
+}
+
+function iniziaSelezione(prevId: string) {
+  setModalitaSelezione(true)
+  setSelezione([prevId])
+  setAperto(null)
+}
+
+function annullaSelezione() {
+  setModalitaSelezione(false)
+  setSelezione([])
+}
+
+async function eliminaSelezionati() {
+  Alert.alert('Elimina', `Vuoi eliminare ${selezione.length} preventivi?`, [
+    { text: 'Annulla', style: 'cancel' },
+    {
+      text: 'Elimina', style: 'destructive', onPress: async () => {
+        await Promise.all(selezione.map(id => supabase.from('preventivi').delete().eq('id', id)))
+        setPreventivi(p => p.filter(x => !selezione.includes(x.id)))
+        annullaSelezione()
+      }
+    }
+  ])
+}
+
+async function spostaSelezionati(nuovoClienteId: string, nuovoClienteNome: string) {
+  await Promise.all(selezione.map(id =>
+    supabase.from('preventivi').update({ cliente_id: nuovoClienteId, nome_cliente: nuovoClienteNome }).eq('id', id)
+  ))
+  setPreventivi(p => p.filter(x => !selezione.includes(x.id)))
+  annullaSelezione()
+  setMostraModalSposta(null)
+  Alert.alert('✓ Spostati', `${selezione.length} preventivi spostati a ${nuovoClienteNome}`)
+}
+
   const totaleValore = preventivi.filter(p => p.is_ultimo).reduce((a, p) => a + (p.importo_totale || 0), 0)
 
   function formatDurata(sec: number | null) {
@@ -201,7 +251,25 @@ export default function ClienteDettaglio() {
           </TouchableOpacity>
         </View>
       </View>
-
+{modalitaSelezione && (
+  <View style={styles.selectionBar}>
+    <TouchableOpacity onPress={annullaSelezione} style={styles.selectionCancel}>
+      <Text style={styles.selectionCancelText}>✕</Text>
+    </TouchableOpacity>
+    <Text style={styles.selectionCount}>{selezione.length} selezionati</Text>
+    <View style={styles.selectionActions}>
+      <TouchableOpacity
+        style={styles.selectionAction}
+        onPress={async () => { await caricaClientiDisponibili(); setMostraModalSposta('multi') }}
+      >
+        <Text style={styles.selectionActionText}>↗ Sposta</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.selectionAction, styles.selectionActionDelete]} onPress={eliminaSelezionati}>
+        <Text style={[styles.selectionActionText, { color: '#EF4444' }]}>🗑 Elimina</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+)}
       <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 12 }}>
 
         <View style={styles.card}>
@@ -254,11 +322,27 @@ export default function ClienteDettaglio() {
           ) : (
             preventivi.map(p => (
               <TouchableOpacity
-                key={p.id}
-                style={[styles.prevCard, !p.is_ultimo && styles.prevCardOld]}
-                onPress={() => setAperto(aperto === p.id ? null : p.id)}
-              >
+  key={p.id}
+  style={[
+    styles.prevCard,
+    !p.is_ultimo && styles.prevCardOld,
+    selezione.includes(p.id) && styles.prevCardSelected
+  ]}
+  onPress={() => {
+    if (modalitaSelezione) {
+      toggleSelezione(p.id)
+    } else {
+      setAperto(aperto === p.id ? null : p.id)
+    }
+  }}
+  onLongPress={() => iniziaSelezione(p.id)}
+>
                 <View style={styles.prevRow}>
+                  {modalitaSelezione && (
+  <View style={[styles.checkCircle, selezione.includes(p.id) && styles.checkCircleActive]}>
+    {selezione.includes(p.id) && <Text style={styles.checkMark}>✓</Text>}
+  </View>
+)}
                   <View style={styles.prevLeft}>
                     <View style={styles.prevBadgeRow}>
                       <Text style={styles.prevVersione}>{p.titolo || `v${p.versione || 1}`}</Text>
@@ -275,9 +359,33 @@ export default function ClienteDettaglio() {
                         p.stato === 'inviato' ? { color: '#1D4ED8' } : {}
                       ]}>{p.stato} ▼</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => eliminaPreventivo(p.id)}>
-                      <Text style={{ fontSize: 16 }}>🗑</Text>
-                    </TouchableOpacity>
+<TouchableOpacity
+  onPress={async () => {
+  if (p.pdf_url) {
+    try {
+      const fileName = `${FileSystem.cacheDirectory}preventivo_${p.id}.pdf`
+      const { uri } = await FileSystem.downloadAsync(p.pdf_url, fileName)
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Apri preventivo',
+        UTI: 'com.adobe.pdf'
+      })
+    } catch (e) {
+      Alert.alert('Errore', 'Impossibile aprire il PDF')
+    }
+  } else {
+    router.push({
+      pathname: '/(tabs)/preventivo-pdf',
+      params: { testo: p.testo_preventivo || '', cliente_id: p.cliente_id || '' }
+    })
+  }
+}}
+>
+  <Text style={{ fontSize: 16 }}>{p.pdf_url ? '📄' : '🔄'}</Text>
+</TouchableOpacity>
+<TouchableOpacity onPress={() => eliminaPreventivo(p.id)}>
+  <Text style={{ fontSize: 16 }}>🗑</Text>
+</TouchableOpacity>
                   </View>
                 </View>
 
@@ -414,7 +522,13 @@ export default function ClienteDettaglio() {
               <Text style={{ textAlign: 'center', color: '#9CA3AF', padding: 20 }}>Nessun altro cliente disponibile</Text>
             ) : (
               clientiDisponibili.map(c => (
-                <TouchableOpacity key={c.id} style={styles.modalOption} onPress={() => mostraModalSposta && spostaPreventivo(mostraModalSposta, c.id, c.nome)}>
+                <TouchableOpacity key={c.id} style={styles.modalOption} onPress={() => {
+  if (mostraModalSposta === 'multi') {
+    spostaSelezionati(c.id, c.nome)
+  } else if (mostraModalSposta) {
+    spostaPreventivo(mostraModalSposta, c.id, c.nome)
+  }
+}}>
                   <Text style={styles.modalOptionIcon}>👤</Text>
                   <Text style={styles.modalOptionText}>{c.nome}</Text>
                 </TouchableOpacity>
@@ -573,4 +687,16 @@ modalFullSave: { color: '#0E9F8E', fontSize: 15, fontWeight: '600' as const, wid
 modalFieldGroup: { gap: 6 },
 modalFieldLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8 },
 modalFieldInput: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
+prevCardSelected: { borderColor: '#0E9F8E', borderWidth: 2 },
+checkCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D5DB', marginRight: 8, justifyContent: 'center', alignItems: 'center' as const },
+checkCircleActive: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
+checkMark: { color: '#fff', fontSize: 14, fontWeight: '700' as const },
+selectionBar: { backgroundColor: '#0D1B2A', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
+selectionCancel: { padding: 4 },
+selectionCancelText: { color: '#9CA3AF', fontSize: 18 },
+selectionCount: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '600' as const },
+selectionActions: { flexDirection: 'row', gap: 12 },
+selectionAction: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.1)' },
+selectionActionDelete: { backgroundColor: 'rgba(239,68,68,0.15)' },
+selectionActionText: { color: '#fff', fontSize: 13, fontWeight: '500' as const },
 })
