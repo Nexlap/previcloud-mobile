@@ -196,14 +196,14 @@ useEffect(() => {
       <Text style={styles.sceltaCardArrow}>›</Text>
     </TouchableOpacity>
 
-    <TouchableOpacity style={[styles.sceltaCard, styles.sceltaCardDisabled]}>
-      <Text style={styles.sceltaCardIcon}>📋</Text>
-      <View style={styles.sceltaCardBody}>
-        <Text style={styles.sceltaCardTitle}>Builder manuale</Text>
-        <Text style={styles.sceltaCardSub}>Seleziona i servizi dal listino e assembla</Text>
-      </View>
-      <Text style={styles.sceltaCardBadge}>Presto</Text>
-    </TouchableOpacity>
+<TouchableOpacity style={styles.sceltaCard} onPress={() => router.push('/(tabs)/builder')}>
+  <Text style={styles.sceltaCardIcon}>📋</Text>
+  <View style={styles.sceltaCardBody}>
+    <Text style={styles.sceltaCardTitle}>Builder manuale</Text>
+    <Text style={styles.sceltaCardSub}>Seleziona i servizi dal listino e assembla</Text>
+  </View>
+  <Text style={styles.sceltaCardArrow}>›</Text>
+</TouchableOpacity>
 </View>
       ) : recap ? (
 

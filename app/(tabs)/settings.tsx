@@ -298,6 +298,13 @@ export default function Settings() {
             }
           </TouchableOpacity>
         </View>
+<TouchableOpacity
+  style={styles.fiscaleBtn}
+  onPress={() => router.push('/(tabs)/fiscale')}
+>
+  <Text style={styles.fiscaleBtnText}>🧾 Regime fiscale e tasse</Text>
+  <Text style={styles.fiscaleBtnArrow}>›</Text>
+</TouchableOpacity>
 
         <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={salva} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salva impostazioni</Text>}
@@ -453,4 +460,7 @@ const styles = StyleSheet.create({
   previewNome: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   previewDesc: { fontSize: 12, color: '#6B7280' },
   previewCosto: { fontSize: 14, fontWeight: '700', color: '#0E9F8E', marginTop: 4 },
+  fiscaleBtn: { backgroundColor: '#fff', borderRadius: 14, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+fiscaleBtnText: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
+fiscaleBtnArrow: { fontSize: 18, color: '#9CA3AF' },
 })
