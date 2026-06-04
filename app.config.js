@@ -16,8 +16,9 @@ export default {
       package: "com.preventivoai.app"
     },
     plugins: [
-      "expo-router",
-      "expo-secure-store"
+  "expo-router",
+  "expo-secure-store",
+  "expo-web-browser"
     ],
     extra: {
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
