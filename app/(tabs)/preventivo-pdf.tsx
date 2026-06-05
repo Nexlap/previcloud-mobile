@@ -3,11 +3,12 @@ import * as FileSystem from 'expo-file-system/legacy'
 import * as Print from 'expo-print'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as Sharing from 'expo-sharing'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator, Alert, FlatList, Modal, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
+import WebView from 'react-native-webview'
 import { supabase } from '../../lib/supabase'
 
 const TEMPLATES = [
@@ -26,12 +27,11 @@ export default function PreventivoPDF() {
     cliente_id: string
   }>()
 
-  const [testo, setTesto] = useState(testoParam || '')
+  const [testo] = useState(testoParam || '')
   const [template, setTemplate] = useState('pulito')
   const [generando, setGenerando] = useState(false)
   const [token, setToken] = useState('')
   const [versione, setVersione] = useState(1)
-  const [modificato, setModificato] = useState(false)
   const [clienti, setClienti] = useState<{ id: string, nome: string }[]>([])
   const [clienteSelezionato, setClienteSelezionato] = useState<{ id: string, nome: string } | null>(null)
   const [mostraModalCliente, setMostraModalCliente] = useState(false)
@@ -41,6 +41,9 @@ export default function PreventivoPDF() {
   const [mostraModalTitolo, setMostraModalTitolo] = useState(false)
   const [versioneGenerata, setVersioneGenerata] = useState(1)
   const [pdfUrlGenerato, setPdfUrlGenerato] = useState('')
+  const [htmlPreview, setHtmlPreview] = useState('')
+  const [caricandoPreview, setCaricandoPreview] = useState(false)
+  const previewTimeout = useRef<any>(null)
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   useEffect(() => {
@@ -58,6 +61,43 @@ export default function PreventivoPDF() {
         .then(({ data }) => { if (data) setClienteSelezionato(data) })
     }
   }, [cliente_id])
+
+  // Aggiorna preview quando cambia template o token
+  useEffect(() => {
+    if (!token || !testo) return
+    if (previewTimeout.current) clearTimeout(previewTimeout.current)
+    previewTimeout.current = setTimeout(() => aggiornaPreview(), 300)
+  }, [template, token, testo, clienteSelezionato])
+
+  async function aggiornaPreview() {
+    if (!token || !testo) return
+    setCaricandoPreview(true)
+    try {
+      const res = await fetch(`${backendUrl}/api/genera-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ testo, template, versione_padre_id: null, cliente_id: clienteSelezionato?.id || '' })
+      })
+      const data = await res.json()
+if (data.html) {
+  const htmlScalato = data.html.replace(
+    '</head>',
+    `<style>
+      html { width: 100%; }
+      body { 
+        transform-origin: top left;
+        transform: scale(0.45);
+        width: 222%;
+      }
+    </style></head>`
+  )
+  setHtmlPreview(htmlScalato)
+}
+    } catch (e) {
+      console.log('Preview fallita:', e)
+    }
+    setCaricandoPreview(false)
+  }
 
   async function caricaTemplatePref() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -94,28 +134,17 @@ export default function PreventivoPDF() {
       const res = await fetch(`${backendUrl}/api/genera-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ testo, template, versione_padre_id: versione_padre_id || null })
+        body: JSON.stringify({ testo, template, versione_padre_id: versione_padre_id || null, cliente_id: clienteSelezionato?.id || '' })
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-
       setVersioneGenerata(data.versione)
-
       const { uri } = await Print.printToFileAsync({ html: data.html, base64: false })
-
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'Invia preventivo',
-          UTI: 'com.adobe.pdf'
-        })
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Invia preventivo', UTI: 'com.adobe.pdf' })
       }
-
-      // Leggi PDF come base64 e carica su Storage
       try {
-        const pdfBase64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: 'base64' as any
-        })
+        const pdfBase64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any })
         const saveRes = await fetch(`${backendUrl}/api/salva-pdf`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -123,14 +152,10 @@ export default function PreventivoPDF() {
         })
         const saveData = await saveRes.json()
         if (saveData.pdf_url) setPdfUrlGenerato(saveData.pdf_url)
-      } catch (e) {
-        console.log('Salvataggio PDF fallito:', e)
-      }
-
+      } catch (e) { console.log('Salvataggio PDF fallito:', e) }
       const nomeCliente = clienteSelezionato?.nome || 'Cliente'
       setTitolo(`Preventivo ${nomeCliente}`)
       setMostraModalTitolo(true)
-
     } catch (err: any) {
       Alert.alert('Errore', err.message)
     }
@@ -176,26 +201,35 @@ export default function PreventivoPDF() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 14 }}>
 
+        {/* Preview real-time */}
         <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Testo preventivo</Text>
-            {modificato && <Text style={styles.modificatoBadge}>● Modificato</Text>}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={styles.cardTitle}>Anteprima PDF</Text>
+            {caricandoPreview && <ActivityIndicator size="small" color="#0E9F8E" />}
           </View>
-          <Text style={styles.cardSub}>Modifica il testo prima di generare il PDF</Text>
-          <TextInput
-            style={styles.editor}
-            value={testo}
-            onChangeText={t => { setTesto(t); setModificato(true) }}
-            multiline
-            textAlignVertical="top"
-            placeholder="Il testo del preventivo apparirà qui..."
-            placeholderTextColor="#9CA3AF"
-          />
+          <View style={styles.previewContainer}>
+            {htmlPreview ? (
+<WebView
+  source={{ html: htmlPreview }}
+  style={styles.webview}
+  scrollEnabled={true}
+  scalesPageToFit={false}
+  showsVerticalScrollIndicator={false}
+  showsHorizontalScrollIndicator={false}
+/>
+            ) : (
+              <View style={styles.previewPlaceholder}>
+                <ActivityIndicator size="large" color="#0E9F8E" />
+                <Text style={styles.previewPlaceholderText}>Caricamento anteprima...</Text>
+              </View>
+            )}
+          </View>
         </View>
 
+        {/* Scegli template */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Scegli template</Text>
-          <Text style={styles.cardSub}>Il template preferito viene salvato automaticamente</Text>
+          <Text style={styles.cardSub}>L'anteprima si aggiorna in tempo reale</Text>
           <View style={styles.templateGrid}>
             {TEMPLATES.map(t => (
               <TouchableOpacity
@@ -211,6 +245,7 @@ export default function PreventivoPDF() {
           </View>
         </View>
 
+        {/* Cliente */}
         <TouchableOpacity style={styles.clienteBtn} onPress={() => setMostraModalCliente(true)}>
           <Text style={styles.clienteBtnIcon}>👤</Text>
           <View style={styles.clienteBtnBody}>
@@ -355,11 +390,12 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
   scroll: { flex: 1 },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
-  cardSub: { fontSize: 12, color: '#9CA3AF', marginBottom: 12 },
-  modificatoBadge: { fontSize: 11, color: '#0E9F8E', fontWeight: '600' },
-  editor: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 13, color: '#0D1B2A', minHeight: 200, lineHeight: 20 },
+  cardSub: { fontSize: 12, color: '#9CA3AF', marginBottom: 8 },
+  previewContainer: { height: 420, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
+  webview: { flex: 1 },
+  previewPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  previewPlaceholderText: { fontSize: 13, color: '#9CA3AF' },
   templateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   templateCard: { width: '30%', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1.5, borderColor: '#E5E7EB' },
   templateCardActive: { backgroundColor: '#E1F5EE', borderColor: '#0E9F8E' },
@@ -375,7 +411,7 @@ const styles = StyleSheet.create({
   clienteBtnArrow: { fontSize: 20, color: '#9CA3AF' },
   versionBox: { backgroundColor: '#EBF3FF', borderRadius: 12, padding: 12 },
   versionText: { fontSize: 13, color: '#1E40AF', lineHeight: 18 },
-  generateBtn: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, alignItems: 'center' },
+  generateBtn: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, alignItems: 'center' as const },
   generateBtnDisabled: { opacity: 0.5 },
   generateBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   modalContainer: { flex: 1, backgroundColor: '#F7F8FA' },

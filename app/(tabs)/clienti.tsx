@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import {
     ActivityIndicator,
     Alert,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -26,12 +27,19 @@ interface Cliente {
 export default function Clienti() {
   const [clienti, setClienti] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [cerca, setCerca] = useState('')
   const [mostraForm, setMostraForm] = useState(false)
   const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', note: '' })
   const [salvando, setSalvando] = useState(false)
 
   useEffect(() => { carica() }, [])
+
+  async function onRefresh() {
+    setRefreshing(true)
+    await carica()
+    setRefreshing(false)
+  }
 
   async function carica() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -98,16 +106,13 @@ export default function Clienti() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Clienti</Text>
         <TouchableOpacity onPress={() => setMostraForm(!mostraForm)} style={styles.addBtn}>
           <Text style={styles.addBtnText}>{mostraForm ? '✕' : '+'}</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 10 }}>
+      <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 10 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}>
 
         {/* Cerca */}
         <View style={styles.searchBox}>
@@ -207,7 +212,7 @@ export default function Clienti() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backBtn: { padding: 4, width: 50 },
   backText: { color: '#9CA3AF', fontSize: 22 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },

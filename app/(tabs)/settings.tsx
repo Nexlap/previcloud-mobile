@@ -1,7 +1,7 @@
 import Constants from 'expo-constants'
 import * as ImagePicker from 'expo-image-picker'
-import { router } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { router, useNavigation } from 'expo-router'
+import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
@@ -24,6 +24,9 @@ export default function Settings() {
     piva: '',
     telefono: '',
     tono: 'professionale e diretto',
+    colore_brand: '0D1B2A',
+    note_pagamento: '',
+    firma_nome: '',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -35,6 +38,11 @@ export default function Settings() {
   const [servizioInEdit, setServizioInEdit] = useState<Servizio | null>(null)
   const [nuovoServizio, setNuovoServizio] = useState({ nome: '', descrizione: '', costo: '', unita: 'cad' })
   const [salvandoServizio, setSalvandoServizio] = useState(false)
+  const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
+  const formIniziale = useRef<typeof form | null>(null)
+  const formRef = useRef(form)
+  useEffect(() => { formRef.current = form }, [form])
+  const navigation = useNavigation()
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   const unitaOptions = ['cad', 'ora', 'giorno', 'mq', 'ml', 'set', 'progetto']
@@ -48,20 +56,42 @@ export default function Settings() {
     })
   }, [])
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (!modificheNonSalvate) return
+      e.preventDefault()
+      Alert.alert('Modifiche non salvate', 'Vuoi salvare le modifiche al profilo?', [
+        { text: 'Abbandona', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+        { text: 'Continua', style: 'cancel' },
+        { text: 'Salva', onPress: async () => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) await supabase.from('profiles').update(formRef.current).eq('id', user.id)
+  navigation.dispatch(e.data.action)
+}}
+      ])
+    })
+    return unsubscribe
+  }, [modificheNonSalvate, navigation])
+
   async function carica() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/(auth)/login'); return }
 
     const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     if (data) {
-      setForm({
+      const nuovoForm = {
         nome_azienda: data.nome_azienda || '',
         categoria: data.categoria || 'videomaker',
         citta: data.citta || '',
         piva: data.piva || '',
         telefono: data.telefono || '',
         tono: data.tono || 'professionale e diretto',
-      })
+        colore_brand: data.colore_brand || '0D1B2A',
+        note_pagamento: data.note_pagamento || '',
+        firma_nome: data.firma_nome || '',
+      }
+      setForm(nuovoForm)
+      formIniziale.current = nuovoForm
       if (data.logo_url) setLogoUrl(data.logo_url)
     }
 
@@ -87,11 +117,12 @@ export default function Settings() {
     const { error } = await supabase.from('profiles').update(form).eq('id', user.id)
     setSaving(false)
     if (error) Alert.alert('Errore', error.message)
-    else Alert.alert('✓ Salvato', 'Profilo aggiornato.')
+    else { Alert.alert('✓ Salvato', 'Profilo aggiornato.'); setModificheNonSalvate(false); if (formIniziale.current) formIniziale.current = form }
   }
 
   function set(key: string, val: string) {
     setForm(f => ({ ...f, [key]: val }))
+    setModificheNonSalvate(true)
   }
 
   function apriNuovoServizio() {
@@ -191,11 +222,7 @@ export default function Settings() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Impostazioni</Text>
-        <View style={{ width: 50 }} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 14 }}>
@@ -298,7 +325,67 @@ export default function Settings() {
             }
           </TouchableOpacity>
         </View>
-<TouchableOpacity
+        {/* Colore brand */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>🎨 Colore brand</Text>
+          <Text style={styles.cardSub}>Usato nell'intestazione e nei dettagli del PDF</Text>
+          <View style={styles.coloriGrid}>
+            {['0D1B2A','0E9F8E','1D4ED8','7C3AED','DC2626','EA580C','059669','374151'].map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[styles.coloreChip, { backgroundColor: '#' + c }, form.colore_brand === c && styles.coloreChipActive]}
+                onPress={() => set('colore_brand', c)}
+              >
+                {form.colore_brand === c && <Text style={styles.coloreChipCheck}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.label}>CODICE HEX PERSONALIZZATO</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              value={form.colore_brand}
+              onChangeText={v => set('colore_brand', v.replace('#', '').toUpperCase())}
+              placeholder="es. 0D1B2A"
+              placeholderTextColor="#9CA3AF"
+              maxLength={6}
+              autoCapitalize="characters"
+            />
+            <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: '#' + (form.colore_brand || '0D1B2A') }} />
+          </View>
+        </View>
+
+        {/* Note pagamento */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>💳 Note pagamento</Text>
+          <Text style={styles.cardSub}>Appare in fondo a tutti i preventivi PDF</Text>
+          <TextInput
+            style={[styles.input, { height: 80, textAlignVertical: 'top' as const }]}
+            value={form.note_pagamento}
+            onChangeText={v => set('note_pagamento', v)}
+            placeholder="es. Pagamento 50% anticipato, saldo alla consegna"
+            placeholderTextColor="#9CA3AF"
+            multiline
+          />
+        </View>
+
+        {/* Firma corsivo */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>✍️ Firma</Text>
+          <Text style={styles.cardSub}>Nome in corsivo elegante in fondo al PDF</Text>
+          <TextInput
+            style={styles.input}
+            value={form.firma_nome}
+            onChangeText={v => set('firma_nome', v)}
+            placeholder="es. Mario Rossi"
+            placeholderTextColor="#9CA3AF"
+          />
+          {form.firma_nome ? (
+            <Text style={styles.firmaPreview}>{form.firma_nome}</Text>
+          ) : null}
+        </View>
+
+        <TouchableOpacity
   style={styles.fiscaleBtn}
   onPress={() => router.push('/(tabs)/fiscale')}
 >
@@ -402,7 +489,7 @@ export default function Settings() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F7F8FA' },
-  header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   backBtn: { padding: 4, width: 50 },
   backText: { color: '#9CA3AF', fontSize: 22 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
@@ -461,6 +548,13 @@ const styles = StyleSheet.create({
   previewDesc: { fontSize: 12, color: '#6B7280' },
   previewCosto: { fontSize: 14, fontWeight: '700', color: '#0E9F8E', marginTop: 4 },
   fiscaleBtn: { backgroundColor: '#fff', borderRadius: 14, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  coloriGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+  coloreChip: { width: 40, height: 40, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  coloreChipActive: { borderWidth: 3, borderColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 4 },
+  coloreChipCheck: { color: '#fff', fontSize: 16, fontWeight: '700' as const },
+  coloreCustomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  colorePreviewBox: { width: 28, height: 28, borderRadius: 6 },
+  firmaPreview: { fontSize: 22, color: '#374151', fontStyle: 'italic' as const, paddingVertical: 8, textAlign: 'center' as const },
 fiscaleBtnText: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
 fiscaleBtnArrow: { fontSize: 18, color: '#9CA3AF' },
 })

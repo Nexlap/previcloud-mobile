@@ -2,7 +2,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View
+  ActivityIndicator, Alert, FlatList, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
@@ -18,22 +18,79 @@ interface RisultatoFiscale {
   contributi: number; imposta: number; iva: number; irpef: number; ritenuta: number
 }
 
+interface Cliente {
+  id: string
+  nome: string
+  telefono: string | null
+  email: string | null
+  indirizzo: string | null
+}
+
+const builderState = {
+  voci: [] as VocePreventivo[],
+  nomeCliente: '',
+  noteExtra: '',
+  includiIva: true,
+}
+
 export default function Builder() {
   const [servizi, setServizi] = useState<Servizio[]>([])
-  const [voci, setVoci] = useState<VocePreventivo[]>([])
-  const [nomeCliente, setNomeCliente] = useState('')
-  const [noteExtra, setNoteExtra] = useState('')
-  const [includiIva, setIncludiIva] = useState(true)
-  const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
+const [voci, setVoci] = useState<VocePreventivo[]>(builderState.voci)
+const [nomeCliente, setNomeCliente] = useState(builderState.nomeCliente)
+const [noteExtra, setNoteExtra] = useState(builderState.noteExtra)
+const [includiIva, setIncludiIva] = useState(builderState.includiIva)  
+const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
   const [mostraFiscale, setMostraFiscale] = useState(true)
+  const [clienti, setClienti] = useState<Cliente[]>([])
+  const [clienteSelezionato, setClienteSelezionato] = useState<Cliente | null>(null)
+  const [mostraModalCliente, setMostraModalCliente] = useState(false)
+  const [modalTab, setModalTab] = useState<'esistente' | 'nuovo'>('esistente')
+  const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', indirizzo: '' })
+  const [salvandoCliente, setSalvandoCliente] = useState(false)
+  const [ricercaCliente, setRicercaCliente] = useState('')
 
-  useEffect(() => { caricaServizi(); caricaProfiloFiscale() }, [])
+  useEffect(() => { caricaServizi(); caricaProfiloFiscale(); caricaClienti() }, [])
+  useEffect(() => {
+  builderState.voci = voci
+  builderState.nomeCliente = nomeCliente
+  builderState.noteExtra = noteExtra
+  builderState.includiIva = includiIva
+}, [voci, nomeCliente, noteExtra, includiIva])
 
   async function caricaServizi() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const { data } = await supabase.from('servizi').select('*').eq('user_id', user.id).order('ordine', { ascending: true })
     if (data) setServizi(data)
+  }
+
+  async function caricaClienti() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('clienti').select('id, nome, telefono, email, indirizzo')
+      .eq('user_id', user.id).order('nome')
+    if (data) setClienti(data)
+  }
+
+  async function salvaESelezionaCliente() {
+    if (!nuovoCliente.nome.trim()) return
+    setSalvandoCliente(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('clienti').insert({
+      user_id: user.id,
+      nome: nuovoCliente.nome.trim(),
+      telefono: nuovoCliente.telefono || null,
+      email: nuovoCliente.email || null,
+      indirizzo: nuovoCliente.indirizzo || null,
+    }).select().single()
+    if (data) {
+      setClienteSelezionato(data)
+      setClienti(c => [...c, data])
+    }
+    setSalvandoCliente(false)
+    setMostraModalCliente(false)
+    setNuovoCliente({ nome: '', telefono: '', email: '', indirizzo: '' })
   }
 
   async function caricaProfiloFiscale() {
@@ -126,7 +183,13 @@ export default function Builder() {
 
   function generaPDF() {
     if (voci.length === 0) { Alert.alert('Preventivo vuoto', 'Aggiungi almeno un servizio.'); return }
-    router.push({ pathname: '/(tabs)/preventivo-pdf', params: { testo: generaTestoPreventivo() } })
+    router.push({
+      pathname: '/(tabs)/preventivo-pdf',
+      params: {
+        testo: generaTestoPreventivo(),
+        cliente_id: clienteSelezionato?.id || '',
+      }
+    })
   }
 
   const totale = calcolaTotale()
@@ -139,15 +202,43 @@ export default function Builder() {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Builder preventivo</Text>
-        <View style={{ width: 50 }} />
+        <TouchableOpacity onPress={() => {
+  builderState.voci = []
+  builderState.nomeCliente = ''
+  builderState.noteExtra = ''
+  builderState.includiIva = true
+  setVoci([])
+  setNomeCliente('')
+  setNoteExtra('')
+  setIncludiIva(true)
+}}>
+  <Text style={{ color: '#9CA3AF', fontSize: 13 }}>🗑 Svuota</Text>
+</TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
 
+        {/* Card cliente */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Cliente</Text>
-          <TextInput style={styles.input} value={nomeCliente} onChangeText={setNomeCliente}
-            placeholder="Nome cliente (opzionale)" placeholderTextColor="#9CA3AF" />
+          <Text style={styles.cardTitle}>👤 Cliente</Text>
+          <Text style={styles.cardSub}>Opzionale — i dati appariranno nel PDF</Text>
+          {clienteSelezionato ? (
+            <View style={styles.clienteSelezionatoBox}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.clienteSelezionatoNome}>{clienteSelezionato.nome}</Text>
+                {clienteSelezionato.email ? <Text style={styles.clienteSelezionatoInfo}>{clienteSelezionato.email}</Text> : null}
+                {clienteSelezionato.telefono ? <Text style={styles.clienteSelezionatoInfo}>{clienteSelezionato.telefono}</Text> : null}
+              </View>
+              <TouchableOpacity onPress={() => setClienteSelezionato(null)}>
+                <Text style={{ fontSize: 18, color: '#9CA3AF' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.clienteAggiungiBtn} onPress={() => setMostraModalCliente(true)}>
+              <Text style={styles.clienteAggiungiIcon}>+</Text>
+              <Text style={styles.clienteAggiungiText}>Seleziona o aggiungi cliente</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -211,34 +302,40 @@ export default function Builder() {
               </View>
             ))}
 
-            <View style={styles.ivaRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.ivaLabel}>Applica IVA 22%</Text>
-                <Text style={styles.ivaSub}>{includiIva ? 'Regime ordinario' : 'Regime forfettario'}</Text>
-              </View>
-              <TouchableOpacity style={[styles.ivaToggle, includiIva && styles.ivaToggleActive]} onPress={() => setIncludiIva(v => !v)}>
-                <Text style={styles.ivaToggleText}>{includiIva ? 'ON' : 'OFF'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.riepilogo}>
-              {includiIva && (
-                <>
-                  <View style={styles.riepilogoRow}>
-                    <Text style={styles.riepilogoLabel}>Imponibile</Text>
-                    <Text style={styles.riepilogoVal}>€{totale.toFixed(0)}</Text>
-                  </View>
-                  <View style={styles.riepilogoRow}>
-                    <Text style={styles.riepilogoLabel}>IVA 22%</Text>
-                    <Text style={styles.riepilogoVal}>€{(totale * 0.22).toFixed(0)}</Text>
-                  </View>
-                </>
-              )}
-              <View style={[styles.riepilogoRow, styles.riepilogoTotale]}>
+<View style={styles.ivaRow}>
+  <View style={{ flex: 1 }}>
+    <Text style={styles.ivaLabel}>Applica IVA 22%</Text>
+    <Text style={styles.ivaSub}>
+      {profiloFiscale && mostraFiscale
+        ? 'Gestita dal regime fiscale attivo'
+        : includiIva ? 'Regime ordinario' : 'Regime forfettario'}
+    </Text>
+  </View>
+  <TouchableOpacity
+    style={[styles.ivaToggle, (profiloFiscale && mostraFiscale) ? styles.ivaToggleDisabled : includiIva && styles.ivaToggleActive]}
+    onPress={() => { if (!profiloFiscale || !mostraFiscale) setIncludiIva(v => !v) }}
+  >
+    <Text style={styles.ivaToggleText}>
+      {(profiloFiscale && mostraFiscale) ? 'AUTO' : includiIva ? 'ON' : 'OFF'}
+    </Text>
+  </TouchableOpacity>
+</View>
+<View style={styles.riepilogo}>
+{(!profiloFiscale || !mostraFiscale) && includiIva && (    <>
+      <View style={styles.riepilogoRow}>
+        <Text style={styles.riepilogoLabel}>Imponibile</Text>
+        <Text style={styles.riepilogoVal}>€{totale.toFixed(0)}</Text>
+      </View>
+      <View style={styles.riepilogoRow}>
+        <Text style={styles.riepilogoLabel}>IVA 22%</Text>
+        <Text style={styles.riepilogoVal}>€{(totale * 0.22).toFixed(0)}</Text>
+      </View>
+    </>
+  )}              <View style={[styles.riepilogoRow, styles.riepilogoTotale]}>
                 <Text style={styles.riepilogoTotaleLabel}>TOTALE</Text>
-                <Text style={styles.riepilogoTotaleVal}>€{includiIva ? (totale * 1.22).toFixed(0) : totale.toFixed(0)}</Text>
+                <Text style={styles.riepilogoTotaleVal}>€{(profiloFiscale && mostraFiscale) ? totale.toFixed(0) : includiIva ? (totale * 1.22).toFixed(0) : totale.toFixed(0)}</Text>
               </View>
-              {!includiIva && <Text style={styles.forfettarioNote}>Operazione esente IVA — Regime Forfettario</Text>}
+              {(!profiloFiscale || !mostraFiscale) && !includiIva && <Text style={styles.forfettarioNote}>Operazione esente IVA — Regime Forfettario</Text>}
             </View>
           </View>
         )}
@@ -365,6 +462,101 @@ export default function Builder() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Modal selezione/creazione cliente */}
+      <Modal visible={mostraModalCliente} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Cliente</Text>
+            <TouchableOpacity onPress={() => setMostraModalCliente(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.modalTabs}>
+            {(['esistente', 'nuovo'] as const).map(tab => (
+              <TouchableOpacity key={tab} style={[styles.modalTab, modalTab === tab && styles.modalTabActive]}
+                onPress={() => setModalTab(tab)}>
+                <Text style={[styles.modalTabText, modalTab === tab && styles.modalTabTextActive]}>
+                  {tab === 'esistente' ? 'Cliente esistente' : 'Nuovo cliente'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {modalTab === 'esistente' ? (
+            <View style={{ flex: 1 }}>
+              <View style={{ padding: 16, paddingBottom: 8 }}>
+                <TextInput
+                  style={styles.input}
+                  value={ricercaCliente}
+                  onChangeText={setRicercaCliente}
+                  placeholder="Cerca cliente..."
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+              <FlatList
+                data={clienti.filter(c => c.nome.toLowerCase().includes(ricercaCliente.toLowerCase()))}
+                keyExtractor={item => item.id}
+                contentContainerStyle={{ padding: 16, paddingTop: 8, gap: 8 }}
+                ListEmptyComponent={
+                  <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                    <Text style={{ fontSize: 14, color: '#9CA3AF' }}>Nessun cliente trovato</Text>
+                    <TouchableOpacity onPress={() => setModalTab('nuovo')} style={{ marginTop: 8 }}>
+                      <Text style={{ fontSize: 14, color: '#0E9F8E', fontWeight: '600' }}>Aggiungi nuovo →</Text>
+                    </TouchableOpacity>
+                  </View>
+                }
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.clienteItem, clienteSelezionato?.id === item.id && styles.clienteItemActive]}
+                    onPress={() => { setClienteSelezionato(item); setMostraModalCliente(false) }}
+                  >
+                    <View style={styles.clienteItemAvatar}>
+                      <Text style={styles.clienteItemAvatarText}>{item.nome.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.clienteItemNome}>{item.nome}</Text>
+                      {item.email ? <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{item.email}</Text> : null}
+                    </View>
+                    {clienteSelezionato?.id === item.id && <Text style={{ color: '#0E9F8E', fontSize: 16 }}>✓</Text>}
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+              <Text style={styles.modalFieldLabel}>NOME *</Text>
+              <TextInput style={styles.modalFieldInput} value={nuovoCliente.nome}
+                onChangeText={v => setNuovoCliente(c => ({...c, nome: v}))}
+                placeholder="es. Mario Rossi" placeholderTextColor="#9CA3AF" autoFocus />
+              <Text style={styles.modalFieldLabel}>TELEFONO</Text>
+              <TextInput style={styles.modalFieldInput} value={nuovoCliente.telefono}
+                onChangeText={v => setNuovoCliente(c => ({...c, telefono: v}))}
+                placeholder="es. 339 1234567" placeholderTextColor="#9CA3AF" keyboardType="phone-pad" />
+              <Text style={styles.modalFieldLabel}>EMAIL</Text>
+              <TextInput style={styles.modalFieldInput} value={nuovoCliente.email}
+                onChangeText={v => setNuovoCliente(c => ({...c, email: v}))}
+                placeholder="es. mario@gmail.com" placeholderTextColor="#9CA3AF" keyboardType="email-address" autoCapitalize="none" />
+              <Text style={styles.modalFieldLabel}>INDIRIZZO</Text>
+              <TextInput style={styles.modalFieldInput} value={nuovoCliente.indirizzo}
+                onChangeText={v => setNuovoCliente(c => ({...c, indirizzo: v}))}
+                placeholder="es. Via Roma 1, Milano" placeholderTextColor="#9CA3AF" />
+              <TouchableOpacity
+                style={[styles.generateBtn, (!nuovoCliente.nome.trim() || salvandoCliente) && styles.generateBtnDisabled]}
+                onPress={salvaESelezionaCliente}
+                disabled={!nuovoCliente.nome.trim() || salvandoCliente}
+              >
+                {salvandoCliente
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.generateBtnText}>Salva e seleziona</Text>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity style={{ alignItems: 'center', padding: 8 }} onPress={() => setMostraModalCliente(false)}>
+                <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Continua senza cliente</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -425,4 +617,27 @@ const styles = StyleSheet.create({
   fiscaleNetto: { fontSize: 14, fontWeight: '700', color: '#0D1B2A', flex: 1 },
   fiscaleNettoVal: { fontSize: 16, fontWeight: '700', color: '#0E9F8E' },
   fiscaleDisclaimer: { fontSize: 10, color: '#9CA3AF', fontStyle: 'italic' as const, marginTop: 6 },
+  ivaToggleDisabled: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB', opacity: 0.6 },
+  clienteSelezionatoBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#0E9F8E' },
+  clienteSelezionatoNome: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
+  clienteSelezionatoInfo: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  clienteAggiungiBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F7F8FA', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed' as const },
+  clienteAggiungiIcon: { fontSize: 20, color: '#0E9F8E', fontWeight: '600' },
+  clienteAggiungiText: { fontSize: 14, color: '#6B7280' },
+  modalContainer: { flex: 1, backgroundColor: '#F7F8FA' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 56, backgroundColor: '#0D1B2A' },
+  modalTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  modalClose: { color: '#9CA3AF', fontSize: 20 },
+  modalTabs: { flexDirection: 'row', backgroundColor: '#fff', margin: 16, borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' },
+  modalTab: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' as const },
+  modalTabActive: { backgroundColor: '#0D1B2A' },
+  modalTabText: { fontSize: 13, fontWeight: '500', color: '#9CA3AF' },
+  modalTabTextActive: { color: '#fff' },
+  modalFieldLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8 },
+  modalFieldInput: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
+  clienteItem: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  clienteItemActive: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
+  clienteItemAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
+  clienteItemAvatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  clienteItemNome: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
 })

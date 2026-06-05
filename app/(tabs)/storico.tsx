@@ -1,7 +1,7 @@
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import {
-  ActivityIndicator, Alert, Modal, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, StyleSheet,
   Text, TouchableOpacity, View,
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
@@ -24,12 +24,19 @@ interface Preventivo {
 export default function Storico() {
   const [preventivi, setPreventivi] = useState<Preventivo[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
   const [cronologiaAperta, setCronologiaAperta] = useState<string | null>(null)
   const [cronologia, setCronologia] = useState<{[key: string]: Preventivo[]}>({})
 
   useEffect(() => { carica() }, [])
+
+  async function onRefresh() {
+    setRefreshing(true)
+    await carica()
+    setRefreshing(false)
+  }
 
   async function carica() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -101,14 +108,10 @@ async function caricaCronologia(preventivoId: string, padreId: string | null) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Storico preventivi</Text>
-        <View style={{ width: 50 }} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 10 }}>
+      <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 10 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}>
         {preventivi.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>Nessun preventivo salvato.</Text>
@@ -239,8 +242,12 @@ async function caricaCronologia(preventivoId: string, padreId: string | null) {
                   <TouchableOpacity
                     style={styles.editBtn}
                     onPress={() => router.push({
-                      pathname: '/(tabs)/preventivo-pdf',
-                      params: { testo: p.testo_preventivo || '', versione_padre_id: p.id }
+                      pathname: '/(tabs)/nuovo',
+                      params: { 
+                        testo_modifica: p.testo_preventivo || '',
+                        versione_padre_id: p.id,
+                        versione_numero: String((p.versione || 1) + 1)
+                      }
                     })}
                   >
                     <Text style={styles.editBtnText}>✏️ Modifica e genera v{(p.versione || 1) + 1}</Text>
@@ -298,7 +305,7 @@ async function caricaCronologia(preventivoId: string, padreId: string | null) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F7F8FA' },
-  header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   backBtn: { padding: 4, width: 50 },
   backText: { color: '#9CA3AF', fontSize: 22 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },

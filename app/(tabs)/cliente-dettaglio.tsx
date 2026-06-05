@@ -1,9 +1,11 @@
 import * as FileSystem from 'expo-file-system/legacy'
-import { router, useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams, useNavigation } from 'expo-router'
 import * as Sharing from 'expo-sharing'
 import { useEffect, useState } from 'react'
 import {
-  ActivityIndicator, Alert, Modal, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, BackHandler, Modal,
+  RefreshControl,
+  ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
@@ -47,6 +49,7 @@ export default function ClienteDettaglio() {
   const [preventivi, setPreventivi] = useState<Preventivo[]>([])
   const [trascrizioni, setTrascrizioni] = useState<Trascrizione[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [tab, setTab] = useState<'preventivi' | 'chiamate'>('preventivi')
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
@@ -65,8 +68,45 @@ export default function ClienteDettaglio() {
   const [nuoveNote, setNuoveNote] = useState('')
   const [selezione, setSelezione] = useState<string[]>([])
   const [modalitaSelezione, setModalitaSelezione] = useState(false)
+  const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
+  const navigation = useNavigation()
 
   useEffect(() => { carica() }, [])
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (!modificheNonSalvate || !mostraModalRinominaCliente) return
+      e.preventDefault()
+      Alert.alert('Modifiche non salvate', 'Vuoi salvare le modifiche al cliente?', [
+        { text: 'Abbandona', style: 'destructive', onPress: () => { setMostraModalRinominaCliente(false); setModificheNonSalvate(false); navigation.dispatch(e.data.action) } },
+        { text: 'Continua', style: 'cancel' },
+        { text: 'Salva', onPress: async () => { await salvaCliente(); navigation.dispatch(e.data.action) } }
+      ])
+    })
+    return unsubscribe
+  }, [modificheNonSalvate, mostraModalRinominaCliente, navigation])
+
+  useEffect(() => {
+    if (!mostraModalRinominaCliente) return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (modificheNonSalvate) {
+        Alert.alert('Modifiche non salvate', 'Vuoi salvare le modifiche al cliente?', [
+          { text: 'Abbandona', style: 'destructive', onPress: () => { setMostraModalRinominaCliente(false); setModificheNonSalvate(false) } },
+          { text: 'Continua', style: 'cancel' },
+          { text: 'Salva', onPress: salvaCliente }
+        ])
+        return true
+      }
+      return false
+    })
+    return () => sub.remove()
+  }, [mostraModalRinominaCliente, modificheNonSalvate])
+
+  async function onRefresh() {
+    setRefreshing(true)
+    await carica()
+    setRefreshing(false)
+  }
 
   async function carica() {
     const { data: cl } = await supabase.from('clienti').select('*').eq('id', id).single()
@@ -130,12 +170,19 @@ export default function ClienteDettaglio() {
     setMostraModalRinomina(null)
   }
 
-  async function rinominaCliente() {
+  async function salvaCliente() {
     if (!nuovoNomeCliente.trim()) return
-    await supabase.from('clienti').update({ nome: nuovoNomeCliente.trim() }).eq('id', id)
-    setCliente(c => c ? { ...c, nome: nuovoNomeCliente.trim() } : c)
+    const aggiornamento = {
+      nome: nuovoNomeCliente.trim(),
+      telefono: nuovoTelefono.trim() || null,
+      email: nuovaEmail.trim() || null,
+      indirizzo: nuovoIndirizzo.trim() || null,
+      note: nuoveNote.trim() || null,
+    }
+    await supabase.from('clienti').update(aggiornamento).eq('id', id)
+    setCliente(c => c ? { ...c, ...aggiornamento } : c)
     setMostraModalRinominaCliente(false)
-    Alert.alert('✓ Rinominato', `Cliente rinominato in "${nuovoNomeCliente.trim()}"`)
+    setModificheNonSalvate(false)
   }
 
   async function caricaCronologia(preventivoId: string, padreId: string | null) {
@@ -242,6 +289,7 @@ async function spostaSelezionati(nuovoClienteId: string, nuovoClienteNome: strin
   setNuovaEmail(cliente?.email || '')
   setNuovoIndirizzo(cliente?.indirizzo || '')
   setNuoveNote(cliente?.note || '')
+  setModificheNonSalvate(false)
   setMostraModalRinominaCliente(true)
 }}>
             <Text style={styles.headerActionText}>✏️</Text>
@@ -270,7 +318,7 @@ async function spostaSelezionati(nuovoClienteId: string, nuovoClienteNome: strin
     </View>
   </View>
 )}
-      <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 12 }}>
+      <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}>
 
         <View style={styles.card}>
           <View style={styles.avatarRow}>
@@ -315,7 +363,10 @@ async function spostaSelezionati(nuovoClienteId: string, nuovoClienteNome: strin
           preventivi.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>Nessun preventivo per questo cliente</Text>
-              <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(tabs)/nuovo')}>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push({
+                pathname: '/(tabs)/nuovo',
+                params: { cliente_id: id, cliente_nome: cliente?.nome || nome }
+              })}>
                 <Text style={styles.emptyBtnText}>Genera preventivo</Text>
               </TouchableOpacity>
             </View>
@@ -417,11 +468,15 @@ async function spostaSelezionati(nuovoClienteId: string, nuovoClienteNome: strin
                             <TouchableOpacity
                               style={styles.ripristinaBtn}
                               onPress={() => router.push({
-                                pathname: '/(tabs)/preventivo-pdf',
-                                params: { testo: v.testo_preventivo || '', versione_padre_id: p.id, cliente_id: p.cliente_id || '' }
+                                pathname: '/(tabs)/nuovo',
+                                params: {
+                                  testo_modifica: v.testo_preventivo || '',
+                                  versione_padre_id: p.id,
+                                  versione_numero: String((p.versione || 1) + 1)
+                                }
                               })}
                             >
-                              <Text style={styles.ripristinaBtnText}>✏️ Apri nell'editor e genera nuova versione</Text>
+                              <Text style={styles.ripristinaBtnText}>✏️ Modifica e genera nuova versione</Text>
                             </TouchableOpacity>
                           </View>
                         )}
@@ -432,8 +487,12 @@ async function spostaSelezionati(nuovoClienteId: string, nuovoClienteNome: strin
                       <TouchableOpacity
                         style={styles.editBtn}
                         onPress={() => router.push({
-                          pathname: '/(tabs)/preventivo-pdf',
-                          params: { testo: p.testo_preventivo || '', versione_padre_id: p.id, cliente_id: id }
+                          pathname: '/(tabs)/nuovo',
+                          params: {
+                            testo_modifica: p.testo_preventivo || '',
+                            versione_padre_id: p.id,
+                            versione_numero: String((p.versione || 1) + 1)
+                          }
                         })}
                       >
                         <Text style={styles.editBtnText}>✏️ Modifica e genera v{(p.versione || 1) + 1}</Text>
@@ -565,37 +624,56 @@ async function spostaSelezionati(nuovoClienteId: string, nuovoClienteNome: strin
       </Modal>
 
       {/* Modal rinomina cliente */}
-<Modal visible={mostraModalRinominaCliente} transparent animationType="slide" onRequestClose={() => setMostraModalRinominaCliente(false)}>
+<Modal visible={mostraModalRinominaCliente} transparent animationType="slide" onRequestClose={() => {
+  if (modificheNonSalvate) {
+    Alert.alert('Modifiche non salvate', 'Vuoi salvare le modifiche al cliente?', [
+      { text: 'Abbandona', style: 'destructive', onPress: () => { setMostraModalRinominaCliente(false); setModificheNonSalvate(false) } },
+      { text: 'Continua', style: 'cancel' },
+      { text: 'Salva', onPress: salvaCliente }
+    ])
+  } else {
+    setMostraModalRinominaCliente(false)
+  }
+}}>
   <View style={styles.modalFullContainer}>
     <View style={styles.modalFullHeader}>
-      <TouchableOpacity onPress={() => setMostraModalRinominaCliente(false)}>
+      <TouchableOpacity onPress={() => {
+        if (modificheNonSalvate) {
+          Alert.alert('Modifiche non salvate', 'Vuoi salvare le modifiche?', [
+            { text: 'Abbandona', style: 'destructive', onPress: () => { setMostraModalRinominaCliente(false); setModificheNonSalvate(false) } },
+            { text: 'Salva', onPress: salvaCliente }
+          ])
+        } else {
+          setMostraModalRinominaCliente(false)
+        }
+      }}>
         <Text style={styles.modalFullClose}>✕</Text>
       </TouchableOpacity>
       <Text style={styles.modalFullTitle}>Modifica cliente</Text>
-      <TouchableOpacity onPress={rinominaCliente}>
+      <TouchableOpacity onPress={salvaCliente}>
         <Text style={styles.modalFullSave}>Salva</Text>
       </TouchableOpacity>
     </View>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 14 }}>
       <View style={styles.modalFieldGroup}>
         <Text style={styles.modalFieldLabel}>NOME *</Text>
-        <TextInput style={styles.modalFieldInput} value={nuovoNomeCliente} onChangeText={setNuovoNomeCliente} placeholder="es. Mario Rossi" placeholderTextColor="#9CA3AF" />
+        <TextInput style={styles.modalFieldInput} value={nuovoNomeCliente} onChangeText={v => { setNuovoNomeCliente(v); setModificheNonSalvate(true) }} placeholder="es. Mario Rossi" placeholderTextColor="#9CA3AF" />
       </View>
       <View style={styles.modalFieldGroup}>
         <Text style={styles.modalFieldLabel}>TELEFONO</Text>
-        <TextInput style={styles.modalFieldInput} value={nuovoTelefono} onChangeText={setNuovoTelefono} placeholder="es. 339 1234567" placeholderTextColor="#9CA3AF" keyboardType="phone-pad" />
+        <TextInput style={styles.modalFieldInput} value={nuovoTelefono} onChangeText={v => { setNuovoTelefono(v); setModificheNonSalvate(true) }} placeholder="es. 339 1234567" placeholderTextColor="#9CA3AF" keyboardType="phone-pad" />
       </View>
       <View style={styles.modalFieldGroup}>
         <Text style={styles.modalFieldLabel}>EMAIL</Text>
-        <TextInput style={styles.modalFieldInput} value={nuovaEmail} onChangeText={setNuovaEmail} placeholder="es. mario@gmail.com" placeholderTextColor="#9CA3AF" keyboardType="email-address" autoCapitalize="none" />
+        <TextInput style={styles.modalFieldInput} value={nuovaEmail} onChangeText={v => { setNuovaEmail(v); setModificheNonSalvate(true) }} placeholder="es. mario@gmail.com" placeholderTextColor="#9CA3AF" keyboardType="email-address" autoCapitalize="none" />
       </View>
       <View style={styles.modalFieldGroup}>
         <Text style={styles.modalFieldLabel}>INDIRIZZO</Text>
-        <TextInput style={styles.modalFieldInput} value={nuovoIndirizzo} onChangeText={setNuovoIndirizzo} placeholder="es. Via Roma 1, Milano" placeholderTextColor="#9CA3AF" />
+        <TextInput style={styles.modalFieldInput} value={nuovoIndirizzo} onChangeText={v => { setNuovoIndirizzo(v); setModificheNonSalvate(true) }} placeholder="es. Via Roma 1, Milano" placeholderTextColor="#9CA3AF" />
       </View>
       <View style={styles.modalFieldGroup}>
         <Text style={styles.modalFieldLabel}>NOTE</Text>
-        <TextInput style={[styles.modalFieldInput, { height: 100, textAlignVertical: 'top' }]} value={nuoveNote} onChangeText={setNuoveNote} placeholder="Note aggiuntive..." placeholderTextColor="#9CA3AF" multiline />
+        <TextInput style={[styles.modalFieldInput, { height: 100, textAlignVertical: 'top' }]} value={nuoveNote} onChangeText={v => { setNuoveNote(v); setModificheNonSalvate(true) }} placeholder="Note aggiuntive..." placeholderTextColor="#9CA3AF" multiline />
       </View>
     </ScrollView>
   </View>

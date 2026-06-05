@@ -31,6 +31,17 @@ export default function Login() {
     checkBiometrico()
   }, [])
 
+  async function controllaOnboarding() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: profile } = await supabase.from('profiles').select('nome_azienda').eq('id', user.id).single()
+    if (!profile?.nome_azienda) {
+      router.replace('/onboarding')
+    } else {
+      router.replace('/(tabs)')
+    }
+  }
+
   async function handleSubmit() {
     if (!email || !password) {
       Alert.alert('Errore', 'Inserisci email e password')
@@ -51,20 +62,20 @@ export default function Login() {
             'Accesso rapido',
             'Vuoi usare l\'impronta digitale per i prossimi accessi?',
             [
-              { text: 'No', onPress: () => router.replace('/(tabs)') },
+              { text: 'No', onPress: () => controllaOnboarding() },
               {
                 text: 'Sì', onPress: async () => {
                   await SecureStore.setItemAsync('saved_email', email)
                   await SecureStore.setItemAsync('saved_password', password)
                   await SecureStore.setItemAsync('biometrico_attivato', 'true')
                   setBiometricoAttivato(true)
-                  router.replace('/(tabs)')
+                  controllaOnboarding()
                 }
               }
             ]
           )
         } else {
-          router.replace('/(tabs)')
+          controllaOnboarding()
         }
       }
     }

@@ -1,10 +1,11 @@
 import Constants from 'expo-constants'
 import { router } from 'expo-router'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
-    ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-    ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
+import WebView from 'react-native-webview'
 import { supabase } from '../lib/supabase'
 
 const CATEGORIE = ['videomaker', 'fotografo', 'catering', 'falegname', 'estetista', 'elettricista', 'idraulico', 'imbianchino', 'consulente', 'altro']
@@ -22,6 +23,12 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false)
   const [elaborando, setElaborando] = useState(false)
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
+
+  // Step template
+  const [templateScelto, setTemplateScelto] = useState('pulito')
+  const [htmlPreview, setHtmlPreview] = useState('')
+  const [caricandoPreview, setCaricandoPreview] = useState(false)
+  const previewTimeout = useRef<any>(null)
 
   // Step 2 — dati azienda
   const [nomeAzienda, setNomeAzienda] = useState('')
@@ -56,6 +63,36 @@ export default function Onboarding() {
     setElaborando(false)
   }
 
+  async function aggiornaPreview(tmpl: string) {
+    setCaricandoPreview(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const testoDemo = `PREVENTIVO\nData: ${new Date().toLocaleDateString('it-IT')}  |  Validità: 30 giorni\n\nSERVIZI:\n\nSERVIZIO: Riprese video\nDETTAGLI:\n- Mezza giornata di riprese\n- Regia e direzione\nPREZZO: €400\n\nSERVIZIO: Montaggio video\nDETTAGLI:\n- Montaggio con musica\n- Color grading\nPREZZO: €300\n\nRIEPILOGO:\nImponibile: €700\nIVA 22%: €154\n─────────────────\nTOTALE: €854`
+      const res = await fetch(`${backendUrl}/api/genera-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ testo: testoDemo, template: tmpl, versione_padre_id: null })
+      })
+      const data = await res.json()
+      if (data.html) {
+        const htmlScalato = data.html.replace(
+          '</head>',
+          `<style>
+            html { width: 100%; }
+            body { 
+              transform-origin: top left;
+              transform: scale(0.45);
+              width: 222%;
+            }
+          </style></head>`
+        )
+        setHtmlPreview(htmlScalato)
+      }
+    } catch (e) { console.log('Preview fallita:', e) }
+    setCaricandoPreview(false)
+  }
+
   function aggiungiServizio() {
     if (!nuovoServizio.nome.trim()) return
     setServizi(s => [...s, { ...nuovoServizio }])
@@ -77,6 +114,7 @@ export default function Onboarding() {
         nome_azienda: nomeAzienda.trim(),
         citta: citta.trim(),
         categoria,
+        template_preferito: templateScelto,
       }).eq('id', user.id)
 
       // Salva servizi
@@ -136,7 +174,7 @@ export default function Onboarding() {
       <View style={styles.stepHeader}>
         <Text style={styles.stepNum}>1 di 2</Text>
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: '50%' }]} />
+          <View style={[styles.progressFill, { width: '33%' }]} />
         </View>
       </View>
       <ScrollView contentContainerStyle={styles.stepContent}>
@@ -301,16 +339,12 @@ export default function Onboarding() {
 
         <View style={styles.skipRow}>
           <TouchableOpacity
-            style={[styles.nextBtn, saving && styles.nextBtnDisabled]}
-            onPress={completa}
-            disabled={saving}
+            style={styles.nextBtn}
+            onPress={() => { setStep(3); aggiornaPreview(templateScelto) }}
           >
-            {saving
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.nextBtnText}>
-                  {servizi.length > 0 ? `✓ Salva e inizia (${servizi.length} servizi)` : 'Salta e inizia →'}
-                </Text>
-            }
+            <Text style={styles.nextBtnText}>
+              {servizi.length > 0 ? `Avanti — ${servizi.length} servizi →` : 'Avanti →'}
+            </Text>
           </TouchableOpacity>
           {servizi.length === 0 && (
             <Text style={styles.skipNote}>Potrai aggiungere i servizi in seguito dalle impostazioni</Text>
@@ -320,6 +354,82 @@ export default function Onboarding() {
         <View style={{ height: 40 }} />
       </ScrollView>
     </KeyboardAvoidingView>
+  )
+
+  // ── STEP 3: Scelta template ──
+  if (step === 3) return (
+    <View style={styles.container}>
+      <View style={styles.stepHeader}>
+        <Text style={styles.stepNum}>3 di 3</Text>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: '100%' }]} />
+        </View>
+      </View>
+      <ScrollView contentContainerStyle={{ padding: 24, gap: 16, backgroundColor: '#F7F8FA', flexGrow: 1 }}>
+        <Text style={styles.stepTitle}>Scegli il tuo stile</Text>
+        <Text style={styles.stepSub}>Il template che preferisci per i tuoi preventivi PDF</Text>
+
+        {/* Selector template */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {[
+            { id: 'pulito', nome: 'Pulito', emoji: '⬜' },
+            { id: 'classico', nome: 'Classico', emoji: '📋' },
+            { id: 'bold', nome: 'Bold', emoji: '🎨' },
+            { id: 'minimal_dark', nome: 'Dark', emoji: '🌙' },
+            { id: 'artigiano', nome: 'Artigiano', emoji: '🪵' },
+          ].map(t => (
+            <TouchableOpacity
+              key={t.id}
+              style={[styles.templateChip, templateScelto === t.id && styles.templateChipActive]}
+              onPress={() => {
+                setTemplateScelto(t.id)
+                if (previewTimeout.current) clearTimeout(previewTimeout.current)
+                previewTimeout.current = setTimeout(() => aggiornaPreview(t.id), 300)
+              }}
+            >
+              <Text style={styles.templateChipEmoji}>{t.emoji}</Text>
+              <Text style={[styles.templateChipText, templateScelto === t.id && styles.templateChipTextActive]}>{t.nome}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Preview */}
+        <View style={styles.previewCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <Text style={styles.stepSub}>Anteprima</Text>
+            {caricandoPreview && <ActivityIndicator size="small" color="#0E9F8E" />}
+          </View>
+          <View style={styles.previewContainer}>
+            {htmlPreview ? (
+              <WebView
+                source={{ html: htmlPreview }}
+                style={{ flex: 1 }}
+                scrollEnabled={true}
+                scalesPageToFit={false}
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
+              />
+            ) : (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#0E9F8E" />
+                <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 12 }}>Caricamento anteprima...</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.nextBtn, saving && styles.nextBtnDisabled]}
+          onPress={completa}
+          disabled={saving}
+        >
+          {saving
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.nextBtnText}>✓ Inizia a usare PreventivoAI</Text>
+          }
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
   )
 
   return null
@@ -379,4 +489,11 @@ const styles = StyleSheet.create({
   aggiungiBtnText: { color: '#0E9F8E', fontSize: 13, fontWeight: '600' },
   skipRow: { gap: 8 },
   skipNote: { fontSize: 12, color: '#9CA3AF', textAlign: 'center' as const },
+  templateChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#fff' },
+  templateChipActive: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A' },
+  templateChipEmoji: { fontSize: 16 },
+  templateChipText: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  templateChipTextActive: { color: '#fff' },
+  previewCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+  previewContainer: { height: 400, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
 })
