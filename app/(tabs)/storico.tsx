@@ -86,56 +86,48 @@ export default function Storico() {
           preventivi.map(p => (
             <View key={p.id} style={styles.card}>
               <View style={styles.cardRowContainer}>
-                {/* Tap su card: apre cartella cliente o espande dettaglio */}
-                <TouchableOpacity style={[styles.cardRow, { flex: 1 }]} onPress={() => {
-                  if (p.cliente_id) {
-                    router.push({ pathname: '/screens/cliente-dettaglio', params: { id: p.cliente_id, nome: p.nome_cliente || 'Cliente' } })
-                  } else {
-                    setAperto(aperto === p.id ? null : p.id)
-                  }
-                }}>
-                  <View style={styles.cardIcon}>
-                    <Text style={styles.cardIconText}>📄</Text>
-                  </View>
-                  <View style={styles.cardBody}>
-                    <Text style={styles.cardCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
-                    {p.titolo && <Text style={styles.cardTitolo}>{p.titolo}</Text>}
-                    <Text style={styles.cardData}>
-                      {new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}
-                    </Text>
-                  </View>
-                  <View style={styles.cardRight}>
-                    <Text style={styles.cardImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
-                    <Text style={[styles.cardStato,
-                      p.stato === 'accettato' ? { color: '#0E9F8E' } :
-                      p.stato === 'rifiutato' ? { color: '#EF4444' } : {}
-                    ]}>{p.stato || 'bozza'}</Text>
-                  </View>
-                </TouchableOpacity>
+  {/* Tap su card: apre cartella cliente o espande dettaglio */}
+  <TouchableOpacity style={[styles.cardRow, { flex: 1 }]} onPress={() => {
+    if (p.cliente_id) {
+      router.push({ pathname: '/screens/cliente-dettaglio', params: { id: p.cliente_id, nome: p.nome_cliente || 'Cliente' } })
+    } else {
+      setAperto(aperto === p.id ? null : p.id)
+    }
+  }}>
+    <View style={styles.cardIcon}>
+      <Text style={styles.cardIconText}>📄</Text>
+    </View>
+    <View style={styles.cardBody}>
+      <Text style={styles.cardCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
+      {p.titolo && <Text style={styles.cardTitolo}>{p.titolo}</Text>}
+      <Text style={styles.cardData}>
+        {new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}
+      </Text>
+    </View>
+  </TouchableOpacity>
 
-                {/* Azioni rapide */}
-                <View style={styles.cardActions}>
-                  <TouchableOpacity onPress={() => scaricaPDF(p)} style={styles.cardActionBtn}>
-                    <Text style={styles.cardActionIcon}>{p.pdf_url ? '📄' : '🔄'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.cardMenuBtn} onPress={() => setAperto(aperto === p.id ? null : p.id)}>
-                    <Text style={styles.cardMenuBtnText}>⋯</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 12 }}>
+    <TouchableOpacity style={{ alignItems: 'flex-end' }} onPress={() => setModalStato(p.id)}>
+      <Text style={styles.cardImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
+      <Text style={[styles.cardStato,
+        p.stato === 'accettato' ? { color: '#0E9F8E' } :
+        p.stato === 'rifiutato' ? { color: '#EF4444' } :
+        p.stato === 'inviato' ? { color: '#1D4ED8' } : {}
+      ]}>{`${p.stato || 'bozza'} ▼`}</Text>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => scaricaPDF(p)}>
+      <Text style={{ fontSize: 16 }}>{p.pdf_url ? '📄' : '🔄'}</Text>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => elimina(p.id)}>
+      <Text style={{ fontSize: 16 }}>🗑</Text>
+    </TouchableOpacity>
+  </View>
+</View>
 
               {/* Dettaglio espanso */}
               {aperto === p.id && (
                 <View style={styles.detail}>
                   {p.testo_preventivo && <Text style={styles.detailText}>{p.testo_preventivo}</Text>}
-
-                  {/* Cambio stato */}
-                  <TouchableOpacity style={styles.statoDropdown} onPress={() => setModalStato(p.id)}>
-                    <Text style={styles.statoDropdownText}>
-                      Stato: <Text style={styles.statoDropdownVal}>{p.stato || 'bozza'}</Text>
-                    </Text>
-                    <Text style={styles.statoDropdownArrow}>▼</Text>
-                  </TouchableOpacity>
 
                   {/* Cronologia versioni */}
                   {p.versione && p.versione > 1 && (
@@ -190,9 +182,6 @@ export default function Storico() {
                     <Text style={styles.editBtnText}>{`✏️ Modifica e genera v${(p.versione || 1) + 1}`}</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.deleteBtn} onPress={() => elimina(p.id)}>
-                    <Text style={styles.deleteBtnText}>🗑 Elimina</Text>
-                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -207,7 +196,11 @@ export default function Storico() {
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Cambia stato</Text>
             {['bozza', 'inviato', 'accettato', 'rifiutato'].map(s => (
-<TouchableOpacity key={s} style={styles.modalOption} onPress={() => { if (modalStato) { cambiaStato(modalStato, s); console.log('EMETTO'); eventBus.emit('aggiorna-home') } setModalStato(null) }}>                <Text style={styles.modalOptionIcon}>{s === 'bozza' ? '📝' : s === 'inviato' ? '📤' : s === 'accettato' ? '✅' : '❌'}</Text>
+              <TouchableOpacity key={s} style={styles.modalOption} onPress={() => {
+                if (modalStato) { cambiaStato(modalStato, s); eventBus.emit('aggiorna-home') }
+                setModalStato(null)
+              }}>
+                <Text style={styles.modalOptionIcon}>{s === 'bozza' ? '📝' : s === 'inviato' ? '📤' : s === 'accettato' ? '✅' : '❌'}</Text>
                 <Text style={styles.modalOptionText}>{s}</Text>
               </TouchableOpacity>
             ))}
@@ -242,7 +235,7 @@ const styles = StyleSheet.create({
   cardImporto: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
   cardStato: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   cardActions: { flexDirection: 'row', alignItems: 'center' },
-  cardActionBtn: { paddingHorizontal: 8, paddingVertical: 20 },
+  cardActionBtn: { paddingHorizontal: 8, paddingVertical: 10 },
   cardActionIcon: { fontSize: 18 },
   detail: { borderTopWidth: 1, borderTopColor: '#F3F4F6', padding: 14, gap: 8 },
   detailText: { fontSize: 12, lineHeight: 20, color: '#6B7280', marginBottom: 4, fontFamily: 'monospace' },
@@ -273,7 +266,7 @@ const styles = StyleSheet.create({
   ripristinaBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
   prevTesto: { fontSize: 12, lineHeight: 20, color: '#6B7280', fontFamily: 'monospace' },
   cardRowContainer: { flexDirection: 'row', alignItems: 'center' },
-  cardMenuBtn: { paddingHorizontal: 10, paddingVertical: 20 },
+  cardMenuBtn: { paddingHorizontal: 10, paddingVertical: 10 },
   cardMenuBtnText: { fontSize: 22, color: '#9CA3AF' },
   cardTitolo: { fontSize: 11, color: '#0E9F8E', marginTop: 1 },
   riprendiBtn: { backgroundColor: '#0E9F8E', borderRadius: 10, padding: 10, alignItems: 'center' as const, marginBottom: 8 },

@@ -44,6 +44,11 @@ export default function Settings() {
   const [mostraModalSegnalazione, setMostraModalSegnalazione] = useState(false)
   const [segnalazione, setSegnalazione] = useState({ tipo: 'bug', titolo: '', descrizione: '', schermata: '' })
   const [inviandoSegnalazione, setInviandoSegnalazione] = useState(false)
+  const [metodiPagamento, setMetodiPagamento] = useState<any[]>([])
+  const [mostraModalMetodo, setMostraModalMetodo] = useState(false)
+  const [metodoInEdit, setMetodoInEdit] = useState<any | null>(null)
+  const [nuovoMetodo, setNuovoMetodo] = useState({ tipo: 'bonifico', nome: '', dati: {} as any, predefinito: false })
+  const [salvandoMetodo, setSalvandoMetodo] = useState(false)
   const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
   const formIniziale = useRef<typeof form | null>(null)
   const formRef = useRef(form)
@@ -54,6 +59,64 @@ export default function Settings() {
   const unitaOptions = ['cad', 'ora', 'giorno', 'mq', 'ml', 'set', 'progetto']
   const categorie = ['videomaker', 'fotografo', 'catering', 'falegname', 'estetista', 'elettricista', 'idraulico', 'imbianchino', 'altro']
   const toni = ['professionale e diretto', 'cordiale e disponibile', 'formale e preciso', 'semplice e informale']
+
+  function apriNuovoMetodo() {
+    setMetodoInEdit(null)
+    setNuovoMetodo({ tipo: 'bonifico', nome: '', dati: {}, predefinito: false })
+    setMostraModalMetodo(true)
+  }
+
+  function apriModificaMetodo(m: any) {
+    setMetodoInEdit(m)
+    setNuovoMetodo({ tipo: m.tipo, nome: m.nome, dati: m.dati || {}, predefinito: m.predefinito })
+    setMostraModalMetodo(true)
+  }
+
+  async function salvaMetodo() {
+    if (!nuovoMetodo.nome.trim()) { Alert.alert('Errore', 'Inserisci un nome per il metodo'); return }
+    setSalvandoMetodo(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const payload = {
+      user_id: user.id,
+      tipo: nuovoMetodo.tipo,
+      nome: nuovoMetodo.nome.trim(),
+      dati: nuovoMetodo.dati,
+      predefinito: nuovoMetodo.predefinito,
+    }
+
+    if (nuovoMetodo.predefinito) {
+      await supabase.from('metodi_pagamento').update({ predefinito: false }).eq('user_id', user.id)
+    }
+
+    if (metodoInEdit) {
+      const { error } = await supabase.from('metodi_pagamento').update(payload).eq('id', metodoInEdit.id)
+      if (!error) setMetodiPagamento(m => m.map(x => x.id === metodoInEdit.id ? { ...x, ...payload } : nuovoMetodo.predefinito ? { ...x, predefinito: false } : x))
+    } else {
+      const { data, error } = await supabase.from('metodi_pagamento').insert(payload).select().single()
+      if (!error && data) {
+        setMetodiPagamento(m => nuovoMetodo.predefinito ? m.map(x => ({ ...x, predefinito: false })).concat(data) : [...m, data])
+      }
+    }
+
+    setSalvandoMetodo(false)
+    setMostraModalMetodo(false)
+  }
+
+  async function eliminaMetodo(id: string) {
+    Alert.alert('Elimina', 'Vuoi eliminare questo metodo di pagamento?', [
+      { text: 'Annulla', style: 'cancel' },
+      { text: 'Elimina', style: 'destructive', onPress: async () => {
+        await supabase.from('metodi_pagamento').delete().eq('id', id)
+        setMetodiPagamento(m => m.filter(x => x.id !== id))
+      }}
+    ])
+  }
+
+  function iconaMetodo(tipo: string) {
+    return tipo === 'bonifico' ? '🏦' : tipo === 'paypal' ? '💙' : tipo === 'contanti' ? '💵' : tipo === 'carta' ? '💳' : '💰'
+  }
 
   async function inviaSegnalazione() {
     if (!segnalazione.titolo.trim() || !segnalazione.descrizione.trim()) {
@@ -148,6 +211,13 @@ export default function Settings() {
       formIniziale.current = nuovoForm
       if (data.logo_url) setLogoUrl(data.logo_url)
     }
+
+    const { data: metodiData } = await supabase
+      .from('metodi_pagamento')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('predefinito', { ascending: false })
+    if (metodiData) setMetodiPagamento(metodiData)
 
     const { data: serviziData } = await supabase
       .from('servizi')
@@ -446,6 +516,13 @@ export default function Settings() {
           ) : null}
         </View>
 
+        <TouchableOpacity
+          style={styles.fiscaleBtn}
+          onPress={() => router.push('/screens/pagamenti')}
+        >
+          <Text style={styles.fiscaleBtnText}>💳 Metodi di pagamento</Text>
+          <Text style={styles.fiscaleBtnArrow}>›</Text>
+        </TouchableOpacity>
         <TouchableOpacity
   style={styles.fiscaleBtn}
   onPress={() => router.push('/screens/fiscale')}

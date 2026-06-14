@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, FlatList, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View
@@ -26,12 +26,12 @@ interface Cliente {
   indirizzo: string | null
 }
 
-// Stato persistente tra navigazioni (reset solo dopo genera PDF o tasto Ripristina)
+//
 const builderState = {
   voci: [] as VocePreventivo[],
   nomeCliente: '',
   noteExtra: '',
-  includiIva: false, // default OFF
+  includiIva: false, //
 }
 
 export default function Builder() {
@@ -49,19 +49,42 @@ export default function Builder() {
   const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', indirizzo: '' })
   const [salvandoCliente, setSalvandoCliente] = useState(false)
   const [mostraCalcoloInverso, setMostraCalcoloInverso] = useState(false)
+  const [metodiPagamento, setMetodiPagamento] = useState<any[]>([{ id: 'contanti-default', tipo: 'contanti', nome: 'Paga in contanti', dati: {}, predefinito: false }])
+  const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<any | null>(null)
+  const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
   const [nettoDesiderato, setNettoDesiderato] = useState('')
   const [lordomCalcolato, setLordoCalcolato] = useState<number | null>(null)
   const [ricercaCliente, setRicercaCliente] = useState("")
+  const params = useLocalSearchParams<{ cliente_id?: string, cliente_nome?: string }>()
 
-  useEffect(() => { caricaServizi(); caricaProfiloFiscale(); caricaClienti() }, [])
+  useEffect(() => {
+  caricaServizi()
+  caricaProfiloFiscale()
+  caricaClienti()
+  caricaMetodiPagamento()
+  if (params.cliente_id && params.cliente_nome) {
+    setClienteSelezionato({ id: params.cliente_id, nome: params.cliente_nome, telefono: null, email: null, indirizzo: null })
+  }
+}, [])
 
-  // Sincronizza stato persistente
+  //
   useEffect(() => {
     builderState.voci = voci
     builderState.nomeCliente = nomeCliente
     builderState.noteExtra = noteExtra
     builderState.includiIva = includiIva
   }, [voci, nomeCliente, noteExtra, includiIva])
+
+  async function caricaMetodiPagamento() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('metodi_pagamento').select('*').eq('user_id', user.id).order('predefinito', { ascending: false })
+    if (data) {
+      setMetodiPagamento([{ id: 'contanti-default', tipo: 'contanti', nome: 'Paga in contanti', dati: {}, predefinito: false }, ...data])
+      const predefinito = data.find((m: any) => m.predefinito)
+      if (predefinito) setMetodoPagamentoSelezionato(predefinito)
+    }
+  }
 
   async function caricaServizi() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -171,24 +194,24 @@ export default function Builder() {
     if (!profiloFiscale) return null
     const p = profiloFiscale
     if (p.regime === 'forfettario') {
-      // netto = lordo + rivalsa - contributi - imposta
-      // rivalsa = lordo * rivalsa%
-      // imponibile = lordo * coeff%
-      // contributi = imponibile * inps%
-      // imposta = imponibile * aliquota%
+      //
+      //
+      //
+      //
+      //
       const rivalsaPerc = p.rivalsa_inps ? p.rivalsa_percentuale / 100 : 0
       const coeffPerc = p.coefficiente_redditivita / 100
       const inpsPerc = p.riduzione_contributiva
         ? p.inps_percentuale * (1 - p.riduzione_percentuale / 100) / 100
         : p.inps_percentuale / 100
       const aliquotaPerc = p.aliquota_sostitutiva / 100
-      // netto = lordo * (1 + rivalsa% - coeff% * inps% - coeff% * aliquota%)
+      //
       const moltiplicatore = 1 + rivalsaPerc - coeffPerc * inpsPerc - coeffPerc * aliquotaPerc
       return netto / moltiplicatore
     }
     if (p.regime === 'ordinario') {
-      // Approssimazione: netto = lordo - irpef - contributi
-      // Usiamo iterazione semplice
+      //
+      //
       let lordo = netto * 1.4
       for (let i = 0; i < 10; i++) {
         const costiDeducibili = lordo * (p.costi_deducibili_percentuale / 100)
@@ -238,18 +261,28 @@ function generaTestoPreventivo() {
       testo += `TOTALE: €${totale.toFixed(0)}\n`
     }
     if (noteExtra) testo += `\nNote: ${noteExtra}`
+    if (metodoPagamentoSelezionato) {
+      const m = metodoPagamentoSelezionato
+      let pagamento = `\nPAGAMENTO: ${m.nome}`
+      if (m.tipo === 'bonifico' && m.dati?.iban) pagamento += `\nIBAN: ${m.dati.iban}`
+      if (m.tipo === 'bonifico' && m.dati?.intestatario) pagamento += `\nIntestatario: ${m.dati.intestatario}`
+      if (m.tipo === 'paypal' && m.dati?.email) pagamento += `\nPayPal: ${m.dati.email}`
+      testo += pagamento
+    }
     return testo
   }
   
   function generaPDF() {
     if (voci.length === 0) { Alert.alert('Preventivo vuoto', 'Aggiungi almeno un servizio.'); return }
-    // Reset stato dopo genera PDF
-    ripristina()
+    const testo = generaTestoPreventivo()
+    const mpId = metodoPagamentoSelezionato?.id || ''
     router.push({
       pathname: '/screens/preventivo-pdf',
       params: {
-        testo: generaTestoPreventivo(),
+        testo,
         cliente_id: clienteSelezionato?.id || '',
+        metodo_pagamento_id: mpId,
+        importo_totale: totaleConIva.toFixed(0),
       }
     })
   }
@@ -402,6 +435,20 @@ function generaTestoPreventivo() {
           </View>
         )}
 
+        {/* Card metodo di pagamento */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>💳 Pagamento</Text>
+          <Text style={styles.cardSub}>Come vuoi essere pagato</Text>
+          <TouchableOpacity style={styles.dropdownBtn} onPress={() => setMostraModalPagamento(true)}>
+            <Text style={styles.dropdownText}>{metodoPagamentoSelezionato ? metodoPagamentoSelezionato.nome : 'Scegli metodo di pagamento'}</Text>
+            <Text style={styles.dropdownArrow}>⌄</Text>
+          </TouchableOpacity>
+          {metodiPagamento.length <= 1 && (
+            <TouchableOpacity onPress={() => router.push('/screens/pagamenti')}>
+              <Text style={{ fontSize: 13, color: '#0E9F8E', textAlign: 'center', paddingTop: 10 }}>Configura altri metodi di pagamento →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Note aggiuntive</Text>
           <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
@@ -582,6 +629,28 @@ function generaTestoPreventivo() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
+      <Modal visible={mostraModalPagamento} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setMostraModalPagamento(false)}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
+            <Text style={styles.modalTitle}>Metodo pagamento</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
+            {metodiPagamento.map(m => (
+              <TouchableOpacity key={m.id} style={[styles.clienteItem, metodoPagamentoSelezionato?.id === m.id && styles.clienteItemActive]} onPress={() => { setMetodoPagamentoSelezionato(m); setMostraModalPagamento(false) }}>
+                <Text style={{ fontSize: 20 }}>{m.tipo === 'bonifico' ? '🏦' : m.tipo === 'paypal' ? '💙' : m.tipo === 'contanti' ? '💵' : m.tipo === 'stripe' ? '🔗' : '💳'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.clienteSelezionatoNome}>{m.nome}</Text>
+                  {m.tipo === 'bonifico' && m.dati?.iban && <Text style={styles.clienteSelezionatoInfo}>{m.dati.iban}</Text>}
+                  {m.tipo === 'paypal' && m.dati?.email && <Text style={styles.clienteSelezionatoInfo}>{m.dati.email}</Text>}
+                </View>
+                {metodoPagamentoSelezionato?.id === m.id && <Text style={{ color: '#0E9F8E', fontSize: 16, fontWeight: '700' }}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
       {/* Modal selezione/creazione cliente */}
       <Modal visible={mostraModalCliente} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
@@ -771,7 +840,9 @@ const styles = StyleSheet.create({
   generateBtn: { backgroundColor: '#0D1B2A', borderRadius: 16, padding: 16, alignItems: 'center' as const },
   generateBtnDisabled: { opacity: 0.4 },
   generateBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  ivaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  dropdownBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12 },
+  dropdownText: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
+  dropdownArrow: { fontSize: 18, color: '#9CA3AF' },  ivaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   ivaLabel: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
   ivaSub: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
   ivaToggle: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },

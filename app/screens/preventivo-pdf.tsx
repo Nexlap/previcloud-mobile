@@ -1,5 +1,4 @@
 import * as FileSystem from 'expo-file-system/legacy'
-import * as Print from 'expo-print'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as Sharing from 'expo-sharing'
 import { useEffect, useRef, useState } from 'react'
@@ -8,18 +7,21 @@ import {
   ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import WebView from 'react-native-webview'
-import { generaPDF as generaPDFApi, salvaPDF as salvaPDFApi } from "../../lib/api/pdf"
+import { creaLinkPagamento, generaPDF as generaPDFApi, generaPDFFile, salvaPDF as salvaPDFApi } from "../../lib/api/pdf"
 import { TEMPLATES } from "../../lib/constants"
+import { eventBus } from '../../lib/eventBus'
 import { supabase } from "../../lib/supabase"
 
 type Params = {
   testo: string
   versione_padre_id: string
   cliente_id: string
+  metodo_pagamento_id: string
+  importo_totale: string
 }
 
 export default function PreventivoPDF() {
-  const { testo: testoParam, versione_padre_id, cliente_id } = useLocalSearchParams<Params>()
+  const { testo: testoParam, versione_padre_id, cliente_id, metodo_pagamento_id, importo_totale } = useLocalSearchParams<Params>()
 
   const [testo] = useState(testoParam || '')
   const [template, setTemplate] = useState('pulito')
@@ -38,10 +40,18 @@ export default function PreventivoPDF() {
   const [htmlPreview, setHtmlPreview] = useState('')
   const [caricandoPreview, setCaricandoPreview] = useState(false)
   const [toastVisible, setToastVisible] = useState(false)
+  const [metodiPagamento, setMetodiPagamento] = useState<any[]>([])
+  const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<any | null>(null)
+  const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
+  const [abbonamentoAttivo, setAbbonamentoAttivo] = useState(false)
+  const [abImporto, setAbImporto] = useState('')
+  const [abGiorno, setAbGiorno] = useState('1')
+  const [abMensilita, setAbMensilita] = useState('')
+  const [abVisibileNelPDF, setAbVisibileNelPDF] = useState(true)
   const toastOpacity = useRef(new Animated.Value(0)).current
   const previewTimeout = useRef<any>(null)
 
-  // ── Inizializzazione ──────────────────────────────────────────────
+  // 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.replace('/(auth)/login'); return }
@@ -49,6 +59,7 @@ export default function PreventivoPDF() {
     })
     caricaTemplatePref()
     caricaClienti()
+    caricaMetodiPagamento()
   }, [])
 
   useEffect(() => {
@@ -58,20 +69,40 @@ export default function PreventivoPDF() {
     }
   }, [cliente_id])
 
-  // Aggiorna preview con debounce 300ms
+  // 
   useEffect(() => {
     if (!token || !testo) return
     if (previewTimeout.current) clearTimeout(previewTimeout.current)
     previewTimeout.current = setTimeout(() => aggiornaPreview(), 300)
-  }, [template, token, testo, clienteSelezionato, nascondiPrezzi])
+  }, [template, token, testo, clienteSelezionato, nascondiPrezzi, metodoPagamentoSelezionato, abbonamentoAttivo, abImporto, abVisibileNelPDF])
 
-  // ── Preview ───────────────────────────────────────────────────────
+  // 
+  function importoPreventivo() {
+    const match = testo.match(/TOTALE[:\s]*?ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬?\s*([\d.,]+)/i)
+    return match ? parseFloat(match[1].replace(',', '.')) : 0
+  }
+
+  async function testoConPagamento() {
+    let testoBase = testo
+
+    if (abbonamentoAttivo && abVisibileNelPDF && abImporto) {
+      testoBase += `\nCANONE MENSILE: EUR ${abImporto}/mese`
+    }
+
+    if (!metodoPagamentoSelezionato) return testoBase
+    const m = metodoPagamentoSelezionato
+    if (m.tipo === 'stripe') {
+      const link = await creaLinkPagamento(importoPreventivo(), 'Preventivo', token)
+      return testoBase + `\nPAGAMENTO: Online con carta\nLINK PAGAMENTO: ${link}`
+    }
+    return testoBase + `\nPAGAMENTO: ${m.nome}${m.tipo === 'bonifico' && m.dati?.iban ? '\nIBAN: ' + m.dati.iban : ''}${m.tipo === 'paypal' && m.dati?.email ? '\nPayPal: ' + m.dati.email : ''}`
+  }
   async function aggiornaPreview() {
     if (!token || !testo) return
     setCaricandoPreview(true)
     try {
-      // Preview usa versione_padre_id = null per non incrementare il contatore
-      const data = await generaPDFApi({ testo, template, token, versione_padre_id: null, cliente_id: clienteSelezionato?.id || '', nascondi_prezzi: nascondiPrezzi })
+      // 
+      const data = await generaPDFApi({ testo: await testoConPagamento(), template, token, versione_padre_id: null, cliente_id: clienteSelezionato?.id || '', nascondi_prezzi: nascondiPrezzi })
       if (data.html) {
         const htmlScalato = data.html.replace('</head>', `
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -99,6 +130,18 @@ export default function PreventivoPDF() {
     if (data) setClienti(data)
   }
 
+  async function caricaMetodiPagamento() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('metodi_pagamento').select('*').eq('user_id', user.id).order('predefinito', { ascending: false })
+    if (data) {
+      setMetodiPagamento(data)
+      const metodoDaParam = metodo_pagamento_id ? data.find((m: any) => m.id === metodo_pagamento_id) : null
+      const predefinito = data.find((m: any) => m.predefinito)
+      if (metodoDaParam || predefinito) setMetodoPagamentoSelezionato(metodoDaParam || predefinito)
+    }
+  }
+
   async function aggiungiESelezionaCliente() {
     if (!nuovoNomeCliente.trim()) return
     const { data: { user } } = await supabase.auth.getUser()
@@ -114,37 +157,78 @@ export default function PreventivoPDF() {
     }
   }
 
-  // ── Genera e condividi PDF ────────────────────────────────────────
+  // 
   async function generaPDF() {
     setGenerando(true)
     try {
-      // Genera HTML dal backend
-      const data = await generaPDFApi({ testo, template, token, versione_padre_id: versione_padre_id || null, cliente_id: clienteSelezionato?.id || '', nascondi_prezzi: nascondiPrezzi })
+      const data = await generaPDFFile({ testo: await testoConPagamento(), template, token, versione_padre_id: versione_padre_id || null, cliente_id: clienteSelezionato?.id || '', nascondi_prezzi: nascondiPrezzi })
+      const uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
+      await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as any })
 
-      const { uri } = await Print.printToFileAsync({ html: data.html, base64: false })
-
-      // Salva PDF su Supabase Storage
+      // 
       let pdfUrl = ''
       try {
-        const pdfBase64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any })
-        pdfUrl = await salvaPDFApi(pdfBase64, token)
+        pdfUrl = await salvaPDFApi(data.pdf_base64, token)
         if (pdfUrl) setPdfUrlGenerato(pdfUrl)
       } catch (e) { console.log('Salvataggio PDF fallito:', e) }
 
-      // Salva automaticamente con titolo provvisorio
+      // 
       const titoloAuto = clienteSelezionato
         ? `Preventivo ${clienteSelezionato.nome}`
         : `Preventivo ${new Date().toLocaleDateString('it-IT')}`
       const idSalvato = await salvaSuSupabase(data.versione, titoloAuto, pdfUrl)
       if (idSalvato) setPreventivoSalvatoId(idSalvato)
 
-      // Condividi
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Invia preventivo', UTI: 'com.adobe.pdf' })
+        if (idSalvato) {
+          Alert.alert(
+            'Preventivo inviato?',
+            'Vuoi segnare questo preventivo come inviato?',
+            [
+              { text: 'No', style: 'cancel' },
+              { text: 'Si, segna come inviato', onPress: async () => {
+                await supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', idSalvato)
+                eventBus.emit('aggiorna-home')
+              }}
+            ]
+          )
+        }
       }
 
-      // Toast + popup rinomina
+      // 
       mostraToast()
+      // Crea abbonamento automaticamente se attivo
+      if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const importo = parseFloat(abImporto.replace(',', '.'))
+          const giorno = parseInt(abGiorno)
+          const mensilita = abMensilita ? parseInt(abMensilita) : null
+          if (importo > 0 && giorno >= 1 && giorno <= 31) {
+            const { data: ab } = await supabase.from('abbonamenti').insert({
+              user_id: user.id,
+              cliente_id: clienteSelezionato.id,
+              importo_default: importo,
+              giorno_scadenza: giorno,
+              attivo: true,
+              preventivo_id: idSalvato,
+              numero_mensilita: mensilita,
+              tipo: mensilita ? 'rate' : 'canone'
+            }).select().single()
+            if (ab) {
+              const ora = new Date()
+              const inserimenti = mensilita
+                ? Array.from({ length: mensilita }, (_, i) => {
+                    const d = new Date(ora.getFullYear(), ora.getMonth() + i, 1)
+                    return { abbonamento_id: ab.id, mese: d.getMonth() + 1, anno: d.getFullYear(), importo, acconto: 0, stato: 'da_incassare' }
+                  })
+                : [{ abbonamento_id: ab.id, mese: ora.getMonth() + 1, anno: ora.getFullYear(), importo, acconto: 0, stato: 'da_incassare' }]
+              await supabase.from('rate_abbonamento').insert(inserimenti)
+            }
+          }
+        }
+      }
       setTitolo(clienteSelezionato ? `Preventivo ${clienteSelezionato.nome}` : '')
       setTimeout(() => setMostraModalTitolo(true), 800)
 
@@ -158,8 +242,8 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  // Estrai il totale dal testo del preventivo
-  const match = testo.match(/TOTALE[:\s]*€?\s*([\d.,]+)/i)
+  // 
+  const match = testo.match(/TOTALE[:\s]*?ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬?\s*([\d.,]+)/i)
   const importo = match ? parseFloat(match[1].replace(',', '.')) : null
 
   const { data } = await supabase.from('preventivi').insert({
@@ -183,6 +267,7 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
     await supabase.from('preventivi').update({ titolo: nuovoTitolo }).eq('id', preventivoSalvatoId)
   }
 
+
   async function salvaTemplate(tmpl: string) {
     setTemplate(tmpl)
     const { data: { user } } = await supabase.auth.getUser()
@@ -199,12 +284,12 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
     ]).start(() => setToastVisible(false))
   }
 
-  // ── Render ────────────────────────────────────────────────────────
+  // 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
+          <Text style={styles.backText}>ÃƒÂ¢Ã¢â‚¬Â Ã‚Â</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Preventivo</Text>
         <View style={{ width: 50 }} />
@@ -261,7 +346,7 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
         <View style={styles.toggleRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.toggleLabel}>Tariffa a corpo</Text>
-            <Text style={styles.toggleSub}>Nasconde i prezzi delle singole voci — mostra solo il totale</Text>
+            <Text style={styles.toggleSub}>Nasconde i prezzi delle singole voci - mostra solo il totale</Text>
           </View>
           <Switch
             value={nascondiPrezzi}
@@ -271,22 +356,105 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
           />
         </View>
 
+        {/* Toggle abbonamento mensile */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Abbonamento mensile</Text>
+              <Text style={styles.cardSub}>Configura un canone ricorrente per questo cliente</Text>
+            </View>
+            <Switch
+              value={abbonamentoAttivo}
+              onValueChange={(v) => {
+                setAbbonamentoAttivo(v)
+                if (v && importo_totale) setAbImporto(importo_totale)
+              }}
+              trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
+              thumbColor="#fff"
+            />
+          </View>
+          {abbonamentoAttivo && (
+            <View style={{ gap: 10, marginTop: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.abLabel}>IMPORTO MENSILE (EUR)</Text>
+                  <TextInput
+                    style={styles.abInput}
+                    value={abImporto}
+                    onChangeText={setAbImporto}
+                    keyboardType="decimal-pad"
+                    placeholder="es. 400"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.abLabel}>GIORNO SCADENZA</Text>
+                  <TextInput
+                    style={styles.abInput}
+                    value={abGiorno}
+                    onChangeText={setAbGiorno}
+                    keyboardType="number-pad"
+                    placeholder="es. 1"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+              </View>
+              <View>
+                <Text style={styles.abLabel}>N. MENSILITA (opzionale)</Text>
+                <TextInput
+                  style={styles.abInput}
+                  value={abMensilita}
+                  onChangeText={setAbMensilita}
+                  keyboardType="number-pad"
+                  placeholder="es. 12 - lascia vuoto per canone aperto"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '500', color: '#0D1B2A' }}>Mostra nel PDF</Text>
+                  <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Aggiunge il canone mensile al documento</Text>
+                </View>
+                <Switch
+                  value={abVisibileNelPDF}
+                  onValueChange={setAbVisibileNelPDF}
+                  trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
+                  thumbColor="#fff"
+                />
+              </View>
+            </View>
+          )}
+        </View>
+
         {/* Cliente */}
         <TouchableOpacity style={styles.clienteBtn} onPress={() => setMostraModalCliente(true)}>
-          <Text style={styles.clienteBtnIcon}>👤</Text>
-          <View style={styles.clienteBtnBody}>
-            <Text style={styles.clienteBtnLabel}>Cliente</Text>
-            <Text style={styles.clienteBtnVal}>
-              {clienteSelezionato ? clienteSelezionato.nome : 'Nessuno — tocca per associare'}
-            </Text>
-          </View>
-          <Text style={styles.clienteBtnArrow}>›</Text>
-        </TouchableOpacity>
+  <Text style={styles.clienteBtnIcon}>ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¤</Text>
+  <View style={styles.clienteBtnBody}>
+    <Text style={styles.clienteBtnLabel}>Cliente</Text>
+    <Text style={styles.clienteBtnVal}>
+      {clienteSelezionato ? clienteSelezionato.nome : 'Nessuno'}
+    </Text>
+  </View>
+  <Text style={styles.clienteBtnArrow}>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº</Text>
+</TouchableOpacity>
+
+        {/* Card metodo pagamento */}
+        {metodoPagamentoSelezionato && (
+  <View style={styles.pagamentoInfo}>
+    <Text style={styles.clienteBtnIcon}>ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â³</Text>
+    <View style={styles.clienteBtnBody}>
+      <Text style={styles.clienteBtnLabel}>Pagamento</Text>
+      <Text style={styles.clienteBtnVal}>
+        {metodoPagamentoSelezionato.tipo === 'stripe' ? 'Online con carta' : metodoPagamentoSelezionato.nome}
+      </Text>
+    </View>
+  </View>
+)}
 
         {versione_padre_id && (
           <View style={styles.versionBox}>
             <Text style={styles.versionText}>
-              📋 Stai creando una nuova versione. La precedente rimane nello storico.
+              Stai creando una nuova versione. La precedente rimane nello storico.
             </Text>
           </View>
         )}
@@ -298,7 +466,7 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
         >
           {generando
             ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.generateBtnText}>📄 Genera PDF e condividi</Text>
+            : <Text style={styles.generateBtnText}>Genera PDF e condividi</Text>
           }
         </TouchableOpacity>
 
@@ -308,17 +476,63 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
       {/* Toast */}
       {toastVisible && (
         <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
-          <Text style={styles.toastText}>✓ Preventivo salvato</Text>
+          <Text style={styles.toastText}>Preventivo salvato</Text>
         </Animated.View>
       )}
+
+      {/* Modal selezione metodo pagamento */}
+      <Modal visible={mostraModalPagamento} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Metodo di pagamento</Text>
+            <TouchableOpacity onPress={() => setMostraModalPagamento(false)}>
+              <Text style={styles.modalClose}>x</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
+            <TouchableOpacity
+              style={[styles.clienteItem, !metodoPagamentoSelezionato && styles.clienteItemActive]}
+              onPress={() => { setMetodoPagamentoSelezionato(null); setMostraModalPagamento(false) }}
+            >
+              <Text style={{ fontSize: 13, color: '#6B7280' }}>NO</Text>
+              <Text style={[styles.clienteItemNome, { flex: 1 }]}>Nessun metodo</Text>
+              {!metodoPagamentoSelezionato && <Text style={{ color: '#0E9F8E', fontSize: 13, fontWeight: '700' }}>OK</Text>}
+            </TouchableOpacity>
+            {metodiPagamento.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                <Text style={{ fontSize: 14, color: '#9CA3AF' }}>Nessun metodo configurato</Text>
+                <TouchableOpacity onPress={() => { setMostraModalPagamento(false); router.push('/screens/pagamenti') }} style={{ marginTop: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#0E9F8E', fontWeight: '600' }}>Configura nelle impostazioni</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              metodiPagamento.map(m => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.clienteItem, metodoPagamentoSelezionato?.id === m.id && styles.clienteItemActive]}
+                  onPress={() => { setMetodoPagamentoSelezionato(m); setMostraModalPagamento(false) }}
+                >
+                  <Text style={{ fontSize: 12, color: '#6B7280', width: 44 }}>{m.tipo.toUpperCase().slice(0, 4)}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.clienteItemNome}>{m.nome}</Text>
+                    {m.tipo === 'bonifico' && m.dati?.iban && <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{m.dati.iban}</Text>}
+                    {m.tipo === 'paypal' && m.dati?.email && <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{m.dati.email}</Text>}
+                  </View>
+                  {metodoPagamentoSelezionato?.id === m.id && <Text style={{ color: '#0E9F8E', fontSize: 13, fontWeight: '700' }}>OK</Text>}
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Modal selezione cliente */}
       <Modal visible={mostraModalCliente} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>A chi è questo preventivo?</Text>
+            <Text style={styles.modalTitle}>A chi e questo preventivo?</Text>
             <TouchableOpacity onPress={() => setMostraModalCliente(false)}>
-              <Text style={styles.modalClose}>✕</Text>
+              <Text style={styles.modalClose}>x</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.modalTabs}>
@@ -339,7 +553,7 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
                 <View style={styles.modalEmpty}>
                   <Text style={styles.modalEmptyText}>Nessun cliente ancora</Text>
                   <TouchableOpacity onPress={() => setModalTab('nuovo')}>
-                    <Text style={styles.modalEmptyLink}>Aggiungi il primo →</Text>
+                    <Text style={styles.modalEmptyLink}>Aggiungi il primo</Text>
                   </TouchableOpacity>
                 </View>
               }
@@ -352,7 +566,7 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
                     <Text style={styles.clienteItemAvatarText}>{item.nome.charAt(0).toUpperCase()}</Text>
                   </View>
                   <Text style={styles.clienteItemNome}>{item.nome}</Text>
-                  {clienteSelezionato?.id === item.id && <Text style={styles.clienteItemCheck}>✓</Text>}
+                  {clienteSelezionato?.id === item.id && <Text style={styles.clienteItemCheck}>OK</Text>}
                 </TouchableOpacity>
               )}
             />
@@ -375,7 +589,7 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
                 <Text style={styles.modalNewBtnText}>Aggiungi e seleziona</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalSkipBtn} onPress={() => { setClienteSelezionato(null); setMostraModalCliente(false) }}>
-                <Text style={styles.modalSkipText}>Salta — senza cliente</Text>
+                <Text style={styles.modalSkipText}>Salta - senza cliente</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -387,7 +601,7 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
         <View style={styles.titoloOverlay}>
           <View style={styles.titoloBox}>
             <Text style={styles.titoloTitle}>Vuoi rinominarlo?</Text>
-            <Text style={styles.titoloSub}>Il preventivo è già salvato — puoi dargli un nome più preciso</Text>
+            <Text style={styles.titoloSub}>Il preventivo e gia salvato - puoi dargli un nome piu preciso</Text>
             <TextInput
               style={styles.titoloInput}
               value={titolo}
@@ -400,11 +614,12 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
               <Text style={styles.titoloSaveBtnText}>Aggiorna nome</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.titoloSkipBtn} onPress={() => setMostraModalTitolo(false)}>
-              <Text style={styles.titoloSkipText}>Va bene così</Text>
+              <Text style={styles.titoloSkipText}>Va bene cosi</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+
     </View>
   )
 }
@@ -480,4 +695,7 @@ const styles = StyleSheet.create({
   titoloSaveBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' as const },
   titoloSkipBtn: { padding: 10, alignItems: 'center' as const },
   titoloSkipText: { fontSize: 13, color: '#9CA3AF' },
+  pagamentoInfo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E7EB', gap: 12 },
+  abLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8, marginBottom: 4 },
+  abInput: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
 })

@@ -9,15 +9,15 @@ import { convertiRecap } from "../../lib/api/pdf"
 import { supabase } from "../../lib/supabase"
 import { Messaggio } from "../../lib/types"
 
-// Parametri di navigazione accettati da questa schermata
+//
 type Params = {
-  trascrizione: string       // testo da registrazione vocale
+  trascrizione: string       //
   trascrizioneId: string
-  preventivo_id: string      // bozza da riprendere
-  testo_modifica: string     // preventivo esistente da modificare
+  preventivo_id: string      //
+  testo_modifica: string     //
   versione_padre_id: string
   versione_numero: string
-  cliente_id: string         // cliente preselezionato
+  cliente_id: string         //
   cliente_nome: string
 }
 
@@ -25,7 +25,7 @@ export default function Nuovo() {
   const params = useLocalSearchParams<Params>()
   const navigation = useNavigation()
 
-  // ── Stato chat ────────────────────────────────────────────────────
+  //
   const [input, setInput] = useState('')
   const [messaggi, setMessaggi] = useState<Messaggio[]>([])
   const [loading, setLoading] = useState(false)
@@ -34,8 +34,11 @@ export default function Nuovo() {
   const [preventivo, setPreventivo] = useState('')
   const [salvato, setSalvato] = useState(false)
   const [modalitaScelta, setModalitaScelta] = useState(true)
+  const [metodiPagamento, setMetodiPagamento] = useState<any[]>([])
+  const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<any | null>(null)
+  const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
 
-  // ── Stato cliente rilevato ────────────────────────────────────────
+  //
   const [clienteIdAttivo, setClienteIdAttivo] = useState('')
   const [clienteRilevato, setClienteRilevato] = useState<{ id: string, nome: string } | null>(null)
   const [clientiSuggeriti, setClientiSuggeriti] = useState<{ id: string, nome: string, telefono: string | null, email: string | null }[]>([])
@@ -46,19 +49,43 @@ export default function Nuovo() {
 
   const scrollRef = useRef<ScrollView>(null)
 
-  // ── Inizializzazione ──────────────────────────────────────────────
+  //
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.replace('/(auth)/login'); return }
       setToken(session.access_token)
     })
+    caricaMetodiPagamento()
   }, [])
 
+  async function caricaMetodiPagamento() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('metodi_pagamento').select('*').eq('user_id', user.id).order('predefinito', { ascending: false })
+    if (data) {
+      setMetodiPagamento(data)
+      const predefinito = data.find((m: any) => m.predefinito)
+      if (predefinito) setMetodoPagamentoSelezionato(predefinito)
+    }
+  }
+
+  function parametriPDF(testo: string) {
+    return {
+      testo,
+      versione_padre_id: params.versione_padre_id || '',
+      cliente_id: clienteIdAttivo || params.cliente_id || '',
+      metodo_pagamento_id: metodoPagamentoSelezionato?.id || ''
+    }
+  }
+
   useEffect(() => {
-    if (params.cliente_id) setClienteIdAttivo(params.cliente_id)
+    if (params.cliente_id) {
+      setClienteIdAttivo(params.cliente_id)
+      if (params.cliente_nome) setClienteRilevato({ id: params.cliente_id, nome: params.cliente_nome })
+    }
   }, [params.cliente_id])
 
-  // Avvia chat da registrazione vocale
+  //
   useEffect(() => {
     if (params.trascrizione && messaggi.length === 0) {
       setModalitaScelta(false)
@@ -66,7 +93,7 @@ export default function Nuovo() {
     }
   }, [params.trascrizione])
 
-  // Avvia chat da modifica preventivo esistente
+  //
   useEffect(() => {
     if (params.testo_modifica && messaggi.length === 0) {
       setModalitaScelta(false)
@@ -77,7 +104,7 @@ export default function Nuovo() {
     }
   }, [params.testo_modifica])
 
-  // Riprendi bozza
+  //
   useEffect(() => {
     if (params.preventivo_id) {
       supabase.from('preventivi')
@@ -91,7 +118,7 @@ export default function Nuovo() {
     }
   }, [params.preventivo_id])
 
-  // Popup salva bozza all'uscita
+  //
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
       if (messaggi.length === 0 && !recap) return
@@ -120,7 +147,7 @@ export default function Nuovo() {
     return unsubscribe
   }, [messaggi, recap, preventivo])
 
-  // ── Gestione cliente rilevato dall'AI ─────────────────────────────
+  //
   async function gestisciClienteDaRisposta(nome: string) {
     try {
       const risultati = await cercaCliente(nome, token)
@@ -150,7 +177,7 @@ export default function Nuovo() {
     setMostraFormDatiCliente(false)
   }
 
-  // ── Invio messaggio ───────────────────────────────────────────────
+  //
   async function invia(testoForzato?: string) {
     const testo = (testoForzato || input).trim()
     if (!testo || loading) return
@@ -163,7 +190,7 @@ export default function Nuovo() {
     try {
       let reply = await inviaMessaggio(nuovi, token, clienteIdAttivo)
 
-      // Intercetta nome cliente rilevato dall'AI
+      //
       if (reply.includes('CLIENTE:') && !clienteIdAttivo) {
         const match = reply.match(/CLIENTE:([^\n]+)/)
         if (match) {
@@ -193,7 +220,7 @@ export default function Nuovo() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100)
   }
 
-  // ── Salva preventivo grezzo nello storico ─────────────────────────
+  //
   async function salva() {
     if (!preventivo || salvato) return
     const match = preventivo.match(/TOTALE[:\s]*€?\s*([\d.,]+)/i)
@@ -221,7 +248,7 @@ export default function Nuovo() {
     setModalitaScelta(true)
   }
 
-  // ── Render ────────────────────────────────────────────────────────
+  //
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
@@ -287,6 +314,14 @@ export default function Nuovo() {
               <Text style={styles.recapHeaderSub}>Conferma o modifica prima di generare</Text>
             </View>
             <Text style={styles.recapText}>{recap}</Text>
+            <TouchableOpacity style={styles.paymentCard} onPress={() => setMostraModalPagamento(true)}>
+              <Text style={styles.paymentIcon}>{metodoPagamentoSelezionato ? (metodoPagamentoSelezionato.tipo === 'bonifico' ? '🏦' : metodoPagamentoSelezionato.tipo === 'paypal' ? '💙' : metodoPagamentoSelezionato.tipo === 'contanti' ? '💵' : '💳') : '💳'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.paymentLabel}>Pagamento</Text>
+                <Text style={styles.paymentValue}>{metodoPagamentoSelezionato ? metodoPagamentoSelezionato.nome : 'Nessun metodo selezionato'}</Text>
+              </View>
+              <Text style={styles.paymentArrow}>›</Text>
+            </TouchableOpacity>
             <View style={styles.recapActions}>
               <TouchableOpacity
                 style={styles.recapConfirmBtn}
@@ -297,7 +332,7 @@ export default function Nuovo() {
                     setRecap('')
                     router.push({
                       pathname: '/screens/preventivo-pdf',
-                      params: { testo: preventivo, versione_padre_id: params.versione_padre_id || '', cliente_id: clienteIdAttivo || params.cliente_id || '' }
+                      params: parametriPDF(preventivo)
                     })
                   } catch (e: any) { Alert.alert('Errore', e.message) }
                   setLoading(false)
@@ -330,9 +365,16 @@ export default function Nuovo() {
           <TouchableOpacity style={[styles.saveBtn, salvato && styles.saveBtnDone]} onPress={salva} disabled={salvato}>
             <Text style={styles.saveBtnText}>{salvato ? '✓ Salvato nello storico' : 'Salva nello storico'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity style={styles.paymentCard} onPress={() => setMostraModalPagamento(true)}>
+            <Text style={styles.paymentIcon}>{metodoPagamentoSelezionato ? (metodoPagamentoSelezionato.tipo === 'bonifico' ? '🏦' : metodoPagamentoSelezionato.tipo === 'paypal' ? '💙' : metodoPagamentoSelezionato.tipo === 'contanti' ? '💵' : '💳') : '💳'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.paymentLabel}>Pagamento</Text>
+              <Text style={styles.paymentValue}>{metodoPagamentoSelezionato ? metodoPagamentoSelezionato.nome : 'Nessun metodo selezionato'}</Text>
+            </View>
+            <Text style={styles.paymentArrow}>›</Text>
+          </TouchableOpacity>          <TouchableOpacity
             style={styles.pdfBtn}
-            onPress={() => router.push({ pathname: '/screens/preventivo-pdf', params: { testo: preventivo, versione_padre_id: params.versione_padre_id || '' } })}
+            onPress={() => router.push({ pathname: '/screens/preventivo-pdf', params: parametriPDF(preventivo) })}
           >
             <Text style={styles.pdfBtnText}>📄 Genera PDF professionale</Text>
           </TouchableOpacity>
@@ -396,6 +438,46 @@ export default function Nuovo() {
         </View>
       )}
 
+      {/* Modal metodo pagamento */}
+      {mostraModalPagamento && (
+        <View style={styles.clienteModalOverlay}>
+          <View style={styles.clienteModalBox}>
+            <Text style={styles.clienteModalTitolo}>Metodo di pagamento</Text>
+            <TouchableOpacity
+              style={[styles.paymentOption, !metodoPagamentoSelezionato && styles.paymentOptionActive]}
+              onPress={() => { setMetodoPagamentoSelezionato(null); setMostraModalPagamento(false) }}
+            >
+              <Text style={styles.paymentIcon}>🚫</Text>
+              <Text style={styles.paymentOptionText}>Nessun metodo</Text>
+              {!metodoPagamentoSelezionato && <Text style={styles.paymentCheck}>✓</Text>}
+            </TouchableOpacity>
+            {metodiPagamento.length === 0 ? (
+              <TouchableOpacity style={styles.clienteModalBtn} onPress={() => { setMostraModalPagamento(false); router.push('/screens/pagamenti') }}>
+                <Text style={styles.clienteModalBtnText}>Configura nelle impostazioni</Text>
+              </TouchableOpacity>
+            ) : (
+              metodiPagamento.map(m => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.paymentOption, metodoPagamentoSelezionato?.id === m.id && styles.paymentOptionActive]}
+                  onPress={() => { setMetodoPagamentoSelezionato(m); setMostraModalPagamento(false) }}
+                >
+                  <Text style={styles.paymentIcon}>{m.tipo === 'bonifico' ? '🏦' : m.tipo === 'paypal' ? '💙' : m.tipo === 'contanti' ? '💵' : '💳'}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.paymentOptionText}>{m.nome}</Text>
+                    {m.tipo === 'bonifico' && m.dati?.iban && <Text style={styles.paymentOptionSub}>{m.dati.iban}</Text>}
+                    {m.tipo === 'paypal' && m.dati?.email && <Text style={styles.paymentOptionSub}>{m.dati.email}</Text>}
+                  </View>
+                  {metodoPagamentoSelezionato?.id === m.id && <Text style={styles.paymentCheck}>✓</Text>}
+                </TouchableOpacity>
+              ))
+            )}
+            <TouchableOpacity style={styles.clienteModalSkip} onPress={() => setMostraModalPagamento(false)}>
+              <Text style={styles.clienteModalSkipText}>Chiudi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       {/* Modal riconoscimento cliente */}
       {mostraModalCliente && (
         <View style={styles.clienteModalOverlay}>
@@ -526,6 +608,16 @@ const styles = StyleSheet.create({
   recapConfirmText: { color: '#fff', fontSize: 14, fontWeight: '600' as const },
   recapEditBtn: { flex: 1, backgroundColor: '#F7F8FA', borderRadius: 12, padding: 12, alignItems: 'center' as const, borderWidth: 1, borderColor: '#E5E7EB' },
   recapEditText: { color: '#374151', fontSize: 14, fontWeight: '500' as const },
+  paymentCard: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 12, margin: 14, marginTop: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  paymentIcon: { fontSize: 20 },
+  paymentLabel: { fontSize: 10, color: '#9CA3AF', fontWeight: '700', textTransform: 'uppercase' as const, letterSpacing: 0.5 },
+  paymentValue: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
+  paymentArrow: { fontSize: 20, color: '#9CA3AF' },
+  paymentOption: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  paymentOptionActive: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
+  paymentOptionText: { fontSize: 14, color: '#0D1B2A', fontWeight: '600' },
+  paymentOptionSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  paymentCheck: { color: '#0E9F8E', fontSize: 16, fontWeight: '700' },
   clienteRilevatoBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#EBF3FF', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#BFDBFE' },
   clienteRilevatoBadgeText: { fontSize: 13, color: '#1E40AF', fontWeight: '500' },
   clienteRilevatoBadgeRemove: { fontSize: 16, color: '#9CA3AF', padding: 4 },

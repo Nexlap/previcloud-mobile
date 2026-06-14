@@ -3,25 +3,30 @@ import { router, useLocalSearchParams, useNavigation } from 'expo-router'
 import * as Sharing from 'expo-sharing'
 import { useEffect, useState } from 'react'
 import {
-  ActivityIndicator, Alert, BackHandler, Modal,
+  ActivityIndicator, Alert, BackHandler,
+  Linking,
+  Modal,
   RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
+import { creaLinkPagamentoRata } from '../../lib/api/pdf'
 import { eventBus } from '../../lib/eventBus'
+import { RataAbbonamento, useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { supabase } from '../../lib/supabase'
 import { Cliente, Preventivo, Trascrizione } from '../../lib/types'
+
+const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
 export default function ClienteDettaglio() {
   const { id, nome } = useLocalSearchParams<{ id: string, nome: string }>()
   const navigation = useNavigation()
 
-  // ── Stato cliente e UI ────────────────────────────────────────────
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [trascrizioni, setTrascrizioni] = useState<Trascrizione[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [tab, setTab] = useState<'preventivi' | 'chiamate'>('preventivi')
+  const [tab, setTab] = useState<'preventivi' | 'chiamate' | 'abbonamento'>('preventivi')
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
   const [cronologiaAperta, setCronologiaAperta] = useState<string | null>(null)
@@ -41,17 +46,33 @@ export default function ClienteDettaglio() {
   const [modalitaSelezione, setModalitaSelezione] = useState(false)
   const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
 
-  // ── Hook preventivi con useFocusEffect: si aggiorna automaticamente ──
+  // Abbonamento
+  const [mostraModalNuovoAb, setMostraModalNuovoAb] = useState(false)
+  const [mostraModalModificaAb, setMostraModalModificaAb] = useState(false)
+  const [abImporto, setAbImporto] = useState('')
+  const [abGiorno, setAbGiorno] = useState('1')
+  const [abMensilita, setAbMensilita] = useState('')
+  const [rataSelezionata, setRataSelezionata] = useState<RataAbbonamento | null>(null)
+  const [pagamentoImporto, setPagamentoImporto] = useState('')
+  const [pagamentoNota, setPagamentoNota] = useState('')
+  const [invioReminderLoading, setInvioReminderLoading] = useState<string | null>(null)
+
   const {
     preventivi, totaleValore,
     cambiaStato, eliminaPreventivo: eliminaPrev, rinominaPreventivo, spostaPreventivo,
     onRefresh: onRefreshPreventivi
   } = usePreventivi({ clienteId: id })
 
-  // Carica cliente e trascrizioni al mount
+  const {
+    abbonamento, rate, loading: loadingAb,
+    creaAbbonamento, aggiornaAbbonamento, eliminaAbbonamento,
+    registraPagamento, azzeraPagamento,
+    aggiungiRataMese,
+    totaleIncassato, totaleParziale, carica: caricaAb
+  } = useAbbonamento(id)
+
   useEffect(() => { carica() }, [])
 
-  // Popup salva/abbandona modifiche cliente
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
       if (!modificheNonSalvate || !mostraModalRinominaCliente) return
@@ -65,7 +86,6 @@ export default function ClienteDettaglio() {
     return unsubscribe
   }, [modificheNonSalvate, mostraModalRinominaCliente, navigation])
 
-  // Back hardware Android con modal aperto
   useEffect(() => {
     if (!mostraModalRinominaCliente) return
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -94,7 +114,7 @@ export default function ClienteDettaglio() {
 
   async function onRefresh() {
     setRefreshing(true)
-    await Promise.all([carica(), onRefreshPreventivi()])
+    await Promise.all([carica(), onRefreshPreventivi(), caricaAb()])
     setRefreshing(false)
   }
 
@@ -155,7 +175,6 @@ export default function ClienteDettaglio() {
     }
   }
 
-  // Selezione multipla
   function toggleSelezione(prevId: string) {
     setSelezione(s => {
       if (s.includes(prevId)) {
@@ -218,6 +237,57 @@ export default function ClienteDettaglio() {
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
+  function statoRataColore(stato: string) {
+    if (stato === 'incassato') return '#0E9F8E'
+    if (stato === 'in_ritardo') return '#EF4444'
+    if (stato === 'parziale') return '#F59E0B'
+    return '#9CA3AF'
+  }
+
+  function statoRataLabel(stato: string) {
+    if (stato === 'incassato') return '✅ Incassato'
+    if (stato === 'in_ritardo') return '⚠️ In ritardo'
+    if (stato === 'parziale') return '🔸 Parziale'
+    return '⏳ Da incassare'
+  }
+
+  function apriModalPagamento(rata: RataAbbonamento) {
+    setRataSelezionata(rata)
+    // precompila con il residuo da pagare
+    const residuo = rata.importo - (rata.acconto || 0)
+    setPagamentoImporto(residuo.toString())
+    setPagamentoNota('')
+  }
+  async function inviaReminder(rata: RataAbbonamento) {
+    try {
+      setInvioReminderLoading(rata.id)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const residuo = rata.importo - (rata.acconto || 0)
+      const link = await creaLinkPagamentoRata(rata.id, cliente?.nome || '', session.access_token)
+      const MESI_FULL = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre']
+      const testo = `Ciao ${cliente?.nome || ''}, ti ricordo il pagamento di €${residuo} per il canone di ${MESI_FULL[rata.mese - 1]} ${rata.anno}. Puoi pagare qui: ${link}`
+      const url = `whatsapp://send?text=${encodeURIComponent(testo)}${cliente?.telefono ? `&phone=${cliente.telefono.replace(/\s/g, '')}` : ''}`
+      const supportato = await Linking.canOpenURL(url)
+      if (supportato) {
+        await Linking.openURL(url)
+      } else {
+        Alert.alert('WhatsApp non disponibile', 'Copia il link e invialo manualmente', [
+          { text: 'Copia link', onPress: () => Alert.alert('Link', link) },
+          { text: 'OK' }
+        ])
+      }
+    } catch (err: any) {
+      Alert.alert('Errore', err.message)
+    } finally {
+      setInvioReminderLoading(null)
+    }
+  }
+  
+  const ora = new Date()
+  const meseCorrente = ora.getMonth() + 1
+  const annoCorrente = ora.getFullYear()
+
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>
   if (!cliente) return <View style={styles.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>
 
@@ -247,7 +317,6 @@ export default function ClienteDettaglio() {
         </View>
       </View>
 
-      {/* Barra selezione multipla */}
       {modalitaSelezione && (
         <View style={styles.selectionBar}>
           <TouchableOpacity onPress={annullaSelezione} style={styles.selectionCancel}>
@@ -294,15 +363,22 @@ export default function ClienteDettaglio() {
           </View>
           <View style={styles.statCard}>
             <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`€${totaleValore.toFixed(0)}`}</Text>
-            <Text style={styles.statLabel}>Incassato</Text>
+            <Text style={styles.statLabel}>Fatturato</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statVal}>{trascrizioni.length}</Text>
-            <Text style={styles.statLabel}>Chiamate</Text>
-          </View>
+          {abbonamento ? (
+            <View style={styles.statCard}>
+              <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`€${(totaleIncassato + totaleParziale).toFixed(0)}`}</Text>
+              <Text style={styles.statLabel}>Abbonamento</Text>
+            </View>
+          ) : (
+            <View style={styles.statCard}>
+              <Text style={styles.statVal}>{trascrizioni.length}</Text>
+              <Text style={styles.statLabel}>Chiamate</Text>
+            </View>
+          )}
         </View>
 
-        {/* Tab preventivi / chiamate */}
+        {/* Tab */}
         <View style={styles.tabs}>
           <TouchableOpacity style={[styles.tabBtn, tab === 'preventivi' && styles.tabBtnActive]} onPress={() => setTab('preventivi')}>
             <Text style={[styles.tabText, tab === 'preventivi' && styles.tabTextActive]}>Preventivi</Text>
@@ -310,9 +386,12 @@ export default function ClienteDettaglio() {
           <TouchableOpacity style={[styles.tabBtn, tab === 'chiamate' && styles.tabBtnActive]} onPress={() => setTab('chiamate')}>
             <Text style={[styles.tabText, tab === 'chiamate' && styles.tabTextActive]}>Chiamate</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.tabBtn, tab === 'abbonamento' && styles.tabBtnActive]} onPress={() => setTab('abbonamento')}>
+            <Text style={[styles.tabText, tab === 'abbonamento' && styles.tabTextActive]}>💰 Abbonamento</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Lista preventivi */}
+        {/* Tab Preventivi */}
         {tab === 'preventivi' && (
           preventivi.length === 0 ? (
             <View style={styles.empty}>
@@ -356,11 +435,9 @@ export default function ClienteDettaglio() {
                   </View>
                 </View>
 
-                {/* Dettaglio espanso */}
                 {aperto === p.id && p.testo_preventivo && (
                   <View style={styles.prevDetail}>
                     <Text style={styles.prevTesto}>{p.testo_preventivo}</Text>
-
                     {p.versione && p.versione > 1 && (
                       <TouchableOpacity style={styles.cronologiaBtn} onPress={() => caricaCronologia(p.id, p.preventivo_padre_id)}>
                         <Text style={styles.cronologiaBtnText}>
@@ -368,7 +445,6 @@ export default function ClienteDettaglio() {
                         </Text>
                       </TouchableOpacity>
                     )}
-
                     {cronologiaAperta === p.id && cronologia[p.id]?.map(v => (
                       <View key={v.id}>
                         <TouchableOpacity style={styles.cronologiaItem} onPress={() => setCronologiaVersioneAperta(cronologiaVersioneAperta === v.id ? null : v.id)}>
@@ -389,7 +465,6 @@ export default function ClienteDettaglio() {
                         )}
                       </View>
                     ))}
-
                     {p.is_ultimo && (
                       <TouchableOpacity style={styles.editBtn} onPress={() => router.push({
                         pathname: '/(tabs)/nuovo',
@@ -398,11 +473,9 @@ export default function ClienteDettaglio() {
                         <Text style={styles.editBtnText}>{`✏️ Modifica e genera v${(p.versione || 1) + 1}`}</Text>
                       </TouchableOpacity>
                     )}
-
                     <TouchableOpacity style={styles.spostaBtn} onPress={async () => { await caricaClientiDisponibili(); setMostraModalSposta(p.id) }}>
                       <Text style={styles.postaBtnText}>↗ Sposta ad altro cliente</Text>
                     </TouchableOpacity>
-
                     <TouchableOpacity style={styles.spostaBtn} onPress={() => { setNuovoTitolo(p.titolo || ''); setMostraModalRinomina(p.id) }}>
                       <Text style={styles.postaBtnText}>✏️ Rinomina preventivo</Text>
                     </TouchableOpacity>
@@ -413,7 +486,7 @@ export default function ClienteDettaglio() {
           )
         )}
 
-        {/* Lista chiamate */}
+        {/* Tab Chiamate */}
         {tab === 'chiamate' && (
           trascrizioni.length === 0 ? (
             <View style={styles.empty}>
@@ -442,10 +515,148 @@ export default function ClienteDettaglio() {
           )
         )}
 
+        {/* Tab Abbonamento */}
+        {tab === 'abbonamento' && (
+          loadingAb ? (
+            <ActivityIndicator color="#0E9F8E" style={{ marginTop: 40 }} />
+          ) : !abbonamento ? (
+            <View style={styles.abEmpty}>
+              <Text style={styles.abEmptyIcon}>💰</Text>
+              <Text style={styles.abEmptyTitle}>Nessun abbonamento</Text>
+              <Text style={styles.abEmptyText}>Configura un canone mensile ricorrente per questo cliente</Text>
+              <TouchableOpacity style={styles.abCreaBtn} onPress={() => {
+                setAbImporto('')
+                setAbGiorno('1')
+                setAbMensilita('')
+                setMostraModalNuovoAb(true)
+              }}>
+                <Text style={styles.abCreaBtnText}>+ Configura abbonamento</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {/* Card intestazione abbonamento */}
+              <View style={styles.abCard}>
+                <View style={styles.abCardRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.abCardLabel}>{abbonamento.tipo === 'rate' ? 'PAGAMENTO A RATE' : 'CANONE MENSILE'}</Text>
+                    <Text style={styles.abCardImporto}>€{abbonamento.importo_default}/mese</Text>
+                    <Text style={styles.abCardGiorno}>Scadenza il giorno {abbonamento.giorno_scadenza}</Text>
+                    {abbonamento.numero_mensilita && (
+                      <Text style={styles.abCardGiorno}>{abbonamento.numero_mensilita} mensilità totali</Text>
+                    )}
+                  </View>
+                  <View style={{ gap: 12, alignItems: 'flex-end' }}>
+                    <TouchableOpacity onPress={() => {
+                      setAbImporto(abbonamento.importo_default.toString())
+                      setAbGiorno(abbonamento.giorno_scadenza.toString())
+                      setMostraModalModificaAb(true)
+                    }}>
+                      <Text style={{ fontSize: 18 }}>✏️</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                      Alert.alert(
+                        'Elimina abbonamento',
+                        'Le rate storiche resteranno salvate. Vuoi procedere?',
+                        [
+                          { text: 'Annulla', style: 'cancel' },
+                          { text: 'Elimina', style: 'destructive', onPress: eliminaAbbonamento }
+                        ]
+                      )
+                    }}>
+                      <Text style={{ fontSize: 18 }}>🗑</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Rate */}
+              {rate.map(r => {
+                const isMeseCorrente = r.mese === meseCorrente && r.anno === annoCorrente
+                const acconto = r.acconto || 0
+                const residuo = r.importo - acconto
+
+                return (
+                  <View key={r.id} style={[styles.rataCard, isMeseCorrente && styles.rataCardCorrente]}>
+                    <View style={styles.rataRow}>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={styles.rataMese}>{MESI[r.mese - 1]} {r.anno}</Text>
+                          {isMeseCorrente && <Text style={styles.rataMeseTag}>corrente</Text>}
+                        </View>
+                        {r.note ? <Text style={styles.rataNota}>{r.note}</Text> : null}
+                      </View>
+                      <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                        <Text style={styles.rataImporto}>€{r.importo}</Text>
+                        <Text style={[styles.rataStato, { color: statoRataColore(r.stato) }]}>
+                          {statoRataLabel(r.stato)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Barra acconto/residuo se parziale */}
+                    {r.stato === 'parziale' && (
+                      <View style={styles.rataBarraContainer}>
+                        <View style={styles.rataBarra}>
+                          <View style={[styles.rataBarraFill, { width: `${(acconto / r.importo) * 100}%` as any }]} />
+                        </View>
+                        <View style={styles.rataBarraLabels}>
+                          <Text style={styles.rataBarraAcconto}>Acconto: €{acconto}</Text>
+                          <Text style={styles.rataBarraResiduo}>Residuo: €{residuo}</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Azioni rata */}
+                    <View style={styles.rataAzioni}>
+                      {r.stato !== 'incassato' && (
+                        <TouchableOpacity
+                          style={styles.rataAzioneBtn}
+                          onPress={() => apriModalPagamento(r)}
+                        >
+                          <Text style={styles.rataAzioneBtnText}>+ Registra pagamento</Text>
+                        </TouchableOpacity>
+                      )}
+                      {r.stato !== 'incassato' && (
+  <TouchableOpacity
+    style={[styles.rataAzioneBtn, { borderColor: '#25D366', flex: 0, paddingHorizontal: 12 }]}
+    onPress={() => inviaReminder(r)}
+    disabled={invioReminderLoading === r.id}
+  >
+    {invioReminderLoading === r.id
+      ? <ActivityIndicator size="small" color="#25D366" />
+      : <Text style={[styles.rataAzioneBtnText, { color: '#25D366' }]}>📤 WhatsApp</Text>
+    }
+  </TouchableOpacity>
+)}
+                    </View>
+                  </View>
+                )
+              })}
+
+              {/* Aggiungi rata mese precedente */}
+              <TouchableOpacity style={styles.abAggiungiBtn} onPress={() => {
+                const mPrec = meseCorrente === 1 ? 12 : meseCorrente - 1
+                const aPrec = meseCorrente === 1 ? annoCorrente - 1 : annoCorrente
+                aggiungiRataMese(mPrec, aPrec, abbonamento.importo_default)
+              }}>
+                <Text style={styles.abAggiungiText}>+ Aggiungi mese precedente</Text>
+              </TouchableOpacity>
+
+              {/* Aggiungi rata mese corrente se mancante */}
+              {!rate.find(r => r.mese === meseCorrente && r.anno === annoCorrente) && (
+                <TouchableOpacity style={styles.abAggiungiBtn} onPress={() => aggiungiRataMese(meseCorrente, annoCorrente, abbonamento.importo_default)}>
+                  <Text style={styles.abAggiungiText}>+ Aggiungi {MESI[meseCorrente - 1]} {annoCorrente}</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Bottone nuovo preventivo — sempre visibile */}
+      {/* Bottone nuovo preventivo */}
       <TouchableOpacity
         style={styles.nuovoBtn}
         onPress={() => router.push({ pathname: '/(tabs)/nuovo', params: { cliente_id: id, cliente_nome: cliente.nome || nome } })}
@@ -453,13 +664,13 @@ export default function ClienteDettaglio() {
         <Text style={styles.nuovoBtnText}>+ Nuovo preventivo</Text>
       </TouchableOpacity>
 
-      {/* Modal cambia stato */}
+      {/* Modal cambia stato preventivo */}
       <Modal visible={modalStato !== null} transparent animationType="fade" onRequestClose={() => setModalStato(null)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalStato(null)}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Cambia stato</Text>
             {['bozza', 'inviato', 'accettato', 'rifiutato'].map(s => (
-              <TouchableOpacity key={s} style={styles.modalOption} onPress={() => { if (modalStato) { cambiaStato(modalStato, s); console.log('EMETTO DA CD'); eventBus.emit('aggiorna-home') } setModalStato(null) }}>
+              <TouchableOpacity key={s} style={styles.modalOption} onPress={() => { if (modalStato) { cambiaStato(modalStato, s); eventBus.emit('aggiorna-home') } setModalStato(null) }}>
                 <Text style={styles.modalOptionIcon}>{s === 'bozza' ? '📝' : s === 'inviato' ? '📤' : s === 'accettato' ? '✅' : '❌'}</Text>
                 <Text style={styles.modalOptionText}>{s}</Text>
               </TouchableOpacity>
@@ -509,6 +720,162 @@ export default function ClienteDettaglio() {
             <TouchableOpacity style={styles.modalCancel} onPress={() => setMostraModalRinomina(null)}>
               <Text style={styles.modalCancelText}>Annulla</Text>
             </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal nuovo abbonamento */}
+      <Modal visible={mostraModalNuovoAb} transparent animationType="fade" onRequestClose={() => setMostraModalNuovoAb(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMostraModalNuovoAb(false)}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Nuovo abbonamento</Text>
+            <Text style={styles.modalFieldLabel}>IMPORTO MENSILE (€)</Text>
+            <TextInput
+              style={[styles.modalInput, { marginTop: 6 }]}
+              value={abImporto}
+              onChangeText={setAbImporto}
+              placeholder="es. 500"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="decimal-pad"
+              autoFocus
+            />
+            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
+            <TextInput
+              style={[styles.modalInput, { marginTop: 6 }]}
+              value={abGiorno}
+              onChangeText={setAbGiorno}
+              placeholder="es. 15"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="number-pad"
+            />
+            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>N° MENSILITÀ (opzionale)</Text>
+            <TextInput
+              style={[styles.modalInput, { marginTop: 6 }]}
+              value={abMensilita}
+              onChangeText={setAbMensilita}
+              placeholder="es. 12 — lascia vuoto per canone aperto"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="number-pad"
+            />
+            <TouchableOpacity style={styles.modalSaveBtn} onPress={async () => {
+              const importo = parseFloat(abImporto.replace(',', '.'))
+              const giorno = parseInt(abGiorno)
+              if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
+              if (!giorno || giorno < 1 || giorno > 31) { Alert.alert('Inserisci un giorno valido (1-31)'); return }
+              const mensilita = abMensilita ? parseInt(abMensilita) : undefined
+              const tipo = mensilita ? 'rate' : 'canone'
+              await creaAbbonamento(importo, giorno, { numeroMensilita: mensilita, tipo })
+              setMostraModalNuovoAb(false)
+            }}>
+              <Text style={styles.modalSaveBtnText}>Crea abbonamento</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setMostraModalNuovoAb(false)}>
+              <Text style={styles.modalCancelText}>Annulla</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal modifica abbonamento */}
+      <Modal visible={mostraModalModificaAb} transparent animationType="fade" onRequestClose={() => setMostraModalModificaAb(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMostraModalModificaAb(false)}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Modifica abbonamento</Text>
+            <Text style={styles.modalFieldLabel}>IMPORTO MENSILE (€)</Text>
+            <TextInput
+              style={[styles.modalInput, { marginTop: 6 }]}
+              value={abImporto}
+              onChangeText={setAbImporto}
+              keyboardType="decimal-pad"
+              autoFocus
+            />
+            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
+            <TextInput
+              style={[styles.modalInput, { marginTop: 6 }]}
+              value={abGiorno}
+              onChangeText={setAbGiorno}
+              keyboardType="number-pad"
+            />
+            <TouchableOpacity style={styles.modalSaveBtn} onPress={async () => {
+              const importo = parseFloat(abImporto.replace(',', '.'))
+              const giorno = parseInt(abGiorno)
+              if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
+              await aggiornaAbbonamento(importo, giorno)
+              setMostraModalModificaAb(false)
+            }}>
+              <Text style={styles.modalSaveBtnText}>Salva</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setMostraModalModificaAb(false)}>
+              <Text style={styles.modalCancelText}>Annulla</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal registra pagamento rata */}
+      <Modal visible={rataSelezionata !== null} transparent animationType="fade" onRequestClose={() => setRataSelezionata(null)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setRataSelezionata(null)}>
+          <View style={styles.modalBox}>
+            {rataSelezionata && (
+              <>
+                <Text style={styles.modalTitle}>
+                  {MESI[rataSelezionata.mese - 1]} {rataSelezionata.anno}
+                </Text>
+
+                {/* Riepilogo stato attuale */}
+                <View style={styles.modalRiepilogo}>
+                  <View style={styles.modalRiepilogoRow}>
+                    <Text style={styles.modalRiepilogoLabel}>Totale</Text>
+                    <Text style={styles.modalRiepilogoVal}>€{rataSelezionata.importo}</Text>
+                  </View>
+                  {(rataSelezionata.acconto || 0) > 0 && (
+                    <View style={styles.modalRiepilogoRow}>
+                      <Text style={styles.modalRiepilogoLabel}>Già incassato</Text>
+                      <Text style={[styles.modalRiepilogoVal, { color: '#0E9F8E' }]}>€{rataSelezionata.acconto}</Text>
+                    </View>
+                  )}
+                  <View style={styles.modalRiepilogoRow}>
+                    <Text style={styles.modalRiepilogoLabel}>Residuo</Text>
+                    <Text style={[styles.modalRiepilogoVal, { color: '#EF4444' }]}>
+                      €{rataSelezionata.importo - (rataSelezionata.acconto || 0)}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.modalFieldLabel}>IMPORTO RICEVUTO ORA (€)</Text>
+                <TextInput
+                  style={[styles.modalInput, { marginTop: 6 }]}
+                  value={pagamentoImporto}
+                  onChangeText={setPagamentoImporto}
+                  keyboardType="decimal-pad"
+                  autoFocus
+                />
+                <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>NOTA (opzionale)</Text>
+                <TextInput
+                  style={[styles.modalInput, { marginTop: 6 }]}
+                  value={pagamentoNota}
+                  onChangeText={setPagamentoNota}
+                  placeholder="es. Bonifico 10 giugno"
+                  placeholderTextColor="#9CA3AF"
+                />
+
+                <TouchableOpacity
+                  style={[styles.modalSaveBtn, { backgroundColor: '#0E9F8E' }]}
+                  onPress={async () => {
+                    const importo = parseFloat(pagamentoImporto.replace(',', '.'))
+                    if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
+                    await registraPagamento(rataSelezionata.id, importo, pagamentoNota || undefined)
+                    setRataSelezionata(null)
+                  }}
+                >
+                  <Text style={styles.modalSaveBtnText}>✓ Registra pagamento</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.modalCancel} onPress={() => setRataSelezionata(null)}>
+                  <Text style={styles.modalCancelText}>Annulla</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -607,7 +974,7 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' },
   tabBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' as const },
   tabBtnActive: { backgroundColor: '#0D1B2A' },
-  tabText: { fontSize: 14, fontWeight: '500' as const, color: '#9CA3AF' },
+  tabText: { fontSize: 12, fontWeight: '500' as const, color: '#9CA3AF' },
   tabTextActive: { color: '#fff' },
   empty: { alignItems: 'center' as const, paddingTop: 40 },
   emptyText: { fontSize: 14, color: '#9CA3AF', marginBottom: 12 },
@@ -678,4 +1045,41 @@ const styles = StyleSheet.create({
   selectionAction: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.1)' },
   selectionActionDelete: { backgroundColor: 'rgba(239,68,68,0.15)' },
   selectionActionText: { color: '#fff', fontSize: 13, fontWeight: '500' as const },
+  // Abbonamento
+  abEmpty: { alignItems: 'center' as const, paddingTop: 40, gap: 10 },
+  abEmptyIcon: { fontSize: 40 },
+  abEmptyTitle: { fontSize: 16, fontWeight: '700', color: '#0D1B2A' },
+  abEmptyText: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' as const, paddingHorizontal: 20 },
+  abCreaBtn: { backgroundColor: '#0D1B2A', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12, marginTop: 8 },
+  abCreaBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' as const },
+  abCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  abCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  abCardLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase' as const, letterSpacing: 0.5 },
+  abCardImporto: { fontSize: 22, fontWeight: '700' as const, color: '#0D1B2A', marginTop: 2 },
+  abCardGiorno: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  abAggiungiBtn: { alignItems: 'center' as const, padding: 12 },
+  abAggiungiText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' as const },
+  // Rata card
+  rataCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 14, gap: 10 },
+  rataCardCorrente: { borderColor: '#0E9F8E', borderWidth: 1.5 },
+  rataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  rataMese: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
+  rataMeseTag: { fontSize: 10, fontWeight: '600', color: '#0E9F8E', backgroundColor: '#F0FDF4', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  rataNota: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  rataImporto: { fontSize: 15, fontWeight: '700', color: '#0D1B2A' },
+  rataStato: { fontSize: 11, marginTop: 2, fontWeight: '500' },
+  rataBarraContainer: { gap: 4 },
+  rataBarra: { height: 6, backgroundColor: '#F3F4F6', borderRadius: 3, overflow: 'hidden' },
+  rataBarraFill: { height: 6, backgroundColor: '#F59E0B', borderRadius: 3 },
+  rataBarraLabels: { flexDirection: 'row', justifyContent: 'space-between' },
+  rataBarraAcconto: { fontSize: 11, color: '#F59E0B', fontWeight: '500' },
+  rataBarraResiduo: { fontSize: 11, color: '#EF4444', fontWeight: '500' },
+  rataAzioni: { flexDirection: 'row', gap: 8 },
+  rataAzioneBtn: { flex: 1, borderRadius: 10, padding: 9, alignItems: 'center' as const, borderWidth: 1, borderColor: '#0E9F8E' },
+  rataAzioneBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600' as const },
+  // Modal riepilogo rata
+  modalRiepilogo: { backgroundColor: '#F7F8FA', borderRadius: 12, padding: 12, marginBottom: 16, gap: 6 },
+  modalRiepilogoRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  modalRiepilogoLabel: { fontSize: 13, color: '#6B7280' },
+  modalRiepilogoVal: { fontSize: 13, fontWeight: '700', color: '#0D1B2A' },
 })
