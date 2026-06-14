@@ -1,37 +1,30 @@
-import Constants from 'expo-constants'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as Print from 'expo-print'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as Sharing from 'expo-sharing'
 import { useEffect, useRef, useState } from 'react'
 import {
-  ActivityIndicator, Alert, FlatList, Modal, ScrollView, StyleSheet,
-  Text, TextInput, TouchableOpacity, View
+  ActivityIndicator, Alert, Animated, FlatList, Modal,
+  ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import WebView from 'react-native-webview'
-import { supabase } from '../../lib/supabase'
+import { generaPDF as generaPDFApi, salvaPDF as salvaPDFApi } from "../../lib/api/pdf"
+import { TEMPLATES } from "../../lib/constants"
+import { supabase } from "../../lib/supabase"
 
-const TEMPLATES = [
-  { id: 'pulito', nome: 'Pulito', desc: 'Moderno e professionale', emoji: '⬜' },
-  { id: 'classico', nome: 'Classico', desc: 'Formale con bordi', emoji: '📋' },
-  { id: 'bold', nome: 'Bold', desc: 'Intestazione colorata', emoji: '🎨' },
-  { id: 'minimal_dark', nome: 'Dark', desc: 'Sfondo scuro elegante', emoji: '🌙' },
-  { id: 'artigiano', nome: 'Artigiano', desc: 'Caldo e personale', emoji: '🪵' },
-]
+type Params = {
+  testo: string
+  versione_padre_id: string
+  cliente_id: string
+}
 
 export default function PreventivoPDF() {
-  const { testo: testoParam, preventivo_id, versione_padre_id, cliente_id } = useLocalSearchParams<{
-    testo: string
-    preventivo_id: string
-    versione_padre_id: string
-    cliente_id: string
-  }>()
+  const { testo: testoParam, versione_padre_id, cliente_id } = useLocalSearchParams<Params>()
 
   const [testo] = useState(testoParam || '')
   const [template, setTemplate] = useState('pulito')
   const [generando, setGenerando] = useState(false)
   const [token, setToken] = useState('')
-  const [versione, setVersione] = useState(1)
   const [clienti, setClienti] = useState<{ id: string, nome: string }[]>([])
   const [clienteSelezionato, setClienteSelezionato] = useState<{ id: string, nome: string } | null>(null)
   const [mostraModalCliente, setMostraModalCliente] = useState(false)
@@ -39,13 +32,16 @@ export default function PreventivoPDF() {
   const [modalTab, setModalTab] = useState<'esistente' | 'nuovo'>('esistente')
   const [titolo, setTitolo] = useState('')
   const [mostraModalTitolo, setMostraModalTitolo] = useState(false)
-  const [versioneGenerata, setVersioneGenerata] = useState(1)
   const [pdfUrlGenerato, setPdfUrlGenerato] = useState('')
+  const [preventivoSalvatoId, setPreventivoSalvatoId] = useState<string | null>(null)
+  const [nascondiPrezzi, setNascondiPrezzi] = useState(false)
   const [htmlPreview, setHtmlPreview] = useState('')
   const [caricandoPreview, setCaricandoPreview] = useState(false)
+  const [toastVisible, setToastVisible] = useState(false)
+  const toastOpacity = useRef(new Animated.Value(0)).current
   const previewTimeout = useRef<any>(null)
-  const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
+  // ── Inizializzazione ──────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.replace('/(auth)/login'); return }
@@ -62,37 +58,27 @@ export default function PreventivoPDF() {
     }
   }, [cliente_id])
 
-  // Aggiorna preview quando cambia template o token
+  // Aggiorna preview con debounce 300ms
   useEffect(() => {
     if (!token || !testo) return
     if (previewTimeout.current) clearTimeout(previewTimeout.current)
     previewTimeout.current = setTimeout(() => aggiornaPreview(), 300)
-  }, [template, token, testo, clienteSelezionato])
+  }, [template, token, testo, clienteSelezionato, nascondiPrezzi])
 
+  // ── Preview ───────────────────────────────────────────────────────
   async function aggiornaPreview() {
     if (!token || !testo) return
     setCaricandoPreview(true)
     try {
-      const res = await fetch(`${backendUrl}/api/genera-pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ testo, template, versione_padre_id: null, cliente_id: clienteSelezionato?.id || '' })
-      })
-      const data = await res.json()
-if (data.html) {
-  const htmlScalato = data.html.replace(
-    '</head>',
-    `<style>
-      html { width: 100%; }
-      body { 
-        transform-origin: top left;
-        transform: scale(0.45);
-        width: 222%;
+      // Preview usa versione_padre_id = null per non incrementare il contatore
+      const data = await generaPDFApi({ testo, template, token, versione_padre_id: null, cliente_id: clienteSelezionato?.id || '', nascondi_prezzi: nascondiPrezzi })
+      if (data.html) {
+        const htmlScalato = data.html.replace('</head>', `
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <style>html{width:100%}body{transform-origin:top left;transform:scale(0.45);width:222%}</style>
+        </head>`)
+        setHtmlPreview(htmlScalato)
       }
-    </style></head>`
-  )
-  setHtmlPreview(htmlScalato)
-}
     } catch (e) {
       console.log('Preview fallita:', e)
     }
@@ -128,56 +114,73 @@ if (data.html) {
     }
   }
 
+  // ── Genera e condividi PDF ────────────────────────────────────────
   async function generaPDF() {
     setGenerando(true)
     try {
-      const res = await fetch(`${backendUrl}/api/genera-pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ testo, template, versione_padre_id: versione_padre_id || null, cliente_id: clienteSelezionato?.id || '' })
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setVersioneGenerata(data.versione)
+      // Genera HTML dal backend
+      const data = await generaPDFApi({ testo, template, token, versione_padre_id: versione_padre_id || null, cliente_id: clienteSelezionato?.id || '', nascondi_prezzi: nascondiPrezzi })
+
       const { uri } = await Print.printToFileAsync({ html: data.html, base64: false })
+
+      // Salva PDF su Supabase Storage
+      let pdfUrl = ''
+      try {
+        const pdfBase64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any })
+        pdfUrl = await salvaPDFApi(pdfBase64, token)
+        if (pdfUrl) setPdfUrlGenerato(pdfUrl)
+      } catch (e) { console.log('Salvataggio PDF fallito:', e) }
+
+      // Salva automaticamente con titolo provvisorio
+      const titoloAuto = clienteSelezionato
+        ? `Preventivo ${clienteSelezionato.nome}`
+        : `Preventivo ${new Date().toLocaleDateString('it-IT')}`
+      const idSalvato = await salvaSuSupabase(data.versione, titoloAuto, pdfUrl)
+      if (idSalvato) setPreventivoSalvatoId(idSalvato)
+
+      // Condividi
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Invia preventivo', UTI: 'com.adobe.pdf' })
       }
-      try {
-        const pdfBase64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any })
-        const saveRes = await fetch(`${backendUrl}/api/salva-pdf`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ pdf_base64: pdfBase64 })
-        })
-        const saveData = await saveRes.json()
-        if (saveData.pdf_url) setPdfUrlGenerato(saveData.pdf_url)
-      } catch (e) { console.log('Salvataggio PDF fallito:', e) }
-      const nomeCliente = clienteSelezionato?.nome || 'Cliente'
-      setTitolo(`Preventivo ${nomeCliente}`)
-      setMostraModalTitolo(true)
+
+      // Toast + popup rinomina
+      mostraToast()
+      setTitolo(clienteSelezionato ? `Preventivo ${clienteSelezionato.nome}` : '')
+      setTimeout(() => setMostraModalTitolo(true), 800)
+
     } catch (err: any) {
       Alert.alert('Errore', err.message)
     }
     setGenerando(false)
   }
 
-  async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = '') {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('preventivi').insert({
-      user_id: user.id,
-      testo_preventivo: testo,
-      template,
-      versione: ver,
-      preventivo_padre_id: versione_padre_id || null,
-      is_ultimo: true,
-      stato: 'bozza',
-      cliente_id: clienteSelezionato?.id || null,
-      nome_cliente: clienteSelezionato?.nome || null,
-      titolo: titoloScelto,
-      pdf_url: pdfUrl || null
-    })
+async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = ''): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  // Estrai il totale dal testo del preventivo
+  const match = testo.match(/TOTALE[:\s]*€?\s*([\d.,]+)/i)
+  const importo = match ? parseFloat(match[1].replace(',', '.')) : null
+
+  const { data } = await supabase.from('preventivi').insert({
+    user_id: user.id,
+    testo_preventivo: testo,
+    template,
+    versione: ver,
+    preventivo_padre_id: versione_padre_id || null,
+    is_ultimo: true,
+    stato: 'bozza',
+    cliente_id: clienteSelezionato?.id || null,
+    nome_cliente: clienteSelezionato?.nome || null,
+    titolo: titoloScelto,
+    pdf_url: pdfUrl || null,
+    importo_totale: importo
+  }).select('id').single()
+  return data?.id || null
+}
+  async function aggiornaTitolo(nuovoTitolo: string) {
+    if (!preventivoSalvatoId || !nuovoTitolo.trim()) return
+    await supabase.from('preventivi').update({ titolo: nuovoTitolo }).eq('id', preventivoSalvatoId)
   }
 
   async function salvaTemplate(tmpl: string) {
@@ -187,21 +190,29 @@ if (data.html) {
     await supabase.from('profiles').update({ template_preferito: tmpl }).eq('id', user.id)
   }
 
+  function mostraToast() {
+    setToastVisible(true)
+    Animated.sequence([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.delay(2500),
+      Animated.timing(toastOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start(() => setToastVisible(false))
+  }
+
+  // ── Render ────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          Preventivo {versione_padre_id ? `v${versione}` : ''}
-        </Text>
+        <Text style={styles.headerTitle}>Preventivo</Text>
         <View style={{ width: 50 }} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 14 }}>
 
-        {/* Preview real-time */}
+        {/* Anteprima PDF */}
         <View style={styles.card}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <Text style={styles.cardTitle}>Anteprima PDF</Text>
@@ -209,14 +220,15 @@ if (data.html) {
           </View>
           <View style={styles.previewContainer}>
             {htmlPreview ? (
-<WebView
-  source={{ html: htmlPreview }}
-  style={styles.webview}
-  scrollEnabled={true}
-  scalesPageToFit={false}
-  showsVerticalScrollIndicator={false}
-  showsHorizontalScrollIndicator={false}
-/>
+              <WebView
+                source={{ html: htmlPreview }}
+                style={styles.webview}
+                scrollEnabled={true}
+                scalesPageToFit={false}
+                pinchGestureEnabled={false}
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
+              />
             ) : (
               <View style={styles.previewPlaceholder}>
                 <ActivityIndicator size="large" color="#0E9F8E" />
@@ -226,7 +238,7 @@ if (data.html) {
           </View>
         </View>
 
-        {/* Scegli template */}
+        {/* Selezione template */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Scegli template</Text>
           <Text style={styles.cardSub}>L'anteprima si aggiorna in tempo reale</Text>
@@ -243,6 +255,20 @@ if (data.html) {
               </TouchableOpacity>
             ))}
           </View>
+        </View>
+
+        {/* Toggle tariffa a corpo */}
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toggleLabel}>Tariffa a corpo</Text>
+            <Text style={styles.toggleSub}>Nasconde i prezzi delle singole voci — mostra solo il totale</Text>
+          </View>
+          <Switch
+            value={nascondiPrezzi}
+            onValueChange={setNascondiPrezzi}
+            trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
+            thumbColor="#fff"
+          />
         </View>
 
         {/* Cliente */}
@@ -279,6 +305,13 @@ if (data.html) {
         <View style={{ height: 40 }} />
       </ScrollView>
 
+      {/* Toast */}
+      {toastVisible && (
+        <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
+          <Text style={styles.toastText}>✓ Preventivo salvato</Text>
+        </Animated.View>
+      )}
+
       {/* Modal selezione cliente */}
       <Modal visible={mostraModalCliente} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
@@ -289,12 +322,13 @@ if (data.html) {
             </TouchableOpacity>
           </View>
           <View style={styles.modalTabs}>
-            <TouchableOpacity style={[styles.modalTab, modalTab === 'esistente' && styles.modalTabActive]} onPress={() => setModalTab('esistente')}>
-              <Text style={[styles.modalTabText, modalTab === 'esistente' && styles.modalTabTextActive]}>Cliente esistente</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.modalTab, modalTab === 'nuovo' && styles.modalTabActive]} onPress={() => setModalTab('nuovo')}>
-              <Text style={[styles.modalTabText, modalTab === 'nuovo' && styles.modalTabTextActive]}>Nuovo cliente</Text>
-            </TouchableOpacity>
+            {(['esistente', 'nuovo'] as const).map(t => (
+              <TouchableOpacity key={t} style={[styles.modalTab, modalTab === t && styles.modalTabActive]} onPress={() => setModalTab(t)}>
+                <Text style={[styles.modalTabText, modalTab === t && styles.modalTabTextActive]}>
+                  {t === 'esistente' ? 'Cliente esistente' : 'Nuovo cliente'}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
           {modalTab === 'esistente' ? (
             <FlatList
@@ -309,7 +343,7 @@ if (data.html) {
                   </TouchableOpacity>
                 </View>
               }
-              renderItem={({ item }: { item: { id: string, nome: string } }) => (
+              renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.clienteItem, clienteSelezionato?.id === item.id && styles.clienteItemActive]}
                   onPress={() => { setClienteSelezionato(item); setMostraModalCliente(false) }}
@@ -348,32 +382,25 @@ if (data.html) {
         </View>
       </Modal>
 
-      {/* Modal titolo preventivo */}
+      {/* Modal rinomina preventivo */}
       <Modal visible={mostraModalTitolo} transparent animationType="fade">
         <View style={styles.titoloOverlay}>
           <View style={styles.titoloBox}>
-            <Text style={styles.titoloTitle}>Come vuoi chiamarlo?</Text>
-            <Text style={styles.titoloSub}>Puoi modificare il nome in qualsiasi momento</Text>
+            <Text style={styles.titoloTitle}>Vuoi rinominarlo?</Text>
+            <Text style={styles.titoloSub}>Il preventivo è già salvato — puoi dargli un nome più preciso</Text>
             <TextInput
               style={styles.titoloInput}
               value={titolo}
               onChangeText={setTitolo}
-              placeholder="es. Preventivo caldaia"
+              placeholder="es. Preventivo caldaia Mario"
               placeholderTextColor="#9CA3AF"
               autoFocus
             />
-            <TouchableOpacity
-              style={styles.titoloSaveBtn}
-              onPress={async () => {
-                setMostraModalTitolo(false)
-                await salvaSuSupabase(versioneGenerata, titolo, pdfUrlGenerato)
-                Alert.alert('✓ Salvato', `"${titolo}" salvato nello storico.`)
-              }}
-            >
-              <Text style={styles.titoloSaveBtnText}>Salva</Text>
+            <TouchableOpacity style={styles.titoloSaveBtn} onPress={async () => { setMostraModalTitolo(false); await aggiornaTitolo(titolo) }}>
+              <Text style={styles.titoloSaveBtnText}>Aggiorna nome</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.titoloSkipBtn} onPress={() => setMostraModalTitolo(false)}>
-              <Text style={styles.titoloSkipText}>Salta — non salvare</Text>
+              <Text style={styles.titoloSkipText}>Va bene così</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -403,6 +430,9 @@ const styles = StyleSheet.create({
   templateNome: { fontSize: 12, fontWeight: '600', color: '#0D1B2A', textAlign: 'center' },
   templateNomeActive: { color: '#0E9F8E' },
   templateDesc: { fontSize: 10, color: '#9CA3AF', textAlign: 'center', marginTop: 2 },
+  toggleRow: { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  toggleLabel: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
+  toggleSub: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   clienteBtn: { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#E5E7EB' },
   clienteBtnIcon: { fontSize: 20 },
   clienteBtnBody: { flex: 1 },
@@ -410,10 +440,12 @@ const styles = StyleSheet.create({
   clienteBtnVal: { fontSize: 14, color: '#0D1B2A', marginTop: 2 },
   clienteBtnArrow: { fontSize: 20, color: '#9CA3AF' },
   versionBox: { backgroundColor: '#EBF3FF', borderRadius: 12, padding: 12 },
-  versionText: { fontSize: 13, color: '#1E40AF', lineHeight: 18 },
+  versionText: { fontSize: 13, color: '#1E40ED', lineHeight: 18 },
   generateBtn: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, alignItems: 'center' as const },
   generateBtnDisabled: { opacity: 0.5 },
   generateBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  toast: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: '#065F46', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 6 },
+  toastText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   modalContainer: { flex: 1, backgroundColor: '#F7F8FA' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 56, backgroundColor: '#0D1B2A' },
   modalTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },

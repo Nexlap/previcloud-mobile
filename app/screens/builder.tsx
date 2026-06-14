@@ -26,20 +26,21 @@ interface Cliente {
   indirizzo: string | null
 }
 
+// Stato persistente tra navigazioni (reset solo dopo genera PDF o tasto Ripristina)
 const builderState = {
   voci: [] as VocePreventivo[],
   nomeCliente: '',
   noteExtra: '',
-  includiIva: true,
+  includiIva: false, // default OFF
 }
 
 export default function Builder() {
   const [servizi, setServizi] = useState<Servizio[]>([])
-const [voci, setVoci] = useState<VocePreventivo[]>(builderState.voci)
-const [nomeCliente, setNomeCliente] = useState(builderState.nomeCliente)
-const [noteExtra, setNoteExtra] = useState(builderState.noteExtra)
-const [includiIva, setIncludiIva] = useState(builderState.includiIva)  
-const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
+  const [voci, setVoci] = useState<VocePreventivo[]>(builderState.voci)
+  const [nomeCliente, setNomeCliente] = useState(builderState.nomeCliente)
+  const [noteExtra, setNoteExtra] = useState(builderState.noteExtra)
+  const [includiIva, setIncludiIva] = useState(builderState.includiIva)
+  const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
   const [mostraFiscale, setMostraFiscale] = useState(true)
   const [clienti, setClienti] = useState<Cliente[]>([])
   const [clienteSelezionato, setClienteSelezionato] = useState<Cliente | null>(null)
@@ -47,15 +48,20 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
   const [modalTab, setModalTab] = useState<'esistente' | 'nuovo'>('esistente')
   const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', indirizzo: '' })
   const [salvandoCliente, setSalvandoCliente] = useState(false)
-  const [ricercaCliente, setRicercaCliente] = useState('')
+  const [mostraCalcoloInverso, setMostraCalcoloInverso] = useState(false)
+  const [nettoDesiderato, setNettoDesiderato] = useState('')
+  const [lordomCalcolato, setLordoCalcolato] = useState<number | null>(null)
+  const [ricercaCliente, setRicercaCliente] = useState("")
 
   useEffect(() => { caricaServizi(); caricaProfiloFiscale(); caricaClienti() }, [])
+
+  // Sincronizza stato persistente
   useEffect(() => {
-  builderState.voci = voci
-  builderState.nomeCliente = nomeCliente
-  builderState.noteExtra = noteExtra
-  builderState.includiIva = includiIva
-}, [voci, nomeCliente, noteExtra, includiIva])
+    builderState.voci = voci
+    builderState.nomeCliente = nomeCliente
+    builderState.noteExtra = noteExtra
+    builderState.includiIva = includiIva
+  }, [voci, nomeCliente, noteExtra, includiIva])
 
   async function caricaServizi() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -98,6 +104,18 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
     if (!user) return
     const { data } = await supabase.from('profili_fiscali').select('*').eq('user_id', user.id).single()
     if (data?.attivo) setProfiloFiscale(data)
+  }
+
+  function ripristina() {
+    builderState.voci = []
+    builderState.nomeCliente = ''
+    builderState.noteExtra = ''
+    builderState.includiIva = false
+    setVoci([])
+    setNomeCliente('')
+    setNoteExtra('')
+    setIncludiIva(false)
+    setClienteSelezionato(null)
   }
 
   function calcolaIrpef(base: number): number {
@@ -149,6 +167,45 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
     return null
   }
 
+  function calcolaLordoDaNetto(netto: number): number | null {
+    if (!profiloFiscale) return null
+    const p = profiloFiscale
+    if (p.regime === 'forfettario') {
+      // netto = lordo + rivalsa - contributi - imposta
+      // rivalsa = lordo * rivalsa%
+      // imponibile = lordo * coeff%
+      // contributi = imponibile * inps%
+      // imposta = imponibile * aliquota%
+      const rivalsaPerc = p.rivalsa_inps ? p.rivalsa_percentuale / 100 : 0
+      const coeffPerc = p.coefficiente_redditivita / 100
+      const inpsPerc = p.riduzione_contributiva
+        ? p.inps_percentuale * (1 - p.riduzione_percentuale / 100) / 100
+        : p.inps_percentuale / 100
+      const aliquotaPerc = p.aliquota_sostitutiva / 100
+      // netto = lordo * (1 + rivalsa% - coeff% * inps% - coeff% * aliquota%)
+      const moltiplicatore = 1 + rivalsaPerc - coeffPerc * inpsPerc - coeffPerc * aliquotaPerc
+      return netto / moltiplicatore
+    }
+    if (p.regime === 'ordinario') {
+      // Approssimazione: netto = lordo - irpef - contributi
+      // Usiamo iterazione semplice
+      let lordo = netto * 1.4
+      for (let i = 0; i < 10; i++) {
+        const costiDeducibili = lordo * (p.costi_deducibili_percentuale / 100)
+        const imponibile = lordo - costiDeducibili
+        const contributi = imponibile * (p.inps_percentuale / 100)
+        const irpef = calcolaIrpef(imponibile - contributi)
+        const nettoCalcolato = lordo - contributi - irpef
+        lordo = lordo + (netto - nettoCalcolato) * 0.8
+      }
+      return lordo
+    }
+    if (p.regime === 'occasionale') {
+      return netto / (1 - p.ritenuta_acconto / 100)
+    }
+    return null
+  }
+
   function aggiungiVoce(s: Servizio) {
     if (voci.find(v => v.servizio_id === s.id)) { Alert.alert('Già aggiunto', 'Questo servizio è già nel preventivo.'); return }
     setVoci(v => [...v, { servizio_id: s.id, nome: s.nome, descrizione: s.descrizione || '', costo: s.costo?.toString() || '', quantita: '1', unita: s.unita }])
@@ -159,32 +216,37 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
     setVoci(v => v.map(x => x.servizio_id === id ? { ...x, [campo]: valore } : x))
   }
 
-  function generaTestoPreventivo() {
+function generaTestoPreventivo() {
     const oggi = new Date().toLocaleDateString('it-IT')
-    const totale = calcolaTotale()
     let testo = `PREVENTIVO\nData: ${oggi}  |  Validità: 30 giorni\n`
     if (nomeCliente) testo += `Cliente: ${nomeCliente}\n`
-    testo += `\nVOCI:\n`
+    testo += `\nSERVIZI:\n`
     voci.forEach(v => {
       const qty = parseFloat(v.quantita) || 1
       const costo = parseFloat(v.costo) || 0
-      testo += `- ${v.nome}`
-      if (v.descrizione) testo += `: ${v.descrizione}`
-      testo += ` — ${qty > 1 ? `${qty}x ` : ''}€${costo}/${v.unita} = €${(qty * costo).toFixed(0)}\n`
+      const totaleVoce = (qty * costo).toFixed(0)
+      testo += `\nSERVIZIO: ${v.nome}\n`
+      if (v.descrizione) testo += `DETTAGLI:\n- ${v.descrizione}\n`
+      if (qty > 1) testo += `DETTAGLI:\n- ${qty} ${v.unita}\n`
+      testo += `PREZZO: €${totaleVoce}\n`
     })
+    const totale = calcolaTotale()
+    testo += `\nRIEPILOGO:\n`
     if (includiIva) {
-      testo += `\nImponibile: €${totale.toFixed(0)}\nIVA 22%: €${(totale * 0.22).toFixed(0)}\n─────────────────\nTOTALE: €${(totale * 1.22).toFixed(0)}\n`
+      testo += `Imponibile: €${totale.toFixed(0)}\nIVA 22%: €${(totale * 0.22).toFixed(0)}\n─────────────────\nTOTALE: €${(totale * 1.22).toFixed(0)}\n`
     } else {
-      testo += `\n─────────────────\nTOTALE: €${totale.toFixed(0)}\n(Operazione esente IVA - Regime Forfettario)\n`
+      testo += `TOTALE: €${totale.toFixed(0)}\n`
     }
     if (noteExtra) testo += `\nNote: ${noteExtra}`
     return testo
   }
-
+  
   function generaPDF() {
     if (voci.length === 0) { Alert.alert('Preventivo vuoto', 'Aggiungi almeno un servizio.'); return }
+    // Reset stato dopo genera PDF
+    ripristina()
     router.push({
-      pathname: '/(tabs)/preventivo-pdf',
+      pathname: '/screens/preventivo-pdf',
       params: {
         testo: generaTestoPreventivo(),
         cliente_id: clienteSelezionato?.id || '',
@@ -193,6 +255,7 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
   }
 
   const totale = calcolaTotale()
+  const totaleConIva = includiIva ? totale * 1.22 : totale
   const f = calcolaFiscale()
 
   return (
@@ -203,17 +266,13 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Builder preventivo</Text>
         <TouchableOpacity onPress={() => {
-  builderState.voci = []
-  builderState.nomeCliente = ''
-  builderState.noteExtra = ''
-  builderState.includiIva = true
-  setVoci([])
-  setNomeCliente('')
-  setNoteExtra('')
-  setIncludiIva(true)
-}}>
-  <Text style={{ color: '#9CA3AF', fontSize: 13 }}>🗑 Svuota</Text>
-</TouchableOpacity>
+          Alert.alert('Ripristina', 'Vuoi svuotare il preventivo?', [
+            { text: 'Annulla', style: 'cancel' },
+            { text: 'Svuota', style: 'destructive', onPress: ripristina }
+          ])
+        }}>
+          <Text style={{ color: '#9CA3AF', fontSize: 13 }}>🗑 Ripristina</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
@@ -302,40 +361,43 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
               </View>
             ))}
 
-<View style={styles.ivaRow}>
-  <View style={{ flex: 1 }}>
-    <Text style={styles.ivaLabel}>Applica IVA 22%</Text>
-    <Text style={styles.ivaSub}>
-      {profiloFiscale && mostraFiscale
-        ? 'Gestita dal regime fiscale attivo'
-        : includiIva ? 'Regime ordinario' : 'Regime forfettario'}
-    </Text>
-  </View>
-  <TouchableOpacity
-    style={[styles.ivaToggle, (profiloFiscale && mostraFiscale) ? styles.ivaToggleDisabled : includiIva && styles.ivaToggleActive]}
-    onPress={() => { if (!profiloFiscale || !mostraFiscale) setIncludiIva(v => !v) }}
-  >
-    <Text style={styles.ivaToggleText}>
-      {(profiloFiscale && mostraFiscale) ? 'AUTO' : includiIva ? 'ON' : 'OFF'}
-    </Text>
-  </TouchableOpacity>
-</View>
-<View style={styles.riepilogo}>
-{(!profiloFiscale || !mostraFiscale) && includiIva && (    <>
-      <View style={styles.riepilogoRow}>
-        <Text style={styles.riepilogoLabel}>Imponibile</Text>
-        <Text style={styles.riepilogoVal}>€{totale.toFixed(0)}</Text>
-      </View>
-      <View style={styles.riepilogoRow}>
-        <Text style={styles.riepilogoLabel}>IVA 22%</Text>
-        <Text style={styles.riepilogoVal}>€{(totale * 0.22).toFixed(0)}</Text>
-      </View>
-    </>
-  )}              <View style={[styles.riepilogoRow, styles.riepilogoTotale]}>
-                <Text style={styles.riepilogoTotaleLabel}>TOTALE</Text>
-                <Text style={styles.riepilogoTotaleVal}>€{(profiloFiscale && mostraFiscale) ? totale.toFixed(0) : includiIva ? (totale * 1.22).toFixed(0) : totale.toFixed(0)}</Text>
+            {/* Toggle IVA — sempre libero, default OFF */}
+            <View style={styles.ivaRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ivaLabel}>Applica IVA 22%</Text>
+                <Text style={styles.ivaSub}>
+                  {includiIva ? 'Regime ordinario' : 'Regime forfettario / esente IVA'}
+                </Text>
               </View>
-              {(!profiloFiscale || !mostraFiscale) && !includiIva && <Text style={styles.forfettarioNote}>Operazione esente IVA — Regime Forfettario</Text>}
+              <TouchableOpacity
+                style={[styles.ivaToggle, includiIva && styles.ivaToggleActive]}
+                onPress={() => setIncludiIva(v => !v)}
+              >
+                <Text style={styles.ivaToggleText}>
+                  {includiIva ? 'ON' : 'OFF'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Riepilogo totali */}
+            <View style={styles.riepilogo}>
+              {includiIva && (
+                <>
+                  <View style={styles.riepilogoRow}>
+                    <Text style={styles.riepilogoLabel}>Imponibile</Text>
+                    <Text style={styles.riepilogoVal}>€{totale.toFixed(0)}</Text>
+                  </View>
+                  <View style={styles.riepilogoRow}>
+                    <Text style={styles.riepilogoLabel}>IVA 22%</Text>
+                    <Text style={styles.riepilogoVal}>€{(totale * 0.22).toFixed(0)}</Text>
+                  </View>
+                </>
+              )}
+              <View style={[styles.riepilogoRow, styles.riepilogoTotale]}>
+                <Text style={styles.riepilogoTotaleLabel}>TOTALE</Text>
+                <Text style={styles.riepilogoTotaleVal}>€{totaleConIva.toFixed(0)}</Text>
+              </View>
+              {!includiIva && <Text style={styles.forfettarioNote}>Operazione esente IVA — Regime Forfettario</Text>}
             </View>
           </View>
         )}
@@ -350,7 +412,7 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
 
         <TouchableOpacity style={[styles.generateBtn, voci.length === 0 && styles.generateBtnDisabled]} onPress={generaPDF} disabled={voci.length === 0}>
           <Text style={styles.generateBtnText}>
-            📄 Genera PDF — €{includiIva ? (totale * 1.22).toFixed(0) : totale.toFixed(0)}
+            📄 Genera PDF — €{totaleConIva.toFixed(0)}
           </Text>
         </TouchableOpacity>
 
@@ -371,7 +433,7 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
                     </View>
                     {f.rivalsa > 0 && (
                       <View style={styles.fiscaleRow}>
-                        <Text style={styles.fiscaleLabel}>+ Rivalsa INPS ({profiloFiscale.rivalsa_percentuale}%)</Text>
+                        <Text style={styles.fiscaleLabel}>{`+ Rivalsa INPS (${profiloFiscale.rivalsa_percentuale}%)`}</Text>
                         <Text style={styles.fiscaleVal}>+€{f.rivalsa.toFixed(0)}</Text>
                       </View>
                     )}
@@ -381,7 +443,7 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
                     </View>
                     <View style={styles.fiscaleSep} />
                     <View style={styles.fiscaleRow}>
-                      <Text style={styles.fiscaleLabel}>Reddito imponibile ({profiloFiscale.coefficiente_redditivita}%)</Text>
+                      <Text style={styles.fiscaleLabel}>{`Reddito imponibile (${profiloFiscale.coefficiente_redditivita}%)`}</Text>
                       <Text style={styles.fiscaleVal}>€{f.imponibile.toFixed(0)}</Text>
                     </View>
                     <View style={styles.fiscaleRow}>
@@ -389,7 +451,7 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
                       <Text style={styles.fiscaleNeg}>-€{f.contributi.toFixed(0)}</Text>
                     </View>
                     <View style={styles.fiscaleRow}>
-                      <Text style={styles.fiscaleLabel}>- Imposta sostitutiva ({profiloFiscale.aliquota_sostitutiva}%)</Text>
+                      <Text style={styles.fiscaleLabel}>{`- Imposta sostitutiva (${profiloFiscale.aliquota_sostitutiva}%)`}</Text>
                       <Text style={styles.fiscaleNeg}>-€{f.imposta.toFixed(0)}</Text>
                     </View>
                     <View style={styles.fiscaleSep} />
@@ -407,7 +469,7 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
                     </View>
                     {f.iva > 0 && (
                       <View style={styles.fiscaleRow}>
-                        <Text style={styles.fiscaleLabel}>+ IVA ({profiloFiscale.aliquota_iva}%)</Text>
+                        <Text style={styles.fiscaleLabel}>{`+ IVA (${profiloFiscale.aliquota_iva}%)`}</Text>
                         <Text style={styles.fiscaleVal}>+€{f.iva.toFixed(0)}</Text>
                       </View>
                     )}
@@ -444,7 +506,7 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
                       <Text style={styles.fiscaleVal}>€{f.lordo.toFixed(0)}</Text>
                     </View>
                     <View style={styles.fiscaleRow}>
-                      <Text style={styles.fiscaleLabel}>- Ritenuta d'acconto ({profiloFiscale.ritenuta_acconto}%)</Text>
+                      <Text style={styles.fiscaleLabel}>{`- Ritenuta d'acconto (${profiloFiscale.ritenuta_acconto}%)`}</Text>
                       <Text style={styles.fiscaleNeg}>-€{f.ritenuta.toFixed(0)}</Text>
                     </View>
                     <View style={styles.fiscaleSep} />
@@ -455,6 +517,63 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
                   </>
                 )}
                 <Text style={styles.fiscaleDisclaimer}>⚠️ Calcolo indicativo — consulta il tuo commercialista</Text>
+
+                {/* Calcolo inverso inline */}
+                <View style={styles.fiscaleSep} />
+                <Text style={[styles.fiscaleLabel, { marginBottom: 4 }]}>🧮 Voglio incassare (netto)</Text>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <TextInput
+                    style={[styles.voceCostoInput, { flex: 1, fontSize: 14 }]}
+                    value={nettoDesiderato}
+                    onChangeText={v => { setNettoDesiderato(v); setLordoCalcolato(null) }}
+                    placeholder="es. 2000"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="decimal-pad"
+                  />
+                  <TouchableOpacity
+                    style={[styles.generateBtn, { paddingVertical: 10, paddingHorizontal: 14 }]}
+                    onPress={() => {
+                      const netto = parseFloat(nettoDesiderato.replace(',', '.'))
+                      if (!netto || netto <= 0) { Alert.alert('Inserisci un valore valido'); return }
+                      const lordo = calcolaLordoDaNetto(netto)
+                      setLordoCalcolato(lordo)
+                    }}
+                  >
+                    <Text style={[styles.generateBtnText, { fontSize: 13 }]}>Calcola</Text>
+                  </TouchableOpacity>
+                </View>
+                {lordomCalcolato !== null && voci.length > 0 && (
+                  <View style={{ backgroundColor: '#F0FDF4', borderRadius: 10, padding: 12, gap: 6, marginTop: 4 }}>
+                    <Text style={{ fontSize: 12, color: '#065F46', fontWeight: '600' }}>
+                      Lordo da fatturare: €{lordomCalcolato.toFixed(0)}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.generateBtn, { backgroundColor: '#0E9F8E', paddingVertical: 10 }]}
+                      onPress={() => {
+                        if (voci.length === 0) { Alert.alert('Aggiungi servizi prima'); return }
+                        const totaleAttuale = calcolaTotale()
+                        if (totaleAttuale === 0) { Alert.alert('I prezzi sono tutti a zero'); return }
+                        const fattore = lordomCalcolato / totaleAttuale
+                        setVoci(v => v.map(x => ({
+                          ...x,
+                          costo: (Math.round((parseFloat(x.costo) || 0) * fattore)).toString()
+                        })))
+                        setLordoCalcolato(null)
+                        setNettoDesiderato('')
+                      }}
+                    >
+                      <Text style={[styles.generateBtnText, { fontSize: 13 }]}>✓ Applica al preventivo</Text>
+                    </TouchableOpacity>
+                    <Text style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center' }}>
+                      I prezzi delle voci verranno scalati proporzionalmente
+                    </Text>
+                  </View>
+                )}
+                {lordomCalcolato !== null && voci.length === 0 && (
+                  <Text style={{ fontSize: 12, color: '#0E9F8E', marginTop: 4 }}>
+                    Lordo da fatturare: €{lordomCalcolato.toFixed(0)} — aggiungi servizi per applicare
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -557,6 +676,57 @@ const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
           )}
         </View>
       </Modal>
+      {/* Modal calcolo inverso netto */}
+      <Modal visible={mostraCalcoloInverso} transparent animationType="fade" onRequestClose={() => setMostraCalcoloInverso(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMostraCalcoloInverso(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>🧮 Calcolo inverso netto</Text>
+              <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 16, textAlign: 'center' }}>
+                Inserisci quanto vuoi guadagnare — calcolo il lordo da fatturare
+              </Text>
+              <Text style={styles.modalFieldLabel}>NETTO DESIDERATO (€)</Text>
+              <TextInput
+                style={styles.modalFieldInput}
+                value={nettoDesiderato}
+                onChangeText={v => { setNettoDesiderato(v); setLordoCalcolato(null) }}
+                placeholder="es. 2000"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="decimal-pad"
+                autoFocus
+              />
+              <TouchableOpacity
+                style={[styles.generateBtn, { marginTop: 12 }]}
+                onPress={() => {
+                  const netto = parseFloat(nettoDesiderato.replace(',', '.'))
+                  if (!netto || netto <= 0) { Alert.alert('Inserisci un valore valido'); return }
+                  const lordo = calcolaLordoDaNetto(netto)
+                  setLordoCalcolato(lordo)
+                }}
+              >
+                <Text style={styles.generateBtnText}>Calcola</Text>
+              </TouchableOpacity>
+              {lordomCalcolato !== null && (
+                <View style={{ marginTop: 16, backgroundColor: '#F0FDF4', borderRadius: 12, padding: 16, gap: 6 }}>
+                  <Text style={{ fontSize: 12, color: '#065F46', fontWeight: '600', textAlign: 'center' }}>
+                    Per incassare €{parseFloat(nettoDesiderato).toFixed(0)} netti devi fatturare:
+                  </Text>
+                  <Text style={{ fontSize: 28, fontWeight: '700', color: '#0E9F8E', textAlign: 'center' }}>
+                    €{lordomCalcolato.toFixed(0)}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center' }}>
+                    Regime {profiloFiscale?.regime} · calcolo indicativo
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity style={{ marginTop: 12, alignItems: 'center' }} onPress={() => setMostraCalcoloInverso(false)}>
+                <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Chiudi</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
     </View>
   )
 }
@@ -640,4 +810,6 @@ const styles = StyleSheet.create({
   clienteItemAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
   clienteItemAvatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   clienteItemNome: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center' as const, alignItems: 'center' as const, padding: 24 },
+  modalBox: { backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '100%', gap: 8 },
 })

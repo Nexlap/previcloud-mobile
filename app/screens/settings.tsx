@@ -38,6 +38,12 @@ export default function Settings() {
   const [servizioInEdit, setServizioInEdit] = useState<Servizio | null>(null)
   const [nuovoServizio, setNuovoServizio] = useState({ nome: '', descrizione: '', costo: '', unita: 'cad' })
   const [salvandoServizio, setSalvandoServizio] = useState(false)
+  const [mostraModalListino, setMostraModalListino] = useState(false)
+  const [testoListino, setTestoListino] = useState('')
+  const [elaborandoListino, setElaborandoListino] = useState(false)
+  const [mostraModalSegnalazione, setMostraModalSegnalazione] = useState(false)
+  const [segnalazione, setSegnalazione] = useState({ tipo: 'bug', titolo: '', descrizione: '', schermata: '' })
+  const [inviandoSegnalazione, setInviandoSegnalazione] = useState(false)
   const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
   const formIniziale = useRef<typeof form | null>(null)
   const formRef = useRef(form)
@@ -48,6 +54,54 @@ export default function Settings() {
   const unitaOptions = ['cad', 'ora', 'giorno', 'mq', 'ml', 'set', 'progetto']
   const categorie = ['videomaker', 'fotografo', 'catering', 'falegname', 'estetista', 'elettricista', 'idraulico', 'imbianchino', 'altro']
   const toni = ['professionale e diretto', 'cordiale e disponibile', 'formale e preciso', 'semplice e informale']
+
+  async function inviaSegnalazione() {
+    if (!segnalazione.titolo.trim() || !segnalazione.descrizione.trim()) {
+      Alert.alert('Campi obbligatori', 'Inserisci titolo e descrizione')
+      return
+    }
+    setInviandoSegnalazione(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { error } = await supabase.from('segnalazioni').insert({
+      user_id: user.id,
+      tipo: segnalazione.tipo,
+      titolo: segnalazione.titolo.trim(),
+      descrizione: segnalazione.descrizione.trim(),
+      schermata: segnalazione.schermata.trim() || null,
+    })
+    setInviandoSegnalazione(false)
+    if (error) { Alert.alert('Errore', 'Impossibile inviare la segnalazione'); return }
+    Alert.alert('Inviata', 'Grazie! Analizzeremo il problema il prima possibile.')
+    setSegnalazione({ tipo: 'bug', titolo: '', descrizione: '', schermata: '' })
+    setMostraModalSegnalazione(false)
+  }
+
+  async function elaboraListinoAI() {
+    if (!testoListino.trim()) return
+    setElaborandoListino(true)
+    try {
+      const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ testo: testoListino })
+      })
+      const data = await res.json()
+      if (!data.servizi?.length) { Alert.alert('Nessun servizio trovato', 'Prova a essere più specifico.'); setElaborandoListino(false); return }
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const nuovi = data.servizi.map((s: any, i: number) => ({
+        user_id: user.id, nome: s.nome, descrizione: s.descrizione || null,
+        costo: s.costo ? parseFloat(s.costo) : null, unita: s.unita || 'cad', ordine: servizi.length + i
+      }))
+      const { data: inseriti, error } = await supabase.from('servizi').insert(nuovi).select()
+      if (error) { Alert.alert('Errore', error.message); return }
+      if (inseriti) setServizi(s => [...s, ...inseriti as any[]])
+      setTestoListino(''); setMostraModalListino(false)
+      Alert.alert('Servizi aggiunti', `${inseriti.length} servizi aggiunti al tuo listino.`)
+    } catch { Alert.alert('Errore', 'Impossibile elaborare i servizi') }
+    setElaborandoListino(false)
+  }
 
   useEffect(() => {
     carica()
@@ -254,16 +308,23 @@ export default function Settings() {
 
         {/* Servizi */}
         <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View>
-              <Text style={styles.cardTitle}>I miei servizi</Text>
-              <Text style={styles.cardSub}>L'AI usa questi servizi per generare i preventivi</Text>
-            </View>
-            <TouchableOpacity style={styles.addBtn} onPress={apriNuovoServizio}>
-              <Text style={styles.addBtnText}>+</Text>
-            </TouchableOpacity>
-          </View>
-
+<View style={styles.cardHeaderRow}>
+  <View style={{ flex: 1, marginRight: 8 }}>
+    <Text style={styles.cardTitle}>I miei servizi</Text>
+    <Text style={styles.cardSub}>L'AI usa questi servizi per generare i preventivi</Text>
+  </View>
+  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+    <TouchableOpacity 
+      style={{ width: 32, height: 32, borderRadius: 18, backgroundColor: '#F0FDF4', borderWidth: 1.5, borderColor: '#0E9F8E', justifyContent: 'center', alignItems: 'center' }} 
+      onPress={() => setMostraModalListino(true)}
+    >
+      <Text style={{ fontSize: 18, paddingBottom: 2 }}>🤖</Text>
+    </TouchableOpacity>
+    <TouchableOpacity style={styles.addBtn} onPress={apriNuovoServizio}>
+      <Text style={styles.addBtnText}>+</Text>
+    </TouchableOpacity>
+  </View>
+</View>
           {servizi.length === 0 ? (
             <TouchableOpacity style={styles.emptyServizi} onPress={apriNuovoServizio}>
               <Text style={styles.emptyServiziIcon}>📋</Text>
@@ -387,11 +448,20 @@ export default function Settings() {
 
         <TouchableOpacity
   style={styles.fiscaleBtn}
-  onPress={() => router.push('/(tabs)/fiscale')}
+  onPress={() => router.push('/screens/fiscale')}
 >
   <Text style={styles.fiscaleBtnText}>🧾 Regime fiscale e tasse</Text>
   <Text style={styles.fiscaleBtnArrow}>›</Text>
 </TouchableOpacity>
+
+        <TouchableOpacity style={styles.segnalazioneBtn} onPress={() => setMostraModalSegnalazione(true)}>
+          <Text style={styles.segnalazioneBtnIcon}>🐛</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.segnalazioneBtnText}>Segnala un problema</Text>
+            <Text style={styles.segnalazioneBtnSub}>Bug, suggerimenti o richieste</Text>
+          </View>
+          <Text style={{ fontSize: 18, color: '#9CA3AF' }}>›</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={salva} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salva impostazioni</Text>}
@@ -399,6 +469,107 @@ export default function Settings() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Modal segnalazione */}
+      <Modal visible={mostraModalSegnalazione} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setMostraModalSegnalazione(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Segnala un problema</Text>
+            <TouchableOpacity onPress={inviaSegnalazione} disabled={inviandoSegnalazione}>
+              {inviandoSegnalazione
+                ? <ActivityIndicator color="#0E9F8E" size="small" />
+                : <Text style={styles.modalSave}>Invia</Text>
+              }
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>TIPO</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                {[{ key: 'bug', label: '🐛 Bug' }, { key: 'suggerimento', label: '💡 Suggerimento' }, { key: 'altro', label: '📋 Altro' }].map(t => (
+                  <TouchableOpacity key={t.key}
+                    style={[styles.unitaChip, segnalazione.tipo === t.key && styles.unitaChipActive, { paddingHorizontal: 14, paddingVertical: 10 }]}
+                    onPress={() => setSegnalazione(s => ({ ...s, tipo: t.key }))}>
+                    <Text style={[styles.unitaChipText, segnalazione.tipo === t.key && styles.unitaChipTextActive, { fontSize: 13 }]}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>TITOLO *</Text>
+              <TextInput style={styles.fieldInput} value={segnalazione.titolo}
+                onChangeText={v => setSegnalazione(s => ({ ...s, titolo: v }))}
+                placeholder="es. Il PDF non si genera" placeholderTextColor="#9CA3AF" autoFocus />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>DESCRIZIONE *</Text>
+              <TextInput style={[styles.fieldInput, { height: 120, textAlignVertical: 'top' }]}
+                value={segnalazione.descrizione}
+                onChangeText={v => setSegnalazione(s => ({ ...s, descrizione: v }))}
+                placeholder="Descrivi il problema nel dettaglio..." placeholderTextColor="#9CA3AF" multiline />
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>SCHERMATA (opzionale)</Text>
+              <TextInput style={styles.fieldInput} value={segnalazione.schermata}
+                onChangeText={v => setSegnalazione(s => ({ ...s, schermata: v }))}
+                placeholder="es. Builder, Chat, Storico..." placeholderTextColor="#9CA3AF" />
+            </View>
+            <View style={{ backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#BFDBFE' }}>
+              <Text style={{ fontSize: 12, color: '#1D4ED8', lineHeight: 18 }}>
+                Le segnalazioni vengono analizzate entro 24-48 ore. Grazie per aiutarci a migliorare PreventivoAI!
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Modal listino smart */}
+      <Modal visible={mostraModalListino} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setMostraModalListino(false)}>
+              <Text style={styles.modalClose}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Listino smart</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+            <View style={{ backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#BFDBFE' }}>
+              <Text style={{ fontSize: 13, color: '#1D4ED8', lineHeight: 18 }}>
+                Incolla o scrivi i tuoi servizi — anche disordinati. Claude li struttura e li aggiunge al tuo listino.
+              </Text>
+            </View>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>I TUOI SERVIZI</Text>
+              <TextInput
+                style={[styles.fieldInput, { height: 200, textAlignVertical: 'top' }]}
+                value={testoListino}
+                onChangeText={setTestoListino}
+                placeholder="es. Editing video: 300, Riprese mezza giornata: 400, Color grading: 150"
+                placeholderTextColor="#9CA3AF"
+                multiline
+                autoFocus
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.saveBtn, (!testoListino.trim() || elaborandoListino) && styles.saveBtnDisabled]}
+              onPress={elaboraListinoAI}
+              disabled={!testoListino.trim() || elaborandoListino}
+            >
+              {elaborandoListino
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.saveBtnText}>Struttura con AI e aggiungi</Text>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity style={{ alignItems: 'center', padding: 8 }} onPress={() => setMostraModalListino(false)}>
+              <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Annulla</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Modal aggiungi/modifica servizio */}
       <Modal visible={mostraModalServizio} animationType="slide" presentationStyle="pageSheet">
@@ -557,4 +728,8 @@ const styles = StyleSheet.create({
   firmaPreview: { fontSize: 22, color: '#374151', fontStyle: 'italic' as const, paddingVertical: 8, textAlign: 'center' as const },
 fiscaleBtnText: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
 fiscaleBtnArrow: { fontSize: 18, color: '#9CA3AF' },
+  segnalazioneBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 12 },
+  segnalazioneBtnIcon: { fontSize: 22 },
+  segnalazioneBtnText: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
+  segnalazioneBtnSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
 })

@@ -7,7 +7,7 @@ import {
   ActivityIndicator, Alert, Animated, StyleSheet,
   Text, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from '../../lib/supabase'
+import { supabase } from "../../lib/supabase"
 
 export default function RegistraVoce() {
   const [registrando, setRegistrando] = useState(false)

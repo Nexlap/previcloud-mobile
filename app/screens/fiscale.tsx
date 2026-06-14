@@ -4,7 +4,7 @@ import {
     ActivityIndicator, Alert, ScrollView, StyleSheet,
     Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from '../../lib/supabase'
+import { supabase } from "../../lib/supabase"
 
 type Regime = 'forfettario' | 'ordinario' | 'occasionale'
 

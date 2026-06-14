@@ -1,52 +1,52 @@
-import Constants from 'expo-constants'
 import { router, useLocalSearchParams, useNavigation } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from '../../lib/supabase'
+import { cercaCliente, creaClienteDaChat, inviaMessaggio } from "../../lib/api/chat"
+import { convertiRecap } from "../../lib/api/pdf"
+import { supabase } from "../../lib/supabase"
+import { Messaggio } from "../../lib/types"
 
-interface Messaggio {
-  role: 'user' | 'assistant'
-  content: string
+// Parametri di navigazione accettati da questa schermata
+type Params = {
+  trascrizione: string       // testo da registrazione vocale
+  trascrizioneId: string
+  preventivo_id: string      // bozza da riprendere
+  testo_modifica: string     // preventivo esistente da modificare
+  versione_padre_id: string
+  versione_numero: string
+  cliente_id: string         // cliente preselezionato
+  cliente_nome: string
 }
 
 export default function Nuovo() {
+  const params = useLocalSearchParams<Params>()
+  const navigation = useNavigation()
+
+  // ── Stato chat ────────────────────────────────────────────────────
   const [input, setInput] = useState('')
   const [messaggi, setMessaggi] = useState<Messaggio[]>([])
   const [loading, setLoading] = useState(false)
-  const [preventivo, setPreventivo] = useState('')
-  const [salvato, setSalvato] = useState(false)
   const [token, setToken] = useState('')
   const [recap, setRecap] = useState('')
+  const [preventivo, setPreventivo] = useState('')
+  const [salvato, setSalvato] = useState(false)
   const [modalitaScelta, setModalitaScelta] = useState(true)
-  const [clienteRilevato, setClienteRilevato] = useState<{id: string, nome: string} | null>(null)
+
+  // ── Stato cliente rilevato ────────────────────────────────────────
+  const [clienteIdAttivo, setClienteIdAttivo] = useState('')
+  const [clienteRilevato, setClienteRilevato] = useState<{ id: string, nome: string } | null>(null)
+  const [clientiSuggeriti, setClientiSuggeriti] = useState<{ id: string, nome: string, telefono: string | null, email: string | null }[]>([])
   const [mostraModalCliente, setMostraModalCliente] = useState(false)
-  const [clientiSuggeriti, setClientiSuggeriti] = useState<{id: string, nome: string, telefono: string | null, email: string | null}[]>([])
   const [nomeClienteNuovo, setNomeClienteNuovo] = useState('')
   const [datiClienteNuovo, setDatiClienteNuovo] = useState({ telefono: '', email: '', indirizzo: '' })
   const [mostraFormDatiCliente, setMostraFormDatiCliente] = useState(false)
-  const [clienteIdAttivo, setClienteIdAttivo] = useState('')
+
   const scrollRef = useRef<ScrollView>(null)
-  const backendUrl = Constants.expoConfig?.extra?.backendUrl
-  const navigation = useNavigation()
 
-  const { trascrizione: trascrizioneParam, trascrizioneId: trascrizioneIdParam, preventivo_id, testo_modifica, versione_padre_id, versione_numero, cliente_id, cliente_nome } = useLocalSearchParams<{
-    trascrizione: string
-    trascrizioneId: string
-    preventivo_id: string
-    testo_modifica: string
-    versione_padre_id: string
-    versione_numero: string
-    cliente_id: string
-    cliente_nome: string
-  }>()
-
-  useEffect(() => {
-    if (cliente_id) setClienteIdAttivo(cliente_id)
-  }, [cliente_id])
-
+  // ── Inizializzazione ──────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.replace('/(auth)/login'); return }
@@ -55,113 +55,102 @@ export default function Nuovo() {
   }, [])
 
   useEffect(() => {
-    if (trascrizioneParam && messaggi.length === 0) {
-      setModalitaScelta(false)
-      setInput(trascrizioneParam)
-    }
-  }, [trascrizioneParam])
+    if (params.cliente_id) setClienteIdAttivo(params.cliente_id)
+  }, [params.cliente_id])
 
+  // Avvia chat da registrazione vocale
   useEffect(() => {
-    if (testo_modifica && messaggi.length === 0) {
+    if (params.trascrizione && messaggi.length === 0) {
       setModalitaScelta(false)
-      // Inizializza la chat con il preventivo esistente come contesto
-      const msgIniziale: Messaggio = {
+      setInput(params.trascrizione)
+    }
+  }, [params.trascrizione])
+
+  // Avvia chat da modifica preventivo esistente
+  useEffect(() => {
+    if (params.testo_modifica && messaggi.length === 0) {
+      setModalitaScelta(false)
+      setMessaggi([{
         role: 'assistant',
-        content: `Ho caricato il tuo preventivo v${parseInt(versione_numero || '2') - 1}. Cosa vuoi modificare?
-
-${testo_modifica}`
-      }
-      setMessaggi([msgIniziale])
+        content: `Ho caricato il tuo preventivo v${parseInt(params.versione_numero || '2') - 1}. Cosa vuoi modificare?\n\n${params.testo_modifica}`
+      }])
     }
-  }, [testo_modifica])
+  }, [params.testo_modifica])
 
+  // Riprendi bozza
   useEffect(() => {
-    if (preventivo_id) {
+    if (params.preventivo_id) {
       supabase.from('preventivi')
         .select('testo_preventivo, messaggi_chat')
-        .eq('id', preventivo_id)
+        .eq('id', params.preventivo_id)
         .single()
         .then(({ data }) => {
-          if (data?.messaggi_chat) setMessaggi(data.messaggi_chat)
+          if (data?.messaggi_chat) setMessaggi(data.messaggi_chat as Messaggio[])
           if (data?.testo_preventivo) setPreventivo(data.testo_preventivo)
         })
     }
-  }, [preventivo_id])
+  }, [params.preventivo_id])
 
+  // Popup salva bozza all'uscita
   useEffect(() => {
-const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
-  if (messaggi.length === 0 && !recap) return
-  if (preventivo) return
-      Alert.alert(
-        'Salva bozza',
-        'Vuoi salvare la conversazione come bozza prima di uscire?',
-        [
-          { text: 'Abbandona', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
-          { text: 'Continua', style: 'cancel' },
-          {
-            text: 'Salva bozza', onPress: async () => {
-              const { data: { user } } = await supabase.auth.getUser()
-              if (user) {
-                await supabase.from('preventivi').insert({
-                  user_id: user.id,
-                  testo_preventivo: recap || messaggi.filter(m => m.role === 'assistant').pop()?.content || '',
-                  messaggi_chat: messaggi,
-                  stato: 'bozza',
-                  is_ultimo: true,
-                  versione: 1,
-                  titolo: 'Bozza — ' + new Date().toLocaleDateString('it-IT')
-                })
-              }
-              navigation.dispatch(e.data.action)
-            }
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (messaggi.length === 0 && !recap) return
+      if (preventivo) return
+      e.preventDefault()
+      Alert.alert('Salva bozza', 'Vuoi salvare la conversazione come bozza prima di uscire?', [
+        { text: 'Abbandona', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+        { text: 'Continua', style: 'cancel' },
+        { text: 'Salva bozza', onPress: async () => {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            await supabase.from('preventivi').insert({
+              user_id: user.id,
+              testo_preventivo: recap || messaggi.filter(m => m.role === 'assistant').pop()?.content || '',
+              messaggi_chat: messaggi,
+              stato: 'bozza',
+              is_ultimo: true,
+              versione: 1,
+              titolo: 'Bozza — ' + new Date().toLocaleDateString('it-IT')
+            })
           }
-        ]
-      )
+          navigation.dispatch(e.data.action)
+        }}
+      ])
     })
     return unsubscribe
-  }, [messaggi, recap])
+  }, [messaggi, recap, preventivo])
 
-
-
+  // ── Gestione cliente rilevato dall'AI ─────────────────────────────
   async function gestisciClienteDaRisposta(nome: string) {
     try {
-      const res = await fetch(`${backendUrl}/api/cerca-cliente`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ nome })
-      })
-      const data = await res.json()
-      if (data.risultati && data.risultati.length === 1) {
-        setClienteIdAttivo(data.risultati[0].id)
-        setClienteRilevato(data.risultati[0])
-      } else if (data.risultati && data.risultati.length > 1) {
-        setClientiSuggeriti(data.risultati)
+      const risultati = await cercaCliente(nome, token)
+      if (risultati.length === 1) {
+        setClienteIdAttivo(risultati[0].id)
+        setClienteRilevato(risultati[0])
+      } else if (risultati.length > 1) {
+        setClientiSuggeriti(risultati)
         setMostraModalCliente(true)
       } else {
         setNomeClienteNuovo(nome)
         setClientiSuggeriti([])
         setMostraModalCliente(true)
       }
-    } catch (e) {}
+    } catch {}
   }
 
   async function creaClienteNuovo() {
     try {
-      const res = await fetch(`${backendUrl}/api/crea-cliente-da-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ nome: nomeClienteNuovo, ...datiClienteNuovo })
-      })
-      const data = await res.json()
-      if (data.cliente) {
-        setClienteIdAttivo(data.cliente.id)
-        setClienteRilevato({ id: data.cliente.id, nome: data.cliente.nome })
+      const cliente = await creaClienteDaChat({ nome: nomeClienteNuovo, ...datiClienteNuovo }, token)
+      if (cliente) {
+        setClienteIdAttivo(cliente.id)
+        setClienteRilevato({ id: cliente.id, nome: cliente.nome })
       }
-    } catch (e) {}
+    } catch {}
     setMostraModalCliente(false)
     setMostraFormDatiCliente(false)
   }
 
+  // ── Invio messaggio ───────────────────────────────────────────────
   async function invia(testoForzato?: string) {
     const testo = (testoForzato || input).trim()
     if (!testo || loading) return
@@ -172,57 +161,52 @@ const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
     setMessaggi(nuovi)
 
     try {
-      const res = await fetch(`${backendUrl}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ messages: nuovi, cliente_id: clienteIdAttivo || '' })
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
+      let reply = await inviaMessaggio(nuovi, token, clienteIdAttivo)
 
-      let reply: string = data.reply
-
-      // Intercetta CLIENTE: dal reply
+      // Intercetta nome cliente rilevato dall'AI
       if (reply.includes('CLIENTE:') && !clienteIdAttivo) {
-        const clienteMatch = reply.match(/CLIENTE:([^\n]+)/)
-        if (clienteMatch) {
-          const nomeCliente = clienteMatch[1].trim()
+        const match = reply.match(/CLIENTE:([^\n]+)/)
+        if (match) {
+          const nomeCliente = match[1].trim()
           reply = reply.replace(/CLIENTE:[^\n]+\n?/, '').trim()
           await gestisciClienteDaRisposta(nomeCliente)
         }
       }
 
       if (reply.includes('PREVENTIVO_PRONTO')) {
-        const parts = reply.split('PREVENTIVO_PRONTO')
-        if (parts[0].trim()) setMessaggi([...nuovi, { role: 'assistant', content: parts[0].trim() }])
-        setPreventivo(parts[1].trim())
+        const [pre, post] = reply.split('PREVENTIVO_PRONTO')
+        if (pre.trim()) setMessaggi([...nuovi, { role: 'assistant', content: pre.trim() }])
+        setPreventivo(post.trim())
         setRecap('')
       } else if (reply.includes('RECAP_PRONTO')) {
-        const parts = reply.split('RECAP_PRONTO')
-        if (parts[0].trim()) setMessaggi([...nuovi, { role: 'assistant', content: parts[0].trim() }])
-        setRecap(parts[1].trim())
+        const [pre, post] = reply.split('RECAP_PRONTO')
+        if (pre.trim()) setMessaggi([...nuovi, { role: 'assistant', content: pre.trim() }])
+        setRecap(post.trim())
       } else {
         setMessaggi([...nuovi, { role: 'assistant', content: reply }])
       }
     } catch (e: any) {
       Alert.alert('Errore', e.message)
     }
+
     setLoading(false)
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100)
   }
 
+  // ── Salva preventivo grezzo nello storico ─────────────────────────
   async function salva() {
     if (!preventivo || salvato) return
     const match = preventivo.match(/TOTALE[:\s]*€?\s*([\d.,]+)/i)
     const importo = match ? parseFloat(match[1].replace(',', '.')) : null
-    await fetch(`${backendUrl}/api/salva-preventivo`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({
-        testo_preventivo: preventivo,
-        importo_totale: importo,
-        messaggio_cliente: messaggi[0]?.content || ''
-      })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('preventivi').insert({
+      user_id: user.id,
+      testo_preventivo: preventivo,
+      importo_totale: importo,
+      stato: 'bozza',
+      is_ultimo: true,
+      versione: 1,
     })
     setSalvato(true)
     Alert.alert('Salvato!', 'Preventivo salvato nello storico.')
@@ -237,10 +221,14 @@ const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
     setModalitaScelta(true)
   }
 
+  // ── Render ────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
+          style={styles.backBtn}
           onPress={() => {
             if (!modalitaScelta && messaggi.length === 0 && !recap && !preventivo) {
               setModalitaScelta(true)
@@ -248,56 +236,49 @@ const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
               router.back()
             }
           }}
-          style={styles.backBtn}
         >
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nuovo preventivo</Text>
-        {preventivo ? (
-          <TouchableOpacity onPress={ricomincia}>
-            <Text style={styles.nuovoText}>Nuovo</Text>
-          </TouchableOpacity>
-        ) : <View style={{ width: 50 }} />}
+        <Text style={styles.headerTitle}>
+          {params.testo_modifica ? `Modifica v${parseInt(params.versione_numero || '2') - 1}` : 'Nuovo preventivo'}
+        </Text>
+        {preventivo
+          ? <TouchableOpacity onPress={ricomincia}><Text style={styles.nuovoText}>Nuovo</Text></TouchableOpacity>
+          : <View style={{ width: 50 }} />
+        }
       </View>
 
-      {modalitaScelta && !recap && !preventivo && messaggi.length === 0 && !testo_modifica ? (
+      {/* ── Schermata scelta modalità ── */}
+      {modalitaScelta && !recap && !preventivo && messaggi.length === 0 && !params.testo_modifica ? (
         <View style={styles.sceltaContainer}>
           <Text style={styles.sceltaTitolo}>Come vuoi iniziare?</Text>
           <Text style={styles.sceltaSub}>Scegli il metodo più comodo per te</Text>
-          {cliente_nome ? (
+
+          {params.cliente_nome ? (
             <View style={styles.clienteBadge}>
-              <Text style={styles.clienteBadgeText}>👤 Preventivo per: <Text style={{ fontWeight: '700' }}>{cliente_nome}</Text></Text>
+              <Text style={styles.clienteBadgeText}>
+                👤 Preventivo per: <Text style={{ fontWeight: '700' }}>{params.cliente_nome}</Text>
+              </Text>
             </View>
           ) : null}
 
-          <TouchableOpacity style={styles.sceltaCard} onPress={() => router.push('/(tabs)/registra')}>
-            <Text style={styles.sceltaCardIcon}>🎙</Text>
-            <View style={styles.sceltaCardBody}>
-              <Text style={styles.sceltaCardTitle}>Registra voce</Text>
-              <Text style={styles.sceltaCardSub}>Parla del lavoro, trascrivo e genero automaticamente</Text>
-            </View>
-            <Text style={styles.sceltaCardArrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.sceltaCard} onPress={() => setModalitaScelta(false)}>
-            <Text style={styles.sceltaCardIcon}>✍️</Text>
-            <View style={styles.sceltaCardBody}>
-              <Text style={styles.sceltaCardTitle}>Scrivi tu</Text>
-              <Text style={styles.sceltaCardSub}>Descrivi il lavoro a testo, l'AI fa le domande giuste</Text>
-            </View>
-            <Text style={styles.sceltaCardArrow}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.sceltaCard} onPress={() => router.push('/(tabs)/builder')}>
-            <Text style={styles.sceltaCardIcon}>📋</Text>
-            <View style={styles.sceltaCardBody}>
-              <Text style={styles.sceltaCardTitle}>Builder manuale</Text>
-              <Text style={styles.sceltaCardSub}>Seleziona i servizi dal listino e assembla</Text>
-            </View>
-            <Text style={styles.sceltaCardArrow}>›</Text>
-          </TouchableOpacity>
+          {[
+            { icon: '🎙', title: 'Registra voce', sub: 'Parla del lavoro, trascrivo e genero automaticamente', onPress: () => router.push('/screens/registra') },
+            { icon: '✍️', title: 'Scrivi tu', sub: "Descrivi il lavoro a testo, l'AI fa le domande giuste", onPress: () => setModalitaScelta(false) },
+            { icon: '📋', title: 'Builder manuale', sub: 'Seleziona i servizi dal listino e assembla', onPress: () => router.push({ pathname: '/screens/builder', params: { cliente_id: clienteIdAttivo || params.cliente_id || '', cliente_nome: params.cliente_nome || '' } }) },
+          ].map(item => (
+            <TouchableOpacity key={item.title} style={styles.sceltaCard} onPress={item.onPress}>
+              <Text style={styles.sceltaCardIcon}>{item.icon}</Text>
+              <View style={styles.sceltaCardBody}>
+                <Text style={styles.sceltaCardTitle}>{item.title}</Text>
+                <Text style={styles.sceltaCardSub}>{item.sub}</Text>
+              </View>
+              <Text style={styles.sceltaCardArrow}>›</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
+      /* ── Schermata recap ── */
       ) : recap ? (
         <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16 }}>
           <View style={styles.recapCard}>
@@ -312,21 +293,13 @@ const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
                 onPress={async () => {
                   setLoading(true)
                   try {
-                    const res = await fetch(`${backendUrl}/api/converti-recap`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                      body: JSON.stringify({ recap })
-                    })
-                    const data = await res.json()
-                    if (data.error) throw new Error(data.error)
+                    const preventivo = await convertiRecap(recap, token)
                     setRecap('')
                     router.push({
-                      pathname: '/(tabs)/preventivo-pdf',
-                      params: { testo: data.preventivo, versione_padre_id: versione_padre_id || '', cliente_id: cliente_id || '' }
+                      pathname: '/screens/preventivo-pdf',
+                      params: { testo: preventivo, versione_padre_id: params.versione_padre_id || '', cliente_id: clienteIdAttivo || params.cliente_id || '' }
                     })
-                  } catch (e: any) {
-                    Alert.alert('Errore', e.message)
-                  }
+                  } catch (e: any) { Alert.alert('Errore', e.message) }
                   setLoading(false)
                 }}
               >
@@ -335,19 +308,14 @@ const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
                   : <Text style={styles.recapConfirmText}>✓ Genera preventivo</Text>
                 }
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.recapEditBtn}
-                onPress={() => {
-                  setRecap('')
-                  setInput('')
-                }}
-              >
+              <TouchableOpacity style={styles.recapEditBtn} onPress={() => { setRecap(''); setInput('') }}>
                 <Text style={styles.recapEditText}>✏️ Modifica</Text>
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
 
+      /* ── Schermata preventivo generato ── */
       ) : preventivo ? (
         <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16 }}>
           <View style={styles.prevCard}>
@@ -359,26 +327,18 @@ const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
               <Text style={styles.prevText}>{preventivo}</Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={[styles.saveBtn, salvato && styles.saveBtnDone]}
-            onPress={salva}
-            disabled={salvato}
-          >
-            <Text style={styles.saveBtnText}>
-              {salvato ? '✓ Salvato nello storico' : 'Salva nello storico'}
-            </Text>
+          <TouchableOpacity style={[styles.saveBtn, salvato && styles.saveBtnDone]} onPress={salva} disabled={salvato}>
+            <Text style={styles.saveBtnText}>{salvato ? '✓ Salvato nello storico' : 'Salva nello storico'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.pdfBtn}
-            onPress={() => router.push({
-              pathname: '/(tabs)/preventivo-pdf',
-              params: { testo: preventivo, versione_padre_id: versione_padre_id || '' }
-            })}
+            onPress={() => router.push({ pathname: '/screens/preventivo-pdf', params: { testo: preventivo, versione_padre_id: params.versione_padre_id || '' } })}
           >
             <Text style={styles.pdfBtnText}>📄 Genera PDF professionale</Text>
           </TouchableOpacity>
         </ScrollView>
 
+      /* ── Chat ── */
       ) : (
         <>
           <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.chatContent}>
@@ -404,6 +364,7 @@ const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
               </View>
             )}
           </ScrollView>
+
           <View style={styles.inputArea}>
             <TextInput
               style={styles.input}
@@ -424,10 +385,11 @@ const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
           </View>
         </>
       )}
+
       {/* Badge cliente rilevato */}
       {clienteRilevato && !modalitaScelta && (
         <View style={styles.clienteRilevatoBadge}>
-          <Text style={styles.clienteRilevatoBadgeText}>👤 {clienteRilevato.nome}</Text>
+          <Text style={styles.clienteRilevatoBadgeText}>{`👤 ${clienteRilevato.nome}`}</Text>
           <TouchableOpacity onPress={() => { setClienteRilevato(null); setClienteIdAttivo('') }}>
             <Text style={styles.clienteRilevatoBadgeRemove}>✕</Text>
           </TouchableOpacity>
@@ -474,12 +436,22 @@ const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
                   </>
                 ) : (
                   <>
-                    <TextInput style={styles.clienteModalInput} placeholder="Telefono" placeholderTextColor="#9CA3AF"
-                      value={datiClienteNuovo.telefono} onChangeText={v => setDatiClienteNuovo(d => ({...d, telefono: v}))} keyboardType="phone-pad" />
-                    <TextInput style={styles.clienteModalInput} placeholder="Email" placeholderTextColor="#9CA3AF"
-                      value={datiClienteNuovo.email} onChangeText={v => setDatiClienteNuovo(d => ({...d, email: v}))} keyboardType="email-address" autoCapitalize="none" />
-                    <TextInput style={styles.clienteModalInput} placeholder="Indirizzo" placeholderTextColor="#9CA3AF"
-                      value={datiClienteNuovo.indirizzo} onChangeText={v => setDatiClienteNuovo(d => ({...d, indirizzo: v}))} />
+                    {[
+                      { placeholder: 'Telefono', key: 'telefono', keyboard: 'phone-pad' as const },
+                      { placeholder: 'Email', key: 'email', keyboard: 'email-address' as const },
+                      { placeholder: 'Indirizzo', key: 'indirizzo', keyboard: 'default' as const },
+                    ].map(f => (
+                      <TextInput
+                        key={f.key}
+                        style={styles.clienteModalInput}
+                        placeholder={f.placeholder}
+                        placeholderTextColor="#9CA3AF"
+                        value={(datiClienteNuovo as any)[f.key]}
+                        onChangeText={v => setDatiClienteNuovo(d => ({ ...d, [f.key]: v }))}
+                        keyboardType={f.keyboard}
+                        autoCapitalize={f.keyboard === 'email-address' ? 'none' : 'sentences'}
+                      />
+                    ))}
                     <TouchableOpacity style={styles.clienteModalBtn} onPress={creaClienteNuovo}>
                       <Text style={styles.clienteModalBtnText}>Salva e continua</Text>
                     </TouchableOpacity>
@@ -522,6 +494,17 @@ const styles = StyleSheet.create({
   sendBtn: { width: 44, height: 44, backgroundColor: '#0E9F8E', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   sendBtnDisabled: { opacity: 0.4 },
   sendBtnText: { color: '#fff', fontSize: 20, fontWeight: '600' },
+  sceltaContainer: { flex: 1, padding: 20, gap: 14 },
+  sceltaTitolo: { fontSize: 24, fontWeight: '700', color: '#0D1B2A', marginTop: 8 },
+  sceltaSub: { fontSize: 14, color: '#9CA3AF', marginBottom: 8 },
+  sceltaCard: { backgroundColor: '#fff', borderRadius: 16, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+  sceltaCardIcon: { fontSize: 28 },
+  sceltaCardBody: { flex: 1, gap: 3 },
+  sceltaCardTitle: { fontSize: 16, fontWeight: '600', color: '#0D1B2A' },
+  sceltaCardSub: { fontSize: 12, color: '#9CA3AF', lineHeight: 17 },
+  sceltaCardArrow: { fontSize: 22, color: '#9CA3AF' },
+  clienteBadge: { backgroundColor: '#EBF3FF', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#BFDBFE' },
+  clienteBadgeText: { fontSize: 13, color: '#1E40AF' },
   prevCard: { backgroundColor: '#fff', borderRadius: 20, borderWidth: 1.5, borderColor: '#0E9F8E', overflow: 'hidden', marginBottom: 12 },
   prevHeader: { backgroundColor: '#0D1B2A', padding: 16 },
   prevHeaderTitle: { color: '#fff', fontSize: 15, fontWeight: '600' },
@@ -543,19 +526,6 @@ const styles = StyleSheet.create({
   recapConfirmText: { color: '#fff', fontSize: 14, fontWeight: '600' as const },
   recapEditBtn: { flex: 1, backgroundColor: '#F7F8FA', borderRadius: 12, padding: 12, alignItems: 'center' as const, borderWidth: 1, borderColor: '#E5E7EB' },
   recapEditText: { color: '#374151', fontSize: 14, fontWeight: '500' as const },
-  riprendiBtn: { backgroundColor: '#0E9F8E', borderRadius: 10, padding: 10, alignItems: 'center' as const, marginBottom: 8 },
-  riprendiBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
-  sceltaContainer: { flex: 1, padding: 20, gap: 14 },
-  sceltaTitolo: { fontSize: 24, fontWeight: '700', color: '#0D1B2A', marginTop: 8 },
-  sceltaSub: { fontSize: 14, color: '#9CA3AF', marginBottom: 8 },
-  sceltaCard: { backgroundColor: '#fff', borderRadius: 16, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#E5E7EB' },
-  sceltaCardDisabled: { opacity: 0.5 },
-  sceltaCardIcon: { fontSize: 28 },
-  sceltaCardBody: { flex: 1, gap: 3 },
-  sceltaCardTitle: { fontSize: 16, fontWeight: '600', color: '#0D1B2A' },
-  sceltaCardSub: { fontSize: 12, color: '#9CA3AF', lineHeight: 17 },
-  sceltaCardArrow: { fontSize: 22, color: '#9CA3AF' },
-  sceltaCardBadge: { fontSize: 11, color: '#0E9F8E', fontWeight: '600' as const, backgroundColor: '#F0FDF4', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   clienteRilevatoBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#EBF3FF', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#BFDBFE' },
   clienteRilevatoBadgeText: { fontSize: 13, color: '#1E40AF', fontWeight: '500' },
   clienteRilevatoBadgeRemove: { fontSize: 16, color: '#9CA3AF', padding: 4 },
@@ -571,6 +541,4 @@ const styles = StyleSheet.create({
   clienteModalSkip: { alignItems: 'center' as const, padding: 8 },
   clienteModalSkipText: { fontSize: 13, color: '#9CA3AF' },
   clienteModalInput: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
-  clienteBadge: { backgroundColor: '#EBF3FF', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#BFDBFE' },
-  clienteBadgeText: { fontSize: 13, color: '#1E40AF' },
 })

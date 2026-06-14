@@ -1,94 +1,25 @@
 import { router } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet,
+  Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from '../../lib/supabase'
-
-interface Cliente {
-  id: string
-  nome: string
-  telefono: string | null
-  email: string | null
-  note: string | null
-  created_at: string
-  totale_preventivi?: number
-  num_preventivi?: number
-}
+import { useClienti } from "../../lib/hooks/useClienti"
 
 export default function Clienti() {
-  const [clienti, setClienti] = useState<Cliente[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const { clienti, loading, refreshing, onRefresh, aggiungiCliente } = useClienti()
   const [cerca, setCerca] = useState('')
   const [mostraForm, setMostraForm] = useState(false)
   const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', note: '' })
   const [salvando, setSalvando] = useState(false)
 
-  useEffect(() => { carica() }, [])
-
-  async function onRefresh() {
-    setRefreshing(true)
-    await carica()
-    setRefreshing(false)
-  }
-
-  async function carica() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.replace('/(auth)/login'); return }
-
-    const { data: clientiData } = await supabase
-      .from('clienti')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('nome', { ascending: true })
-
-    if (!clientiData) { setLoading(false); return }
-
-    // Per ogni cliente carica stats preventivi
-    const clientiConStats = await Promise.all(clientiData.map(async c => {
-      const { data: prevs } = await supabase
-        .from('preventivi')
-        .select('importo_totale')
-        .eq('cliente_id', c.id)
-        .eq('is_ultimo', true)
-
-      const totale = prevs?.reduce((a, p) => a + (p.importo_totale || 0), 0) || 0
-      return { ...c, totale_preventivi: totale, num_preventivi: prevs?.length || 0 }
-    }))
-
-    setClienti(clientiConStats)
-    setLoading(false)
-  }
-
-  async function aggiungiCliente() {
-    if (!nuovoCliente.nome.trim()) {
-      Alert.alert('Errore', 'Inserisci almeno il nome del cliente')
-      return
-    }
+  async function handleAggiungi() {
     setSalvando(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data, error } = await supabase
-      .from('clienti')
-      .insert({ ...nuovoCliente, user_id: user.id })
-      .select()
-      .single()
-
-    if (error) { Alert.alert('Errore', error.message); setSalvando(false); return }
-
-    setClienti(c => [...c, { ...data, totale_preventivi: 0, num_preventivi: 0 }])
-    setNuovoCliente({ nome: '', telefono: '', email: '', note: '' })
-    setMostraForm(false)
+    const ok = await aggiungiCliente(nuovoCliente)
+    if (ok) {
+      setNuovoCliente({ nome: '', telefono: '', email: '', note: '' })
+      setMostraForm(false)
+    }
     setSalvando(false)
   }
 
@@ -112,9 +43,12 @@ export default function Clienti() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 10 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}>
-
-        {/* Cerca */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={{ padding: 16, gap: 10 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}
+      >
+        {/* Barra ricerca */}
         <View style={styles.searchBox}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
@@ -135,21 +69,16 @@ export default function Clienti() {
               placeholder="Nome e cognome *" placeholderTextColor="#9CA3AF" />
             <TextInput style={styles.input} value={nuovoCliente.telefono}
               onChangeText={v => setNuovoCliente(c => ({ ...c, telefono: v }))}
-              placeholder="Telefono" placeholderTextColor="#9CA3AF"
-              keyboardType="phone-pad" />
+              placeholder="Telefono" placeholderTextColor="#9CA3AF" keyboardType="phone-pad" />
             <TextInput style={styles.input} value={nuovoCliente.email}
               onChangeText={v => setNuovoCliente(c => ({ ...c, email: v }))}
-              placeholder="Email" placeholderTextColor="#9CA3AF"
-              keyboardType="email-address" autoCapitalize="none" />
+              placeholder="Email" placeholderTextColor="#9CA3AF" keyboardType="email-address" autoCapitalize="none" />
             <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
               value={nuovoCliente.note}
               onChangeText={v => setNuovoCliente(c => ({ ...c, note: v }))}
               placeholder="Note..." placeholderTextColor="#9CA3AF" multiline />
-            <TouchableOpacity
-              style={[styles.saveBtn, salvando && styles.saveBtnDisabled]}
-              onPress={aggiungiCliente} disabled={salvando}>
-              {salvando ? <ActivityIndicator color="#fff" size="small" /> :
-                <Text style={styles.saveBtnText}>Salva cliente</Text>}
+            <TouchableOpacity style={[styles.saveBtn, salvando && styles.saveBtnDisabled]} onPress={handleAggiungi} disabled={salvando}>
+              {salvando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>Salva cliente</Text>}
             </TouchableOpacity>
           </View>
         )}
@@ -158,45 +87,28 @@ export default function Clienti() {
         {clientiFiltrati.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>👥</Text>
-            <Text style={styles.emptyText}>
-              {cerca ? 'Nessun cliente trovato' : 'Nessun cliente ancora'}
-            </Text>
-            {!cerca && (
-              <Text style={styles.emptySubtext}>
-                Tocca + per aggiungere il primo cliente
-              </Text>
-            )}
+            <Text style={styles.emptyText}>{cerca ? 'Nessun cliente trovato' : 'Nessun cliente ancora'}</Text>
+            {!cerca && <Text style={styles.emptySubtext}>Tocca + per aggiungere il primo cliente</Text>}
           </View>
         ) : (
           clientiFiltrati.map(c => (
             <TouchableOpacity
               key={c.id}
               style={styles.clienteCard}
-              onPress={() => router.push({
-                pathname: '/(tabs)/cliente-dettaglio',
-                params: { id: c.id, nome: c.nome }
-              })}
+              onPress={() => router.push({ pathname: '/screens/cliente-dettaglio', params: { id: c.id, nome: c.nome } })}
             >
               <View style={styles.clienteAvatar}>
-                <Text style={styles.clienteAvatarText}>
-                  {c.nome.charAt(0).toUpperCase()}
-                </Text>
+                <Text style={styles.clienteAvatarText}>{c.nome.charAt(0).toUpperCase()}</Text>
               </View>
               <View style={styles.clienteBody}>
                 <Text style={styles.clienteNome}>{c.nome}</Text>
-                <Text style={styles.clienteInfo}>
-                  {c.telefono || c.email || 'Nessun contatto'}
-                </Text>
+                <Text style={styles.clienteInfo}>{c.telefono || c.email || 'Nessun contatto'}</Text>
               </View>
               <View style={styles.clienteStats}>
-                <Text style={styles.clienteStatVal}>
-                  {c.num_preventivi || 0}
-                </Text>
+                <Text style={styles.clienteStatVal}>{c.num_preventivi || 0}</Text>
                 <Text style={styles.clienteStatLabel}>preventivi</Text>
                 {(c.totale_preventivi || 0) > 0 && (
-                  <Text style={styles.clienteStatImporto}>
-                    €{c.totale_preventivi?.toFixed(0)}
-                  </Text>
+                  <Text style={styles.clienteStatImporto}>€{c.totale_preventivi?.toFixed(0)}</Text>
                 )}
               </View>
             </TouchableOpacity>
@@ -213,8 +125,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { padding: 4, width: 50 },
-  backText: { color: '#9CA3AF', fontSize: 22 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
   addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#0E9F8E', justifyContent: 'center', alignItems: 'center' },
   addBtnText: { color: '#fff', fontSize: 20, fontWeight: '300' },

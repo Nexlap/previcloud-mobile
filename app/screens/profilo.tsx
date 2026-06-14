@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import {
   Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from '../../lib/supabase'
+import { supabase } from "../../lib/supabase"
 
 const NAVY = '#0D1B2A'
 const TEAL = '#0E9F8E'
@@ -89,7 +89,7 @@ export default function Profilo() {
             <Text style={styles.profileName}>{nomeAzienda || 'Nome azienda'}</Text>
             <Text style={styles.profileEmail}>{email}</Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')}>
+          <TouchableOpacity onPress={() => router.push('/screens/settings')}>
             <Text style={{ fontSize: 20 }}>✏️</Text>
           </TouchableOpacity>
         </View>

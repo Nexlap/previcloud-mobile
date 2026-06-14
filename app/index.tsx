@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { View, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
-import { supabase } from '../lib/supabase'
+import { supabase } from "../lib/supabase"
 
 export default function Index() {
   useEffect(() => {
