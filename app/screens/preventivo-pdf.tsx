@@ -51,7 +51,6 @@ export default function PreventivoPDF() {
   const toastOpacity = useRef(new Animated.Value(0)).current
   const previewTimeout = useRef<any>(null)
 
-  // 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.replace('/(auth)/login'); return }
@@ -69,16 +68,14 @@ export default function PreventivoPDF() {
     }
   }, [cliente_id])
 
-  // 
   useEffect(() => {
     if (!token || !testo) return
     if (previewTimeout.current) clearTimeout(previewTimeout.current)
     previewTimeout.current = setTimeout(() => aggiornaPreview(), 300)
   }, [template, token, testo, clienteSelezionato, nascondiPrezzi, metodoPagamentoSelezionato, abbonamentoAttivo, abImporto, abVisibileNelPDF])
 
-  // 
   function importoPreventivo() {
-    const match = testo.match(/TOTALE[:\s]*?ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬?\s*([\d.,]+)/i)
+    const match = testo.match(/TOTALE[:\s]*?€?\s*([\d.,]+)/i)
     return match ? parseFloat(match[1].replace(',', '.')) : 0
   }
 
@@ -97,11 +94,11 @@ export default function PreventivoPDF() {
     }
     return testoBase + `\nPAGAMENTO: ${m.nome}${m.tipo === 'bonifico' && m.dati?.iban ? '\nIBAN: ' + m.dati.iban : ''}${m.tipo === 'paypal' && m.dati?.email ? '\nPayPal: ' + m.dati.email : ''}`
   }
+
   async function aggiornaPreview() {
     if (!token || !testo) return
     setCaricandoPreview(true)
     try {
-      // 
       const data = await generaPDFApi({ testo: await testoConPagamento(), template, token, versione_padre_id: null, cliente_id: clienteSelezionato?.id || '', nascondi_prezzi: nascondiPrezzi })
       if (data.html) {
         const htmlScalato = data.html.replace('</head>', `
@@ -157,7 +154,6 @@ export default function PreventivoPDF() {
     }
   }
 
-  // 
   async function generaPDF() {
     setGenerando(true)
     try {
@@ -165,14 +161,12 @@ export default function PreventivoPDF() {
       const uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
       await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as any })
 
-      // 
       let pdfUrl = ''
       try {
         pdfUrl = await salvaPDFApi(data.pdf_base64, token)
         if (pdfUrl) setPdfUrlGenerato(pdfUrl)
       } catch (e) { console.log('Salvataggio PDF fallito:', e) }
 
-      // 
       const titoloAuto = clienteSelezionato
         ? `Preventivo ${clienteSelezionato.nome}`
         : `Preventivo ${new Date().toLocaleDateString('it-IT')}`
@@ -184,7 +178,7 @@ export default function PreventivoPDF() {
         if (idSalvato) {
           Alert.alert(
             'Preventivo inviato?',
-            'Vuoi segnare questo preventivo come inviato?',
+            'Vuoi segnare questo preventivo come "inviato"?',
             [
               { text: 'No', style: 'cancel' },
               { text: 'Si, segna come inviato', onPress: async () => {
@@ -196,26 +190,40 @@ export default function PreventivoPDF() {
         }
       }
 
-      // 
       mostraToast()
+
       // Crea abbonamento automaticamente se attivo
-      if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const importo = parseFloat(abImporto.replace(',', '.'))
-          const giorno = parseInt(abGiorno)
-          const mensilita = abMensilita ? parseInt(abMensilita) : null
-          if (importo > 0 && giorno >= 1 && giorno <= 31) {
-            const { data: ab } = await supabase.from('abbonamenti').insert({
-              user_id: user.id,
-              cliente_id: clienteSelezionato.id,
-              importo_default: importo,
-              giorno_scadenza: giorno,
-              attivo: true,
-              preventivo_id: idSalvato,
-              numero_mensilita: mensilita,
-              tipo: mensilita ? 'rate' : 'canone'
-            }).select().single()
+if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
+  console.log('Abbonamento attivo, provo a creare...')
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    const importo = parseFloat(abImporto.replace(',', '.'))
+    const giorno = parseInt(abGiorno)
+    const mensilita = abMensilita ? parseInt(abMensilita) : null
+    console.log('Dati abbonamento:', { importo, giorno, mensilita, clienteId: clienteSelezionato.id, idSalvato })
+    if (importo > 0 && giorno >= 1 && giorno <= 31) {
+      // Controlla se esiste già un abbonamento attivo
+      const { data: abEsistente } = await supabase
+        .from('abbonamenti')
+        .select('id')
+        .eq('cliente_id', clienteSelezionato.id)
+        .eq('attivo', true)
+        .single()
+
+      if (abEsistente) {
+        Alert.alert('Abbonamento esistente', `${clienteSelezionato.nome} ha già un abbonamento attivo. Gestiscilo dalla sua cartella cliente.`)
+      } else {
+      const { data: ab, error } = await supabase.from('abbonamenti').insert({
+        user_id: user.id,
+        cliente_id: clienteSelezionato.id,
+        importo_default: importo,
+        giorno_scadenza: giorno,
+        attivo: true,
+        preventivo_id: idSalvato,
+        numero_mensilita: mensilita,
+        tipo: mensilita ? 'rate' : 'canone'
+      }).select().single()
+      console.log('Risultato insert abbonamento:', { ab, error })
             if (ab) {
               const ora = new Date()
               const inserimenti = mensilita
@@ -224,11 +232,14 @@ export default function PreventivoPDF() {
                     return { abbonamento_id: ab.id, mese: d.getMonth() + 1, anno: d.getFullYear(), importo, acconto: 0, stato: 'da_incassare' }
                   })
                 : [{ abbonamento_id: ab.id, mese: ora.getMonth() + 1, anno: ora.getFullYear(), importo, acconto: 0, stato: 'da_incassare' }]
-              await supabase.from('rate_abbonamento').insert(inserimenti)
+              const { error: errRate } = await supabase.from('rate_abbonamento').insert(inserimenti)
+              console.log('Rate inserite:', inserimenti.length, 'Errore:', errRate)
             }
           }
         }
+        }
       }
+
       setTitolo(clienteSelezionato ? `Preventivo ${clienteSelezionato.nome}` : '')
       setTimeout(() => setMostraModalTitolo(true), 800)
 
@@ -238,35 +249,32 @@ export default function PreventivoPDF() {
     setGenerando(false)
   }
 
-async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = ''): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = ''): Promise<string | null> {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    const match = testo.match(/TOTALE[:\s]*?€?\s*([\d.,]+)/i)
+    const importo = match ? parseFloat(match[1].replace(',', '.')) : null
+    const { data } = await supabase.from('preventivi').insert({
+      user_id: user.id,
+      testo_preventivo: testo,
+      template,
+      versione: ver,
+      preventivo_padre_id: versione_padre_id || null,
+      is_ultimo: true,
+      stato: 'bozza',
+      cliente_id: clienteSelezionato?.id || null,
+      nome_cliente: clienteSelezionato?.nome || null,
+      titolo: titoloScelto,
+      pdf_url: pdfUrl || null,
+      importo_totale: importo
+    }).select('id').single()
+    return data?.id || null
+  }
 
-  // 
-  const match = testo.match(/TOTALE[:\s]*?ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬?\s*([\d.,]+)/i)
-  const importo = match ? parseFloat(match[1].replace(',', '.')) : null
-
-  const { data } = await supabase.from('preventivi').insert({
-    user_id: user.id,
-    testo_preventivo: testo,
-    template,
-    versione: ver,
-    preventivo_padre_id: versione_padre_id || null,
-    is_ultimo: true,
-    stato: 'bozza',
-    cliente_id: clienteSelezionato?.id || null,
-    nome_cliente: clienteSelezionato?.nome || null,
-    titolo: titoloScelto,
-    pdf_url: pdfUrl || null,
-    importo_totale: importo
-  }).select('id').single()
-  return data?.id || null
-}
   async function aggiornaTitolo(nuovoTitolo: string) {
     if (!preventivoSalvatoId || !nuovoTitolo.trim()) return
     await supabase.from('preventivi').update({ titolo: nuovoTitolo }).eq('id', preventivoSalvatoId)
   }
-
 
   async function salvaTemplate(tmpl: string) {
     setTemplate(tmpl)
@@ -284,12 +292,11 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
     ]).start(() => setToastVisible(false))
   }
 
-  // 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>ÃƒÂ¢Ã¢â‚¬Â Ã‚Â</Text>
+          <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Preventivo</Text>
         <View style={{ width: 50 }} />
@@ -428,28 +435,28 @@ async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string
 
         {/* Cliente */}
         <TouchableOpacity style={styles.clienteBtn} onPress={() => setMostraModalCliente(true)}>
-  <Text style={styles.clienteBtnIcon}>ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¤</Text>
-  <View style={styles.clienteBtnBody}>
-    <Text style={styles.clienteBtnLabel}>Cliente</Text>
-    <Text style={styles.clienteBtnVal}>
-      {clienteSelezionato ? clienteSelezionato.nome : 'Nessuno'}
-    </Text>
-  </View>
-  <Text style={styles.clienteBtnArrow}>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº</Text>
-</TouchableOpacity>
+          <Text style={styles.clienteBtnIcon}>👤</Text>
+          <View style={styles.clienteBtnBody}>
+            <Text style={styles.clienteBtnLabel}>Cliente</Text>
+            <Text style={styles.clienteBtnVal}>
+              {clienteSelezionato ? clienteSelezionato.nome : 'Nessuno'}
+            </Text>
+          </View>
+          <Text style={styles.clienteBtnArrow}>›</Text>
+        </TouchableOpacity>
 
         {/* Card metodo pagamento */}
         {metodoPagamentoSelezionato && (
-  <View style={styles.pagamentoInfo}>
-    <Text style={styles.clienteBtnIcon}>ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â³</Text>
-    <View style={styles.clienteBtnBody}>
-      <Text style={styles.clienteBtnLabel}>Pagamento</Text>
-      <Text style={styles.clienteBtnVal}>
-        {metodoPagamentoSelezionato.tipo === 'stripe' ? 'Online con carta' : metodoPagamentoSelezionato.nome}
-      </Text>
-    </View>
-  </View>
-)}
+          <View style={styles.pagamentoInfo}>
+            <Text style={styles.clienteBtnIcon}>💳</Text>
+            <View style={styles.clienteBtnBody}>
+              <Text style={styles.clienteBtnLabel}>Pagamento</Text>
+              <Text style={styles.clienteBtnVal}>
+                {metodoPagamentoSelezionato.tipo === 'stripe' ? 'Online con carta' : metodoPagamentoSelezionato.nome}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {versione_padre_id && (
           <View style={styles.versionBox}>

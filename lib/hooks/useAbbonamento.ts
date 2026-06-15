@@ -12,6 +12,7 @@ export interface Abbonamento {
   numero_mensilita: number | null
   note: string | null
   tipo: 'canone' | 'rate'
+  nome: string | null
 }
 
 export interface RataAbbonamento {
@@ -58,8 +59,8 @@ export function useAbbonamento(clienteId: string) {
       .from('rate_abbonamento')
       .select('*')
       .eq('abbonamento_id', abbonamentoId)
-      .order('anno', { ascending: false })
-      .order('mese', { ascending: false })
+      .order('anno', { ascending: true })
+      .order('mese', { ascending: true })
     if (data) setRate(data)
   }
 
@@ -262,6 +263,24 @@ export function useAbbonamento(clienteId: string) {
     if (abbonamento && rate.length > 0) aggiornaRitardi()
   }, [rate.length])
 
+  async function rinominaAbbonamento(nuovoNome: string) {
+    if (!abbonamento) return
+    const { error } = await supabase
+      .from('abbonamenti')
+      .update({ nome: nuovoNome })
+      .eq('id', abbonamento.id)
+    if (error) { Alert.alert('Errore', error.message); return }
+    setAbbonamento(a => a ? { ...a, nome: nuovoNome } : a)
+  }
+async function modificaImportoRata(rataId: string, nuovoImporto: number) {
+  const { error } = await supabase
+    .from('rate_abbonamento')
+    .update({ importo: nuovoImporto })
+    .eq('id', rataId)
+  if (error) { Alert.alert('Errore', error.message); return }
+  setRate(r => r.map(x => x.id === rataId ? { ...x, importo: nuovoImporto } : x))
+}
+
   const totaleIncassato = rate
     .filter(r => r.stato === 'incassato')
     .reduce((a, r) => a + r.importo, 0)
@@ -272,11 +291,11 @@ export function useAbbonamento(clienteId: string) {
 
   const rataDaIncassare = rate.find(r => r.stato !== 'incassato')
 
-  return {
+ return {
     abbonamento, rate, loading,
     creaAbbonamento, aggiornaAbbonamento, eliminaAbbonamento,
     registraPagamento, azzeraPagamento,
-    aggiungiRataMese,
+    aggiungiRataMese, rinominaAbbonamento, modificaImportoRata,
     totaleIncassato, totaleParziale, rataDaIncassare,
     carica
   }
