@@ -293,8 +293,6 @@ export default function ClienteDettaglio() {
   const ora = new Date()
   const meseCorrente = ora.getMonth() + 1
   const annoCorrente = ora.getFullYear()
-  const meseProssimo = meseCorrente === 12 ? 1 : meseCorrente + 1
-  const annoProssimo = meseCorrente === 12 ? annoCorrente + 1 : annoCorrente
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>
   if (!cliente) return <View style={styles.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>

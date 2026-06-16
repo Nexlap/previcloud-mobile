@@ -71,7 +71,7 @@ export default function Onboarding() {
         setServizi(data.servizi)
         setModalitaServizi('manuale')
       }
-    } catch (err) {
+    } catch {
       Alert.alert('Errore', 'Impossibile elaborare i servizi')
     }
     setElaborando(false)

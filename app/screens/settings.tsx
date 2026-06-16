@@ -28,21 +28,12 @@ export default function Settings() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [token, setToken] = useState('')
   const [servizi, setServizi] = useState<ServizioForm[]>([])
-  const [mostraModalServizio, setMostraModalServizio] = useState(false)
-  const [servizioInEdit, setServizioInEdit] = useState<ServizioForm | null>(null)
-  const [nuovoServizio, setNuovoServizio] = useState({ nome: '', descrizione: '', costo: '', unita: 'cad' })
-  const [salvandoServizio, setSalvandoServizio] = useState(false)
   const [mostraModalListino, setMostraModalListino] = useState(false)
   const [testoListino, setTestoListino] = useState('')
   const [elaborandoListino, setElaborandoListino] = useState(false)
   const [mostraModalSegnalazione, setMostraModalSegnalazione] = useState(false)
   const [segnalazione, setSegnalazione] = useState({ tipo: 'bug', titolo: '', descrizione: '', schermata: '' })
   const [inviandoSegnalazione, setInviandoSegnalazione] = useState(false)
-  const [metodiPagamento, setMetodiPagamento] = useState<any[]>([])
-  const [mostraModalMetodo, setMostraModalMetodo] = useState(false)
-  const [metodoInEdit, setMetodoInEdit] = useState<any | null>(null)
-  const [nuovoMetodo, setNuovoMetodo] = useState({ tipo: 'bonifico', nome: '', dati: {} as any, predefinito: false })
-  const [salvandoMetodo, setSalvandoMetodo] = useState(false)
   const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
   const formIniziale = useRef<typeof form | null>(null)
   const formRef = useRef(form)
@@ -50,71 +41,12 @@ export default function Settings() {
   const navigation = useNavigation()
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
-  const unitaOptions = ['cad', 'ora', 'giorno', 'mq', 'ml', 'set', 'progetto']
   const categorie = ['videomaker', 'fotografo', 'catering', 'falegname', 'estetista', 'elettricista', 'idraulico', 'imbianchino', 'altro']
   const toni = ['professionale e diretto', 'cordiale e disponibile', 'formale e preciso', 'semplice e informale']
   const [listinoTab, setListinoTab] = useState<'testo' | 'foto' | 'vocale'>('testo')
   const [registrando, setRegistrando] = useState(false)
   const [recording, setRecording] = useState<Audio.Recording | null>(null)
   
-
-  function apriNuovoMetodo() {
-    setMetodoInEdit(null)
-    setNuovoMetodo({ tipo: 'bonifico', nome: '', dati: {}, predefinito: false })
-    setMostraModalMetodo(true)
-  }
-
-  function apriModificaMetodo(m: any) {
-    setMetodoInEdit(m)
-    setNuovoMetodo({ tipo: m.tipo, nome: m.nome, dati: m.dati || {}, predefinito: m.predefinito })
-    setMostraModalMetodo(true)
-  }
-
-  async function salvaMetodo() {
-    if (!nuovoMetodo.nome.trim()) { Alert.alert('Errore', 'Inserisci un nome per il metodo'); return }
-    setSalvandoMetodo(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const payload = {
-      user_id: user.id,
-      tipo: nuovoMetodo.tipo,
-      nome: nuovoMetodo.nome.trim(),
-      dati: nuovoMetodo.dati,
-      predefinito: nuovoMetodo.predefinito,
-    }
-
-    if (nuovoMetodo.predefinito) {
-      await supabase.from('metodi_pagamento').update({ predefinito: false }).eq('user_id', user.id)
-    }
-
-    if (metodoInEdit) {
-      const { error } = await supabase.from('metodi_pagamento').update(payload).eq('id', metodoInEdit.id)
-      if (!error) setMetodiPagamento(m => m.map(x => x.id === metodoInEdit.id ? { ...x, ...payload } : nuovoMetodo.predefinito ? { ...x, predefinito: false } : x))
-    } else {
-      const { data, error } = await supabase.from('metodi_pagamento').insert(payload).select().single()
-      if (!error && data) {
-        setMetodiPagamento(m => nuovoMetodo.predefinito ? m.map(x => ({ ...x, predefinito: false })).concat(data) : [...m, data])
-      }
-    }
-
-    setSalvandoMetodo(false)
-    setMostraModalMetodo(false)
-  }
-
-  async function eliminaMetodo(id: string) {
-    Alert.alert('Elimina', 'Vuoi eliminare questo metodo di pagamento?', [
-      { text: 'Annulla', style: 'cancel' },
-      { text: 'Elimina', style: 'destructive', onPress: async () => {
-        await supabase.from('metodi_pagamento').delete().eq('id', id)
-        setMetodiPagamento(m => m.filter(x => x.id !== id))
-      }}
-    ])
-  }
-
-  function iconaMetodo(tipo: string) {
-    return tipo === 'bonifico' ? '🏦' : tipo === 'paypal' ? '💙' : tipo === 'contanti' ? '💵' : tipo === 'carta' ? '💳' : '💰'
-  }
 
   async function inviaSegnalazione() {
     if (!segnalazione.titolo.trim() || !segnalazione.descrizione.trim()) {
@@ -210,13 +142,6 @@ export default function Settings() {
       if (data.logo_url) setLogoUrl(data.logo_url)
     }
 
-    const { data: metodiData } = await supabase
-      .from('metodi_pagamento')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('predefinito', { ascending: false })
-    if (metodiData) setMetodiPagamento(metodiData)
-
     const { data: serviziData } = await supabase
       .from('servizi')
       .select('*')
@@ -245,62 +170,6 @@ export default function Settings() {
   function set(key: string, val: string) {
     setForm(f => ({ ...f, [key]: val }))
     setModificheNonSalvate(true)
-  }
-
-  function apriNuovoServizio() {
-    setServizioInEdit(null)
-    setNuovoServizio({ nome: '', descrizione: '', costo: '', unita: 'cad' })
-    setMostraModalServizio(true)
-  }
-
-  function apriModificaServizio(s: ServizioForm) {
-    setServizioInEdit(s)
-    setNuovoServizio({ nome: s.nome, descrizione: s.descrizione, costo: s.costo, unita: s.unita })
-    setMostraModalServizio(true)
-  }
-
-  async function salvaServizio() {
-    if (!nuovoServizio.nome.trim()) {
-      Alert.alert('Errore', 'Inserisci almeno il nome del servizio')
-      return
-    }
-    setSalvandoServizio(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const payload = {
-      nome: nuovoServizio.nome.trim(),
-      descrizione: nuovoServizio.descrizione.trim() || null,
-      costo: nuovoServizio.costo ? parseFloat(nuovoServizio.costo) : null,
-      unita: nuovoServizio.unita,
-      user_id: user.id,
-      ordine: servizi.length,
-    }
-
-    if (servizioInEdit) {
-      const { error } = await supabase.from('servizi').update(payload).eq('id', servizioInEdit.id)
-      if (!error) {
-        setServizi(s => s.map(x => x.id === servizioInEdit.id ? { ...x, ...nuovoServizio } : x))
-      }
-    } else {
-      const { data, error } = await supabase.from('servizi').insert(payload).select().single()
-      if (!error && data) {
-        setServizi(s => [...s, { ...data, costo: data.costo?.toString() || '', descrizione: data.descrizione || '' }])
-      }
-    }
-
-    setSalvandoServizio(false)
-    setMostraModalServizio(false)
-  }
-
-  async function eliminaServizio(id: string) {
-    Alert.alert('Elimina servizio', 'Vuoi eliminare questo servizio?', [
-      { text: 'Annulla', style: 'cancel' },
-      { text: 'Elimina', style: 'destructive', onPress: async () => {
-        await supabase.from('servizi').delete().eq('id', id)
-        setServizi(s => s.filter(x => x.id !== id))
-      }}
-    ])
   }
 
   async function scegliLogo() {
@@ -782,89 +651,6 @@ export default function Settings() {
             <TouchableOpacity style={{ alignItems: 'center', padding: 8 }} onPress={() => { setMostraModalListino(false); setListinoTab('testo') }}>
               <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Annulla</Text>
             </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </Modal>
-
-      {/* Modal aggiungi/modifica servizio */}
-      <Modal visible={mostraModalServizio} animationType="slide" presentationStyle="pageSheet">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setMostraModalServizio(false)}>
-              <Text style={styles.modalClose}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>{servizioInEdit ? 'Modifica servizio' : 'Nuovo servizio'}</Text>
-            <TouchableOpacity onPress={salvaServizio} disabled={salvandoServizio}>
-              {salvandoServizio
-                ? <ActivityIndicator color={styles.modalSave.color} size="small" />
-                : <Text style={styles.modalSave}>Salva</Text>
-              }
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>NOME SERVIZIO *</Text>
-              <TextInput
-                style={styles.fieldInput}
-                value={nuovoServizio.nome}
-                onChangeText={v => setNuovoServizio(s => ({ ...s, nome: v }))}
-                placeholder="es. Editing video, Riprese giornata, Color grading"
-                placeholderTextColor="#9CA3AF"
-                autoFocus
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>DESCRIZIONE</Text>
-              <TextInput
-                style={[styles.fieldInput, { height: 80, textAlignVertical: 'top' }]}
-                value={nuovoServizio.descrizione}
-                onChangeText={v => setNuovoServizio(s => ({ ...s, descrizione: v }))}
-                placeholder="es. Montaggio video con musica e sottotitoli, max 10 min"
-                placeholderTextColor="#9CA3AF"
-                multiline
-              />
-            </View>
-
-            <View style={styles.costoRow}>
-              <View style={[styles.fieldGroup, { flex: 1 }]}>
-                <Text style={styles.fieldLabel}>COSTO (€)</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={nuovoServizio.costo}
-                  onChangeText={v => setNuovoServizio(s => ({ ...s, costo: v }))}
-                  placeholder="es. 500"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="decimal-pad"
-                />
-              </View>
-              <View style={[styles.fieldGroup, { flex: 1 }]}>
-                <Text style={styles.fieldLabel}>UNITÀ DI MISURA</Text>
-                <View style={styles.unitaChips}>
-                  {unitaOptions.map(u => (
-                    <TouchableOpacity
-                      key={u}
-                      style={[styles.unitaChip, nuovoServizio.unita === u && styles.unitaChipActive]}
-                      onPress={() => setNuovoServizio(s => ({ ...s, unita: u }))}
-                    >
-                      <Text style={[styles.unitaChipText, nuovoServizio.unita === u && styles.unitaChipTextActive]}>{u}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {nuovoServizio.nome && (
-              <View style={styles.previewBox}>
-                <Text style={styles.previewLabel}>ANTEPRIMA</Text>
-                <Text style={styles.previewNome}>{nuovoServizio.nome}</Text>
-                {nuovoServizio.descrizione ? <Text style={styles.previewDesc}>{nuovoServizio.descrizione}</Text> : null}
-                {nuovoServizio.costo ? (
-                  <Text style={styles.previewCosto}>€{nuovoServizio.costo} / {nuovoServizio.unita}</Text>
-                ) : null}
-              </View>
-            )}
           </ScrollView>
         </View>
       </Modal>

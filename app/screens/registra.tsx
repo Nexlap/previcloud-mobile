@@ -58,7 +58,7 @@ export default function RegistraVoce() {
       )
       recordingRef.current = recording
       setRegistrando(true)
-    } catch (err) {
+    } catch {
       Alert.alert('Errore', 'Impossibile avviare la registrazione')
     }
   }

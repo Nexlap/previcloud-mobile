@@ -1,7 +1,7 @@
 import { router } from 'expo-router'
 import { useState } from 'react'
 import {
-  ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet,
+  ActivityIndicator, RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { useClienti } from "../../lib/hooks/useClienti"

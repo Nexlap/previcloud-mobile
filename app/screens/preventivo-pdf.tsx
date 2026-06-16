@@ -34,7 +34,6 @@ export default function PreventivoPDF() {
   const [modalTab, setModalTab] = useState<'esistente' | 'nuovo'>('esistente')
   const [titolo, setTitolo] = useState('')
   const [mostraModalTitolo, setMostraModalTitolo] = useState(false)
-  const [pdfUrlGenerato, setPdfUrlGenerato] = useState('')
   const [preventivoSalvatoId, setPreventivoSalvatoId] = useState<string | null>(null)
   const [nascondiPrezzi, setNascondiPrezzi] = useState(false)
   const [htmlPreview, setHtmlPreview] = useState('')
@@ -165,7 +164,6 @@ export default function PreventivoPDF() {
       let pdfUrl = ''
       try {
         pdfUrl = await salvaPDFApi(data.pdf_base64, token)
-        if (pdfUrl) setPdfUrlGenerato(pdfUrl)
       } catch (e) { console.log('Salvataggio PDF fallito:', e) }
 
       const titoloAuto = clienteSelezionato
@@ -199,7 +197,7 @@ if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
       if (abEsistente) {
         Alert.alert('Abbonamento esistente', `${clienteSelezionato.nome} ha già un abbonamento attivo. Gestiscilo dalla sua cartella cliente.`)
       } else {
-      const { data: ab, error } = await supabase.from('abbonamenti').insert({
+      const { data: ab } = await supabase.from('abbonamenti').insert({
         user_id: user.id,
         cliente_id: clienteSelezionato.id,
         importo_default: importo,
