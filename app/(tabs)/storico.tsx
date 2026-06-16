@@ -9,15 +9,27 @@ import {
 import { eventBus } from "../../lib/eventBus"
 import { usePreventivi } from "../../lib/hooks/usePreventivi"
 import { supabase } from "../../lib/supabase"
-import { Preventivo } from "../../lib/types"
+import { Cliente, Preventivo } from "../../lib/types"
 import { trackEvento } from "../../lib/utils/analytics"
 
 export default function Storico() {
   const { preventivi, loading, refreshing, onRefresh, cambiaStato, eliminaPreventivo } = usePreventivi()
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
+  const [modalStatoMultiplo, setModalStatoMultiplo] = useState(false)
+  const [modalClienti, setModalClienti] = useState(false)
+  const [clienti, setClienti] = useState<Cliente[]>([])
+  const [caricandoClienti, setCaricandoClienti] = useState(false)
   const [cronologiaAperta, setCronologiaAperta] = useState<string | null>(null)
   const [cronologia, setCronologia] = useState<{ [key: string]: Preventivo[] }>({})
+  const [selezioneAttiva, setSelezioneAttiva] = useState(false)
+  const [preventiviSelezionati, setPreventiviSelezionati] = useState<string[]>([])
+  const [preventiviEliminati, setPreventiviEliminati] = useState<string[]>([])
+  const [preventiviSpostati, setPreventiviSpostati] = useState<{ [id: string]: { cliente_id: string, nome_cliente: string } }>({})
+  const preventiviVisibili = preventivi
+    .filter(p => !preventiviEliminati.includes(p.id))
+    .map(p => preventiviSpostati[p.id] ? { ...p, ...preventiviSpostati[p.id] } : p)
+  const selezionati = preventiviVisibili.filter(p => preventiviSelezionati.includes(p.id))
 
   useFocusEffect(useCallback(() => {
     trackEvento('storico_aperto', 'storico')
@@ -42,6 +54,100 @@ export default function Storico() {
       { text: 'Annulla', style: 'cancel' },
       { text: 'Elimina', style: 'destructive', onPress: () => eliminaPreventivo(id) }
     ])
+  }
+
+  function toggleSelezione(id: string) {
+    setPreventiviSelezionati(ids => {
+      const prossimi = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]
+      if (prossimi.length === 0) setSelezioneAttiva(false)
+      return prossimi
+    })
+  }
+
+  function avviaSelezione(id: string) {
+    setAperto(null)
+    setSelezioneAttiva(true)
+    setPreventiviSelezionati(ids => ids.includes(id) ? ids : [...ids, id])
+  }
+
+  function annullaSelezione() {
+    setSelezioneAttiva(false)
+    setPreventiviSelezionati([])
+  }
+
+  async function eliminaSelezionati() {
+    const ids = [...preventiviSelezionati]
+    if (ids.length === 0) return
+    Alert.alert('Elimina', `Eliminare ${ids.length} preventivi?`, [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Elimina',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.from('preventivi').delete().in('id', ids)
+          if (error) { Alert.alert('Errore', error.message); return }
+          setPreventiviEliminati(prev => [...prev, ...ids])
+          annullaSelezione()
+          eventBus.emit('aggiorna-home')
+        }
+      }
+    ])
+  }
+
+  async function cambiaStatoSelezionati(stato: string) {
+    const ids = [...preventiviSelezionati]
+    if (ids.length === 0) return
+    const { error } = await supabase.from('preventivi').update({ stato }).in('id', ids)
+    if (error) { Alert.alert('Errore', error.message); return }
+    setModalStatoMultiplo(false)
+    annullaSelezione()
+    eventBus.emit('aggiorna-home')
+    await onRefresh()
+  }
+
+  async function condividiSelezionati() {
+    const conPdf = selezionati.filter(p => p.pdf_url)
+    if (conPdf.length === 0) {
+      Alert.alert('Nessun PDF', 'I preventivi selezionati non hanno PDF da condividere.')
+      return
+    }
+    if (conPdf.length > 1) {
+      Alert.alert('Condivisione singola per ora', 'Condivido il primo PDF selezionato.')
+    }
+    await scaricaPDF(conPdf[0])
+  }
+
+  async function caricaClienti() {
+    setCaricandoClienti(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setCaricandoClienti(false); return }
+    const { data, error } = await supabase.from('clienti').select('id, nome, telefono, email, indirizzo').eq('user_id', user.id).order('nome')
+    if (error) Alert.alert('Errore', error.message)
+    else setClienti((data || []) as Cliente[])
+    setCaricandoClienti(false)
+  }
+
+  async function apriSpostaCliente() {
+    setModalClienti(true)
+    if (clienti.length === 0) await caricaClienti()
+  }
+
+  async function spostaSelezionati(cliente: Cliente) {
+    const ids = [...preventiviSelezionati]
+    if (ids.length === 0) return
+    const { error } = await supabase
+      .from('preventivi')
+      .update({ cliente_id: cliente.id, nome_cliente: cliente.nome })
+      .in('id', ids)
+    if (error) { Alert.alert('Errore', error.message); return }
+    setPreventiviSpostati(prev => ids.reduce((acc, id) => ({
+      ...acc,
+      [id]: { cliente_id: cliente.id, nome_cliente: cliente.nome },
+    }), prev))
+    setModalClienti(false)
+    annullaSelezione()
+    eventBus.emit('aggiorna-home')
+    await onRefresh()
   }
 
   // Risale la catena delle versioni precedenti
@@ -80,7 +186,7 @@ export default function Storico() {
         contentContainerStyle={{ padding: 16, gap: 10 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}
       >
-        {preventivi.length === 0 ? (
+        {preventiviVisibili.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>Nessun preventivo salvato.</Text>
             <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(tabs)/nuovo')}>
@@ -88,11 +194,17 @@ export default function Storico() {
             </TouchableOpacity>
           </View>
         ) : (
-          preventivi.map(p => (
-            <View key={p.id} style={styles.card}>
+          preventiviVisibili.map(p => {
+            const selezionato = preventiviSelezionati.includes(p.id)
+            return (
+            <View key={p.id} style={[styles.card, selezionato && styles.cardSelected]}>
               <View style={styles.cardRowContainer}>
   {/* Tap su card: apre cartella cliente o espande dettaglio */}
-  <TouchableOpacity style={[styles.cardRow, { flex: 1 }]} onPress={() => {
+  <TouchableOpacity style={[styles.cardRow, { flex: 1 }]} onLongPress={() => avviaSelezione(p.id)} onPress={() => {
+    if (selezioneAttiva) {
+      toggleSelezione(p.id)
+      return
+    }
     if (p.cliente_id) {
       router.push({ pathname: '/screens/cliente-dettaglio', params: { id: p.cliente_id, nome: p.nome_cliente || 'Cliente' } })
     } else {
@@ -112,7 +224,7 @@ export default function Storico() {
   </TouchableOpacity>
 
   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 12 }}>
-    <TouchableOpacity style={{ alignItems: 'flex-end' }} onPress={() => setModalStato(p.id)}>
+    <TouchableOpacity style={{ alignItems: 'flex-end' }} onPress={() => selezioneAttiva ? toggleSelezione(p.id) : setModalStato(p.id)}>
       <Text style={styles.cardImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
       <Text style={[styles.cardStato,
         p.stato === 'accettato' ? { color: '#0E9F8E' } :
@@ -120,10 +232,10 @@ export default function Storico() {
         p.stato === 'inviato' ? { color: '#1D4ED8' } : {}
       ]}>{`${p.stato || 'bozza'} ▼`}</Text>
     </TouchableOpacity>
-    <TouchableOpacity onPress={() => scaricaPDF(p)}>
+    <TouchableOpacity onPress={() => selezioneAttiva ? toggleSelezione(p.id) : scaricaPDF(p)}>
       <Text style={{ fontSize: 16 }}>{p.pdf_url ? '📄' : '🔄'}</Text>
     </TouchableOpacity>
-    <TouchableOpacity onPress={() => elimina(p.id)}>
+    <TouchableOpacity onPress={() => selezioneAttiva ? toggleSelezione(p.id) : elimina(p.id)}>
       <Text style={{ fontSize: 16 }}>🗑</Text>
     </TouchableOpacity>
   </View>
@@ -190,10 +302,36 @@ export default function Storico() {
                 </View>
               )}
             </View>
-          ))
+            )
+          })
         )}
-        <View style={{ height: 40 }} />
+        <View style={{ height: selezioneAttiva ? 120 : 40 }} />
       </ScrollView>
+
+      {selezioneAttiva && (
+        <View style={styles.selectionBar}>
+          <View style={styles.selectionTopRow}>
+            <Text style={styles.selectionCount}>{preventiviSelezionati.length} selezionati</Text>
+            <TouchableOpacity onPress={annullaSelezione}>
+              <Text style={styles.selectionCancel}>✕ Annulla</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.selectionActions}>
+            <TouchableOpacity style={styles.selectionActionBtn} onPress={eliminaSelezionati}>
+              <Text style={styles.selectionActionText}>🗑 Elimina</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.selectionActionBtn} onPress={() => setModalStatoMultiplo(true)}>
+              <Text style={styles.selectionActionText}>🔄 Cambia stato</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.selectionActionBtn} onPress={condividiSelezionati}>
+              <Text style={styles.selectionActionText}>📤 Condividi</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.selectionActionBtn} onPress={apriSpostaCliente}>
+              <Text style={styles.selectionActionText}>📁 Sposta</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Modal cambio stato */}
       <Modal visible={modalStato !== null} transparent animationType="fade" onRequestClose={() => setModalStato(null)}>
@@ -215,6 +353,45 @@ export default function Storico() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <Modal visible={modalStatoMultiplo} transparent animationType="fade" onRequestClose={() => setModalStatoMultiplo(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalStatoMultiplo(false)}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Cambia stato</Text>
+            {['bozza', 'inviato', 'accettato', 'rifiutato'].map(s => (
+              <TouchableOpacity key={s} style={styles.modalOption} onPress={() => cambiaStatoSelezionati(s)}>
+                <Text style={styles.modalOptionIcon}>{s === 'bozza' ? 'ðŸ“' : s === 'inviato' ? 'ðŸ“¤' : s === 'accettato' ? 'âœ…' : 'âŒ'}</Text>
+                <Text style={styles.modalOptionText}>{s}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setModalStatoMultiplo(false)}>
+              <Text style={styles.modalCancelText}>Annulla</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={modalClienti} transparent animationType="slide" onRequestClose={() => setModalClienti(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Sposta cliente</Text>
+            {caricandoClienti ? (
+              <ActivityIndicator color="#0E9F8E" />
+            ) : clienti.length === 0 ? (
+              <Text style={styles.emptyText}>Nessun cliente disponibile.</Text>
+            ) : (
+              clienti.map(cliente => (
+                <TouchableOpacity key={cliente.id} style={styles.modalOption} onPress={() => spostaSelezionati(cliente)}>
+                  <Text style={styles.modalOptionText}>{cliente.nome}</Text>
+                </TouchableOpacity>
+              ))
+            )}
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setModalClienti(false)}>
+              <Text style={styles.modalCancelText}>Annulla</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -230,6 +407,7 @@ const styles = StyleSheet.create({
   emptyBtn: { backgroundColor: '#0D1B2A', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12 },
   emptyBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   card: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  cardSelected: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
   cardRow: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   cardIcon: { width: 38, height: 38, backgroundColor: '#F0FDF4', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   cardIconText: { fontSize: 18 },
@@ -276,4 +454,11 @@ const styles = StyleSheet.create({
   cardTitolo: { fontSize: 11, color: '#0E9F8E', marginTop: 1 },
   riprendiBtn: { backgroundColor: '#0E9F8E', borderRadius: 10, padding: 10, alignItems: 'center' as const, marginBottom: 8 },
   riprendiBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
+  selectionBar: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: '#0D1B2A', borderRadius: 16, padding: 12, gap: 10 },
+  selectionTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectionCount: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  selectionCancel: { color: '#9EC5C0', fontSize: 13, fontWeight: '600' },
+  selectionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  selectionActionBtn: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 9 },
+  selectionActionText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 })

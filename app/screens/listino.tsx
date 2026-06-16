@@ -25,6 +25,8 @@ export default function Listino() {
   const [listinoTab, setListinoTab] = useState<'testo' | 'foto' | 'vocale'>('testo')
   const [registrando, setRegistrando] = useState(false)
   const [recording, setRecording] = useState<Audio.Recording | null>(null)
+  const [selezioneAttiva, setSelezioneAttiva] = useState(false)
+  const [serviziSelezionati, setServiziSelezionati] = useState<string[]>([])
 
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
   const unitaOptions = ['cad', 'ora', 'giorno', 'mq', 'ml', 'set', 'progetto']
@@ -91,6 +93,38 @@ export default function Listino() {
     ])
   }
 
+  function toggleSelezione(id: string) {
+    setServiziSelezionati(ids => {
+      const prossimi = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]
+      if (prossimi.length === 0) setSelezioneAttiva(false)
+      return prossimi
+    })
+  }
+
+  function avviaSelezione(id: string) {
+    setSelezioneAttiva(true)
+    setServiziSelezionati(ids => ids.includes(id) ? ids : [...ids, id])
+  }
+
+  function annullaSelezione() {
+    setSelezioneAttiva(false)
+    setServiziSelezionati([])
+  }
+
+  async function eliminaServiziSelezionati() {
+    const ids = [...serviziSelezionati]
+    if (ids.length === 0) return
+    Alert.alert('Elimina', `Eliminare ${ids.length} servizi?`, [
+      { text: 'Annulla', style: 'cancel' },
+      { text: 'Elimina', style: 'destructive', onPress: async () => {
+        const { error } = await supabase.from('servizi').delete().in('id', ids)
+        if (error) { Alert.alert('Errore', error.message); return }
+        setServizi(s => s.filter(x => !ids.includes(x.id)))
+        annullaSelezione()
+      }}
+    ])
+  }
+
   async function elaboraListinoAI() {
     if (!testoListino.trim()) return
     setElaborandoListino(true)
@@ -153,26 +187,54 @@ export default function Listino() {
             </TouchableOpacity>
           </View>
         ) : (
-          servizi.map(s => (
-            <View key={s.id} style={styles.servizioCard}>
+          servizi.map(s => {
+            const selezionato = serviziSelezionati.includes(s.id)
+            return (
+            <TouchableOpacity
+              key={s.id}
+              style={[styles.servizioCard, selezionato && styles.servizioCardSelected]}
+              activeOpacity={0.8}
+              onLongPress={() => avviaSelezione(s.id)}
+              onPress={() => {
+                if (selezioneAttiva) toggleSelezione(s.id)
+                else apriModifica(s)
+              }}
+            >
               <View style={{ flex: 1 }}>
                 <Text style={styles.servizioNome}>{s.nome}</Text>
                 {s.descrizione ? <Text style={styles.servizioDesc}>{s.descrizione}</Text> : null}
                 {s.costo ? <Text style={styles.servizioCosto}>€{s.costo} / {s.unita}</Text> : null}
               </View>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity onPress={() => apriModifica(s)} style={styles.actionBtn}>
+                <TouchableOpacity onPress={() => selezioneAttiva ? toggleSelezione(s.id) : apriModifica(s)} style={styles.actionBtn}>
                   <Text style={{ fontSize: 16 }}>✏️</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => eliminaServizio(s.id)} style={styles.actionBtn}>
+                <TouchableOpacity onPress={() => selezioneAttiva ? toggleSelezione(s.id) : eliminaServizio(s.id)} style={styles.actionBtn}>
                   <Text style={{ fontSize: 16 }}>🗑</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          ))
+            </TouchableOpacity>
+            )
+          })
         )}
-        <View style={{ height: 40 }} />
+        <View style={{ height: selezioneAttiva ? 120 : 40 }} />
       </ScrollView>
+
+      {selezioneAttiva && (
+        <View style={styles.selectionBar}>
+          <View style={styles.selectionTopRow}>
+            <Text style={styles.selectionCount}>{serviziSelezionati.length} selezionati</Text>
+            <TouchableOpacity onPress={annullaSelezione}>
+              <Text style={styles.selectionCancel}>✕ Annulla</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.selectionActions}>
+            <TouchableOpacity style={styles.selectionActionBtn} onPress={eliminaServiziSelezionati}>
+              <Text style={styles.selectionActionText}>🗑 Elimina</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Modal listino smart */}
       <Modal visible={mostraModalListino} animationType="slide" presentationStyle="pageSheet">
@@ -422,6 +484,7 @@ const styles = StyleSheet.create({
   emptyBtn: { backgroundColor: '#0E9F8E', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12, marginTop: 8 },
   emptyBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   servizioCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  servizioCardSelected: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
   servizioNome: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
   servizioDesc: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   servizioCosto: { fontSize: 13, fontWeight: '600', color: '#0E9F8E', marginTop: 4 },
@@ -440,4 +503,11 @@ const styles = StyleSheet.create({
   unitaChipActive: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A' },
   unitaChipText: { fontSize: 11, color: '#6B7280' },
   unitaChipTextActive: { color: '#fff', fontWeight: '500' },
+  selectionBar: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: '#0D1B2A', borderRadius: 16, padding: 12, gap: 10 },
+  selectionTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectionCount: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  selectionCancel: { color: '#9EC5C0', fontSize: 13, fontWeight: '600' },
+  selectionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  selectionActionBtn: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 9 },
+  selectionActionText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 })

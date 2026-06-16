@@ -1,19 +1,67 @@
 import { Audio } from 'expo-av'
 import Constants from 'expo-constants'
 import { router } from 'expo-router'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
+  ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform,
+  Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import WebView from 'react-native-webview'
 import { supabase } from '../lib/supabase'
 import * as ImagePicker from 'expo-image-picker'
 import { ServizioForm } from '../lib/types'
+import PreviewPaginata from '../lib/components/PreviewPaginata'
 
 
 const CATEGORIE = ['videomaker', 'fotografo', 'catering', 'falegname', 'estetista', 'elettricista', 'idraulico', 'imbianchino', 'consulente', 'altro']
 const UNITA = ['cad', 'ora', 'giorno', 'mq', 'set', 'progetto']
+const A4_RATIO = 297 / 210
+const PREVIEW_WIDTH = Dimensions.get('window').width - 24 * 2 - 14 * 2 - 2
+const PREVIEW_HEIGHT = PREVIEW_WIDTH * A4_RATIO
+
+function Stepper({
+  stepAttuale,
+  stepMassimoRaggiunto,
+  onNavigate,
+  canNavigate,
+}: {
+  stepAttuale: number
+  stepMassimoRaggiunto: number
+  onNavigate: (s: number) => void
+  canNavigate: (s: number) => boolean
+}) {
+  const step_labels = [1, 2, 3, 4]
+  return (
+    <View style={styles.stepperRow}>
+      {step_labels.map((num, i) => {
+        const stepIndex = i + 1
+        const reactStep = stepIndex - 1
+        const attivo = stepIndex === stepAttuale
+        const completato = stepIndex < stepAttuale
+        const cliccabile = reactStep <= stepMassimoRaggiunto + 1 && canNavigate(reactStep)
+        return (
+          <View key={num} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              disabled={!cliccabile}
+              onPress={() => cliccabile && onNavigate(reactStep)}
+              style={[
+                styles.stepperCircle,
+                attivo && styles.stepperCircleActive,
+                completato && styles.stepperCircleDone,
+              ]}
+            >
+              <Text style={[styles.stepperCircleText, (attivo || completato) && styles.stepperCircleTextActive]}>
+                {num}
+              </Text>
+            </TouchableOpacity>
+            {i < step_labels.length - 1 && (
+              <View style={[styles.stepperLine, stepIndex < stepAttuale && styles.stepperLineDone]} />
+            )}
+          </View>
+        )
+      })}
+    </View>
+  )
+}
 
 // Esempi listino per categoria
 const ESEMPI_LISTINO: Record<string, string> = {
@@ -29,8 +77,198 @@ const ESEMPI_LISTINO: Record<string, string> = {
   altro: 'Servizio base: 100€\nServizio premium: 200€\nConsulenza: 80€/ora\nProgetto completo: 500€',
 }
 
+type VoceDemo = { nome: string; dettagli: [string, string]; prezzo: number }
+type DemoPreventivo = {
+  servizi: VoceDemo[]
+  rimborsi: { nome: string; dettaglio: string; tipo: string; importo: number }[]
+  note: string
+}
+
+const DEMO_PREVENTIVO: Record<string, DemoPreventivo> = {
+  videomaker: {
+    servizi: [
+      { nome: 'Brief creativo e pianificazione', dettagli: ['Analisi obiettivi del video e target', 'Scaletta riprese e piano di produzione'], prezzo: 180 },
+      { nome: 'Riprese video mezza giornata', dettagli: ['Operatore con camera 4K e stabilizzatore', 'Audio ambiente e riprese di copertura'], prezzo: 450 },
+      { nome: 'Riprese drone autorizzate', dettagli: ['Sequenze panoramiche esterne', 'Controllo sicurezza e check area'], prezzo: 220 },
+      { nome: 'Montaggio video principale', dettagli: ['Editing narrativo fino a 2 minuti', 'Musica royalty free e sincronizzazione audio'], prezzo: 520 },
+      { nome: 'Color correction e finalizzazione', dettagli: ['Bilanciamento colore e contrasto', 'Export in formato web e social'], prezzo: 180 },
+      { nome: 'Clip social verticale', dettagli: ['Adattamento 9:16 da materiale principale', 'Sottotitoli e grafiche essenziali'], prezzo: 160 },
+    ],
+    rimborsi: [
+      { nome: 'Trasferta km', dettaglio: '40 km x 0.35 = €14.00', tipo: 'Esente', importo: 14 },
+      { nome: 'Musica stock', dettaglio: 'Licenza brano commerciale = €29.00', tipo: 'Imponibile', importo: 29 },
+    ],
+    note: 'Acconto del 30% richiesto alla firma del preventivo',
+  },
+  fotografo: {
+    servizi: [
+      { nome: 'Sopralluogo e moodboard', dettagli: ['Definizione stile fotografico', 'Lista scatti e organizzazione sessione'], prezzo: 120 },
+      { nome: 'Servizio fotografico evento', dettagli: ['Copertura fino a 4 ore', 'Scatti spontanei e momenti principali'], prezzo: 520 },
+      { nome: 'Ritratti professionali', dettagli: ['Set luci portatile incluso', 'Direzione posa per 5 persone'], prezzo: 260 },
+      { nome: 'Post-produzione foto', dettagli: ['Selezione e correzione colore', 'Ritocco leggero su 40 immagini'], prezzo: 240 },
+      { nome: 'Galleria online privata', dettagli: ['Consegna digitale in alta risoluzione', 'Download protetto per il cliente'], prezzo: 90 },
+    ],
+    rimborsi: [
+      { nome: 'Trasferta urbana', dettaglio: '25 km x 0.30 = €7.50', tipo: 'Esente', importo: 7.5 },
+      { nome: 'Noleggio fondale', dettaglio: 'Fondale neutro per shooting = €35.00', tipo: 'Imponibile', importo: 35 },
+    ],
+    note: 'Consegna provini entro 5 giorni lavorativi dalla data del servizio',
+  },
+  catering: {
+    servizi: [
+      { nome: 'Progettazione menu evento', dettagli: ['Menu stagionale personalizzato', 'Gestione allergeni e preferenze alimentari'], prezzo: 180 },
+      { nome: 'Aperitivo di benvenuto', dettagli: ['Finger food caldo e freddo', 'Servizio per 30 ospiti'], prezzo: 540 },
+      { nome: 'Primo e secondo serviti', dettagli: ['Preparazione e servizio al tavolo', 'Materie prime selezionate'], prezzo: 960 },
+      { nome: 'Dessert e piccola pasticceria', dettagli: ['Selezione dolci monoporzione', 'Allestimento tavolo dessert'], prezzo: 280 },
+      { nome: 'Personale di sala', dettagli: ['Due camerieri per 5 ore', 'Coordinamento servizio e riordino'], prezzo: 420 },
+      { nome: 'Allestimento buffet', dettagli: ['Tavoli, tovagliato e mise en place', 'Materiale di servizio incluso'], prezzo: 260 },
+    ],
+    rimborsi: [
+      { nome: 'Trasporto attrezzature', dettaglio: 'Consegna e ritiro attrezzature = €65.00', tipo: 'Imponibile', importo: 65 },
+      { nome: 'Trasferta staff', dettaglio: '35 km x 0.30 = €10.50', tipo: 'Esente', importo: 10.5 },
+    ],
+    note: 'Numero ospiti definitivo da confermare almeno 7 giorni prima',
+  },
+  falegname: {
+    servizi: [
+      { nome: 'Sopralluogo e rilievo misure', dettagli: ['Verifica pareti, quote e ingombri', 'Consulenza materiali e finiture'], prezzo: 90 },
+      { nome: 'Progettazione mobile su misura', dettagli: ['Disegno tecnico e distinta materiali', 'Una revisione inclusa'], prezzo: 280 },
+      { nome: 'Realizzazione struttura in legno', dettagli: ['Taglio e assemblaggio in laboratorio', 'Ferramenta professionale inclusa'], prezzo: 1250 },
+      { nome: 'Finitura e verniciatura', dettagli: ['Preparazione superfici e levigatura', 'Finitura opaca resistente all uso'], prezzo: 420 },
+      { nome: 'Trasporto e montaggio', dettagli: ['Consegna presso abitazione cliente', 'Installazione e regolazioni finali'], prezzo: 360 },
+    ],
+    rimborsi: [
+      { nome: 'Trasferta laboratorio', dettaglio: '45 km x 0.35 = €15.75', tipo: 'Esente', importo: 15.75 },
+      { nome: 'Materiali di consumo', dettaglio: 'Viti, tasselli e colle professionali = €38.00', tipo: 'Imponibile', importo: 38 },
+    ],
+    note: 'Tempi di realizzazione stimati in 20 giorni lavorativi',
+  },
+  estetista: {
+    servizi: [
+      { nome: 'Consulenza trattamento personalizzata', dettagli: ['Analisi esigenze e tipologia pelle', 'Piano trattamento consigliato'], prezzo: 45 },
+      { nome: 'Trattamento viso completo', dettagli: ['Detersione, scrub e maschera specifica', 'Massaggio finale idratante'], prezzo: 85 },
+      { nome: 'Manicure professionale', dettagli: ['Preparazione unghie e cuticole', 'Applicazione smalto semipermanente'], prezzo: 42 },
+      { nome: 'Pedicure estetico', dettagli: ['Trattamento piedi e idratazione', 'Applicazione colore a scelta'], prezzo: 48 },
+      { nome: 'Pacchetto ceretta', dettagli: ['Gambe complete e braccia', 'Prodotti lenitivi post trattamento'], prezzo: 70 },
+      { nome: 'Make-up evento', dettagli: ['Base lunga durata e prova colore', 'Ritocco finale incluso'], prezzo: 95 },
+    ],
+    rimborsi: [
+      { nome: 'Trasferta a domicilio', dettaglio: '20 km x 0.30 = €6.00', tipo: 'Esente', importo: 6 },
+      { nome: 'Kit monouso', dettaglio: 'Materiale igienico dedicato = €12.00', tipo: 'Imponibile', importo: 12 },
+    ],
+    note: 'Disdetta gratuita fino a 24 ore prima dell appuntamento',
+  },
+  elettricista: {
+    servizi: [
+      { nome: 'Sopralluogo e preventivo tecnico', dettagli: ['Verifica quadro elettrico e linee esistenti', 'Valutazione carichi e criticita impianto'], prezzo: 80 },
+      { nome: 'Installazione quadro elettrico', dettagli: ['Montaggio centralino con protezioni dedicate', 'Cablaggio ordinato e identificazione circuiti'], prezzo: 520 },
+      { nome: 'Certificazione impianto', dettagli: ['Verifiche strumentali di sicurezza', 'Rilascio dichiarazione di conformita'], prezzo: 240 },
+      { nome: 'Sostituzione prese e interruttori', dettagli: ['Fornitura placche e frutti standard', 'Controllo serraggi e continuita linee'], prezzo: 180 },
+      { nome: 'Installazione punto luce LED', dettagli: ['Predisposizione collegamenti e fissaggio corpo luce', 'Test accensione e assorbimento'], prezzo: 150 },
+      { nome: 'Intervento urgente', dettagli: ['Ricerca guasto su linea non funzionante', 'Ripristino provvisorio in sicurezza'], prezzo: 210 },
+    ],
+    rimborsi: [
+      { nome: 'Trasferta km', dettaglio: '30 km x 0.25 = €7.50', tipo: 'Esente', importo: 7.5 },
+      { nome: 'Materiale elettrico di consumo', dettaglio: 'Morsetti, canaline e minuteria = €35.00', tipo: 'Imponibile', importo: 35 },
+    ],
+    note: 'Acconto del 30% richiesto alla firma del preventivo',
+  },
+  idraulico: {
+    servizi: [
+      { nome: 'Sopralluogo impianto idraulico', dettagli: ['Controllo perdite e pressione acqua', 'Valutazione accessibilita tubazioni'], prezzo: 75 },
+      { nome: 'Riparazione perdita', dettagli: ['Individuazione punto critico', 'Sostituzione raccordo o guarnizione'], prezzo: 160 },
+      { nome: 'Sostituzione miscelatore', dettagli: ['Rimozione rubinetteria esistente', 'Installazione nuovo miscelatore'], prezzo: 130 },
+      { nome: 'Installazione sanitari', dettagli: ['Posizionamento e collegamento scarichi', 'Test tenuta e funzionamento'], prezzo: 360 },
+      { nome: 'Manutenzione caldaia ordinaria', dettagli: ['Pulizia componenti principali', 'Controllo sicurezza e rendimento'], prezzo: 140 },
+      { nome: 'Intervento urgente fuori orario', dettagli: ['Uscita rapida per guasto improvviso', 'Messa in sicurezza impianto'], prezzo: 220 },
+    ],
+    rimborsi: [
+      { nome: 'Trasferta km', dettaglio: '28 km x 0.30 = €8.40', tipo: 'Esente', importo: 8.4 },
+      { nome: 'Materiali idraulici', dettaglio: 'Raccordi, teflon e guarnizioni = €24.00', tipo: 'Imponibile', importo: 24 },
+    ],
+    note: 'Eventuali ricambi speciali saranno confermati prima dell acquisto',
+  },
+  imbianchino: {
+    servizi: [
+      { nome: 'Sopralluogo e protezione ambienti', dettagli: ['Valutazione superfici e stato pareti', 'Copertura pavimenti e arredi'], prezzo: 90 },
+      { nome: 'Preparazione pareti', dettagli: ['Stuccatura piccole crepe e fori', 'Carteggiatura e pulizia supporti'], prezzo: 240 },
+      { nome: 'Tinteggiatura pareti interne', dettagli: ['Due mani di pittura lavabile', 'Finitura uniforme su 60 mq'], prezzo: 680 },
+      { nome: 'Trattamento antimuffa', dettagli: ['Applicazione primer specifico', 'Pittura traspirante nelle zone critiche'], prezzo: 190 },
+      { nome: 'Smalto porte e battiscopa', dettagli: ['Preparazione superfici in legno', 'Applicazione smalto satinato'], prezzo: 260 },
+    ],
+    rimborsi: [
+      { nome: 'Trasporto materiali', dettaglio: 'Consegna pitture e attrezzature = €30.00', tipo: 'Imponibile', importo: 30 },
+      { nome: 'Smaltimento residui', dettaglio: 'Gestione materiali di risulta = €18.00', tipo: 'Esente', importo: 18 },
+    ],
+    note: 'Il preventivo include pittura bianca standard lavabile',
+  },
+  consulente: {
+    servizi: [
+      { nome: 'Analisi iniziale del progetto', dettagli: ['Raccolta obiettivi e vincoli operativi', 'Mappatura stakeholder e priorita'], prezzo: 280 },
+      { nome: 'Audit processi aziendali', dettagli: ['Interviste operative e revisione documenti', 'Identificazione inefficienze principali'], prezzo: 720 },
+      { nome: 'Piano strategico operativo', dettagli: ['Roadmap a 90 giorni con milestone', 'Indicatori KPI e responsabilita'], prezzo: 950 },
+      { nome: 'Workshop con il team', dettagli: ['Sessione formativa di mezza giornata', 'Materiali e template operativi inclusi'], prezzo: 480 },
+      { nome: 'Report finale e raccomandazioni', dettagli: ['Documento di sintesi professionale', 'Call di presentazione risultati'], prezzo: 360 },
+      { nome: 'Follow-up mensile', dettagli: ['Verifica avanzamento azioni', 'Aggiornamento piano di lavoro'], prezzo: 220 },
+    ],
+    rimborsi: [
+      { nome: 'Trasferta consulente', dettaglio: '60 km x 0.35 = €21.00', tipo: 'Esente', importo: 21 },
+      { nome: 'Materiali workshop', dettaglio: 'Template e dispense stampate = €32.00', tipo: 'Imponibile', importo: 32 },
+    ],
+    note: 'La proposta include una revisione del piano strategico entro 15 giorni',
+  },
+  altro: {
+    servizi: [
+      { nome: 'Consulenza iniziale', dettagli: ['Analisi richiesta e obiettivi del cliente', 'Definizione ambito di intervento'], prezzo: 90 },
+      { nome: 'Servizio operativo base', dettagli: ['Esecuzione attivita principale', 'Controllo qualita intermedio'], prezzo: 280 },
+      { nome: 'Servizio avanzato', dettagli: ['Personalizzazione secondo esigenze specifiche', 'Verifica finale con il cliente'], prezzo: 420 },
+      { nome: 'Coordinamento progetto', dettagli: ['Pianificazione tempi e consegne', 'Aggiornamenti sullo stato lavori'], prezzo: 180 },
+      { nome: 'Assistenza post consegna', dettagli: ['Supporto entro 7 giorni dalla consegna', 'Piccole modifiche incluse'], prezzo: 120 },
+    ],
+    rimborsi: [
+      { nome: 'Trasferta km', dettaglio: '30 km x 0.25 = €7.50', tipo: 'Esente', importo: 7.5 },
+      { nome: 'Materiali di consumo', dettaglio: 'Dotazioni operative dedicate = €25.00', tipo: 'Imponibile', importo: 25 },
+    ],
+    note: 'Acconto del 30% richiesto alla conferma del lavoro',
+  },
+}
+
+const DEMO_NOME_AZIENDA: Record<string, string> = {
+  videomaker: 'Studio Visivo Productions',
+  fotografo: 'Foto Art Studio',
+  catering: 'Sapori Eventi Catering',
+  falegname: 'Bottega Legno Vivo',
+  estetista: 'Essenza Beauty Studio',
+  elettricista: 'Elettro Service Roma',
+  idraulico: 'IdroCasa Service',
+  imbianchino: 'Colori & Pareti',
+  consulente: 'Strategia Pratica Consulting',
+  altro: 'Studio Professionale Demo',
+}
+
+function formatEuro(valore: number) {
+  return valore.toFixed(2).replace('.', ',')
+}
+
+function generaTestoDemo(categoria: string): string {
+  const demo = DEMO_PREVENTIVO[categoria] || DEMO_PREVENTIVO.altro
+  const data = new Date().toLocaleDateString('it-IT')
+  const imponibile = demo.servizi.reduce((tot, s) => tot + s.prezzo, 0) + demo.rimborsi.reduce((tot, r) => tot + r.importo, 0)
+  const iva = imponibile * 0.22
+  const totale = imponibile + iva
+  const servizi = demo.servizi.map(s =>
+    `SERVIZIO: ${s.nome}\nDETTAGLI:\n- ${s.dettagli[0]}\n- ${s.dettagli[1]}\nPREZZO: €${formatEuro(s.prezzo)}`
+  ).join('\n\n')
+  const rimborsi = demo.rimborsi.map(r =>
+    `RIMBORSO: ${r.nome}\nDETTAGLIO: ${r.dettaglio}\nTIPO: ${r.tipo}\nIMPORTO: €${formatEuro(r.importo)}`
+  ).join('\n\n')
+
+  return `PREVENTIVO\nData: ${data}  |  Validità: 30 giorni\n\nSERVIZI:\n\n${servizi}\n\nRIMBORSI SPESE:\n\n${rimborsi}\n\nRIEPILOGO:\nImponibile: €${formatEuro(imponibile)}\nIVA 22%: €${formatEuro(iva)}\nTOTALE: €${formatEuro(totale)}\n\nNote: ${demo.note}\nPAGAMENTO: Bonifico bancario\nLINK PAGAMENTO: https://checkout.stripe.com/demo-link-esempio`
+}
+
 export default function Onboarding() {
   const [step, setStep] = useState(0)
+  const [stepMassimoRaggiunto, setStepMassimoRaggiunto] = useState(0)
   const [saving, setSaving] = useState(false)
   const [elaborando, setElaborando] = useState(false)
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
@@ -45,6 +283,7 @@ export default function Onboarding() {
   const [nomeAzienda, setNomeAzienda] = useState('')
   const [citta, setCitta] = useState('')
   const [categoria, setCategoria] = useState('')
+  const [firmaNome, setFirmaNome] = useState('')
 
   // Step 3 — servizi
   const [modalitaServizi, setModalitaServizi] = useState<'testo' | 'manuale'>('testo')
@@ -82,27 +321,37 @@ export default function Onboarding() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
-      const totale = servizi.reduce((a, s) => a + (parseFloat(s.costo) || 0), 0)
-      const testoDemo = servizi.length > 0
-        ? `PREVENTIVO\nData: ${new Date().toLocaleDateString('it-IT')}  |  Validità: 30 giorni\n\nSERVIZI:\n\n${servizi.map(s => `SERVIZIO: ${s.nome}\nPREZZO: €${s.costo || 0}`).join('\n\n')}\n\nRIEPILOGO:\n─────────────────\nTOTALE: €${totale}`
-        : `PREVENTIVO\nData: ${new Date().toLocaleDateString('it-IT')}  |  Validità: 30 giorni\n\nSERVIZI:\n\nSERVIZIO: Riprese video\nDETTAGLI:\n- Mezza giornata di riprese\nPREZZO: €400\n\nSERVIZIO: Montaggio video\nDETTAGLI:\n- Montaggio con musica\nPREZZO: €300\n\nRIEPILOGO:\n─────────────────\nTOTALE: €700`
+      const categoriaDemo = categoria && DEMO_PREVENTIVO[categoria] ? categoria : 'altro'
+      const testoDemo = generaTestoDemo(categoriaDemo)
       const res = await fetch(`${backendUrl}/api/genera-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ testo: testoDemo, template: tmpl, versione_padre_id: null })
+        body: JSON.stringify({
+          testo: testoDemo,
+          template: tmpl,
+          versione_padre_id: null,
+          demo_profile: {
+            nome_azienda: DEMO_NOME_AZIENDA[categoriaDemo],
+            citta: 'Roma',
+            piva: '12345678901',
+            telefono: '06 1234567',
+            firma_nome: firmaNome.trim() || 'Mario Rossi',
+          },
+          demo_cliente: {
+            nome: 'Marco Bianchi',
+            email: 'marco.bianchi@email.it',
+            telefono: '333 1234567',
+            indirizzo: 'Via Roma 24, 00100 Roma',
+          },
+        })
       })
       const data = await res.json()
       if (data.html) {
         const htmlScalato = data.html.replace(
           '</head>',
-          `<style>
-            html { width: 100%; }
-            body { 
-              transform-origin: top left;
-              transform: scale(0.45);
-              width: 222%;
-            }
-          </style></head>`
+          `<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <style>html{width:100%;overflow:hidden}body{transform-origin:top left;transform:scale(0.45);width:222%;overflow:hidden}a{pointer-events:none!important;cursor:default!important}</style>
+        </head>`
         )
         setHtmlPreview(htmlScalato)
       }
@@ -120,6 +369,94 @@ export default function Onboarding() {
     setServizi(s => s.filter((_, idx) => idx !== i))
   }
 
+  function puoNavigareAlloStep(targetStep: number) {
+    if (targetStep >= 2 && (!nomeAzienda.trim() || !categoria)) return false
+    return targetStep >= 0 && targetStep <= 3
+  }
+
+  function vaiAlloStep(targetStep: number) {
+    if (!puoNavigareAlloStep(targetStep)) return
+    setStep(targetStep)
+    setStepMassimoRaggiunto(s => Math.max(s, targetStep))
+    if (targetStep === 3) aggiornaPreview(templateScelto)
+  }
+
+  function avanzaDaServizi() {
+    if (modalitaServizi === 'testo' && listinoTab === 'testo' && testoServizi.trim() !== '' && servizi.length === 0) {
+      const riconosciUnita = (riga: string) => {
+        const testo = riga.toLowerCase()
+        if (/(ora|orario|all'ora|\/ora)/.test(testo)) return 'ora'
+        if (/(giorno|giornata|al giorno)/.test(testo)) return 'giorno'
+        if (/(mq|metro quadro|al mq)/.test(testo)) return 'mq'
+        if (/(set|a set)/.test(testo)) return 'set'
+        if (/(progetto|a progetto)/.test(testo)) return 'progetto'
+        return 'cad'
+      }
+      const pulisciNome = (riga: string, prezzo: string) =>
+        riga
+          .replace(prezzo, '')
+          .replace(/€/gi, '')
+          .replace(/\beuro\b/gi, '')
+          .replace(/\ball'ora\b|\b\/ora\b|\borario\b|\bora\b/gi, '')
+          .replace(/\bal giorno\b|\bgiornata\b|\bgiorno\b/gi, '')
+          .replace(/\bal mq\b|\bmetro quadro\b|\bmq\b/gi, '')
+          .replace(/\ba set\b|\bset\b/gi, '')
+          .replace(/\ba progetto\b|\bprogetto\b/gi, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim()
+      const serviziDaTesto = testoServizi
+        .split('\n')
+        .map(riga => riga.trim())
+        .filter(Boolean)
+        .map(riga => {
+          const unita = riconosciUnita(riga)
+          const match = riga.match(/^(.+?):\s*(\d+(?:[.,]\d+)?)\s*€?/)
+          if (match) {
+            return {
+              nome: match[1].trim(),
+              descrizione: '',
+              costo: match[2].replace(',', '.'),
+              unita,
+            }
+          }
+          const matchPrezzo = riga.match(/(\d+(?:[.,]\d+)?)/)
+          if (matchPrezzo) {
+            const costo = matchPrezzo[1].replace(',', '.')
+            return {
+              nome: pulisciNome(riga, matchPrezzo[1]) || riga,
+              descrizione: '',
+              costo,
+              unita,
+            }
+          }
+          return { nome: riga, descrizione: '', costo: '', unita: 'cad' }
+        })
+      setServizi(serviziDaTesto)
+    }
+    vaiAlloStep(3)
+  }
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (step > 0) {
+        setStep(step - 1)
+        return true
+      }
+
+      Alert.alert(
+        'Vuoi uscire?',
+        'La configurazione non è completa',
+        [
+          { text: 'Annulla', style: 'cancel' },
+          { text: 'Esci', style: 'destructive', onPress: () => BackHandler.exitApp() },
+        ]
+      )
+      return true
+    })
+
+    return () => subscription.remove()
+  }, [step])
+
   async function completa() {
     setSaving(true)
     try {
@@ -127,16 +464,18 @@ export default function Onboarding() {
       if (!user) return
 
       // Salva profilo
-      await supabase.from('profiles').update({
+      await supabase.from('profiles').upsert({
+        id: user.id,
         nome_azienda: nomeAzienda.trim(),
         citta: citta.trim(),
         categoria,
         template_preferito: templateScelto,
-      }).eq('id', user.id)
+        firma_nome: firmaNome.trim(),
+      })
 
       // Salva servizi
       if (servizi.length > 0) {
-        await supabase.from('servizi').insert(
+        const { error: erroreServizi } = await supabase.from('servizi').insert(
           servizi.map((s, i) => ({
             user_id: user.id,
             nome: s.nome,
@@ -146,6 +485,7 @@ export default function Onboarding() {
             ordine: i
           }))
         )
+        if (erroreServizi) console.log('ERRORE SALVATAGGIO SERVIZI:', erroreServizi.message)
       }
 
       router.replace('/(tabs)')
@@ -178,7 +518,7 @@ export default function Onboarding() {
             </View>
           ))}
         </View>
-        <TouchableOpacity style={styles.nextBtn} onPress={() => setStep(1)}>
+        <TouchableOpacity style={styles.nextBtn} onPress={() => vaiAlloStep(1)}>
           <Text style={styles.nextBtnText}>Inizia la configurazione →</Text>
         </TouchableOpacity>
       </View>
@@ -189,10 +529,7 @@ export default function Onboarding() {
   if (step === 1) return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.stepHeader}>
-        <Text style={styles.stepNum}>1 di 2</Text>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: '33%' }]} />
-        </View>
+        <Stepper stepAttuale={2} stepMassimoRaggiunto={stepMassimoRaggiunto} onNavigate={vaiAlloStep} canNavigate={puoNavigareAlloStep} />
       </View>
       <ScrollView contentContainerStyle={styles.stepContent}>
         <Text style={styles.stepTitle}>Chi sei?</Text>
@@ -230,9 +567,24 @@ export default function Onboarding() {
           ))}
         </View>
 
+        <Text style={styles.fieldLabel}>FIRMA (opzionale)</Text>
+        <Text style={[styles.stepSub, { marginTop: -4, marginBottom: 8 }]}>Apparirà in corsivo in fondo ai tuoi preventivi PDF</Text>
+        <TextInput
+          style={styles.fieldInput}
+          value={firmaNome}
+          onChangeText={setFirmaNome}
+          placeholder="es. Mario Rossi"
+          placeholderTextColor="#9CA3AF"
+        />
+        {firmaNome ? (
+          <Text style={{ fontSize: 20, color: '#374151', fontStyle: 'italic', textAlign: 'center', paddingVertical: 8, fontFamily: 'Dancing Script' }}>
+            {firmaNome}
+          </Text>
+        ) : null}
+
         <TouchableOpacity
           style={[styles.nextBtn, (!nomeAzienda.trim() || !categoria) && styles.nextBtnDisabled]}
-          onPress={() => setStep(2)}
+          onPress={() => vaiAlloStep(2)}
           disabled={!nomeAzienda.trim() || !categoria}
         >
           <Text style={styles.nextBtnText}>Avanti →</Text>
@@ -247,10 +599,7 @@ export default function Onboarding() {
   if (step === 2) return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.stepHeader}>
-        <Text style={styles.stepNum}>2 di 2</Text>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: '100%' }]} />
-        </View>
+        <Stepper stepAttuale={3} stepMassimoRaggiunto={stepMassimoRaggiunto} onNavigate={vaiAlloStep} canNavigate={puoNavigareAlloStep} />
       </View>
       <ScrollView contentContainerStyle={styles.stepContent}>
         <Text style={styles.stepTitle}>I tuoi servizi</Text>
@@ -478,7 +827,7 @@ export default function Onboarding() {
         <View style={styles.skipRow}>
           <TouchableOpacity
             style={styles.nextBtn}
-            onPress={() => { setStep(3); aggiornaPreview(templateScelto) }}
+            onPress={avanzaDaServizi}
           >
             <Text style={styles.nextBtnText}>
               {servizi.length > 0 ? `Avanti — ${servizi.length} servizi →` : 'Avanti →'}
@@ -498,14 +847,12 @@ export default function Onboarding() {
   if (step === 3) return (
     <View style={styles.container}>
       <View style={styles.stepHeader}>
-        <Text style={styles.stepNum}>3 di 3</Text>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: '100%' }]} />
-        </View>
+        <Stepper stepAttuale={4} stepMassimoRaggiunto={stepMassimoRaggiunto} onNavigate={vaiAlloStep} canNavigate={puoNavigareAlloStep} />
       </View>
       <ScrollView contentContainerStyle={{ padding: 24, gap: 16, backgroundColor: '#F7F8FA', flexGrow: 1 }}>
         <Text style={styles.stepTitle}>Scegli il tuo stile</Text>
         <Text style={styles.stepSub}>Il template che preferisci per i tuoi preventivi PDF</Text>
+        <Text style={[styles.stepSub, { marginTop: -8 }]}>Questa è un'anteprima dimostrativa — potrai personalizzare servizi, prezzi, logo e note in qualsiasi momento dalle Impostazioni</Text>
 
         {/* Selector template */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -539,16 +886,9 @@ export default function Onboarding() {
           </View>
           <View style={styles.previewContainer}>
             {htmlPreview ? (
-              <WebView
-                source={{ html: htmlPreview }}
-                style={{ flex: 1 }}
-                scrollEnabled={true}
-                scalesPageToFit={false}
-                showsVerticalScrollIndicator={false}
-                showsHorizontalScrollIndicator={false}
-              />
+              <PreviewPaginata htmlContent={htmlPreview} width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT} />
             ) : (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <View style={{ height: PREVIEW_HEIGHT, justifyContent: 'center', alignItems: 'center' }}>
                 <ActivityIndicator size="large" color="#0E9F8E" />
                 <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 12 }}>Caricamento anteprima...</Text>
               </View>
@@ -583,10 +923,15 @@ const styles = StyleSheet.create({
   welcomeFeature: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 14 },
   welcomeFeatureIcon: { fontSize: 24 },
   welcomeFeatureText: { fontSize: 15, color: '#fff', fontWeight: '500' },
-  stepHeader: { paddingTop: 60, paddingHorizontal: 24, paddingBottom: 8, backgroundColor: '#0D1B2A' },
-  stepNum: { fontSize: 12, color: '#9EC5C0', fontWeight: '600', marginBottom: 8, letterSpacing: 1 },
-  progressBar: { height: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 2 },
-  progressFill: { height: 4, backgroundColor: '#0E9F8E', borderRadius: 2 },
+  stepHeader: { paddingTop: 60, paddingHorizontal: 24, paddingBottom: 16, backgroundColor: '#0D1B2A' },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  stepperCircle: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent' },
+  stepperCircleActive: { borderColor: '#0E9F8E', backgroundColor: '#0E9F8E' },
+  stepperCircleDone: { borderColor: '#0E9F8E', backgroundColor: 'rgba(14,159,142,0.15)' },
+  stepperCircleText: { fontSize: 13, color: 'rgba(255,255,255,0.4)', fontWeight: '600' },
+  stepperCircleTextActive: { color: '#fff' },
+  stepperLine: { width: 24, height: 1.5, backgroundColor: 'rgba(255,255,255,0.2)' },
+  stepperLineDone: { backgroundColor: '#0E9F8E' },
   stepContent: { padding: 24, gap: 12, backgroundColor: '#F7F8FA', flexGrow: 1 },
   stepTitle: { fontSize: 26, fontWeight: '700', color: '#0D1B2A', marginTop: 8 },
   stepSub: { fontSize: 14, color: '#6B7280', marginBottom: 8 },
@@ -633,5 +978,5 @@ const styles = StyleSheet.create({
   templateChipText: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
   templateChipTextActive: { color: '#fff' },
   previewCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
-  previewContainer: { height: 400, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
+  previewContainer: { borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
 })

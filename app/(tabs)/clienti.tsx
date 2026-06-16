@@ -1,10 +1,11 @@
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
 import {
-  ActivityIndicator, RefreshControl, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { useClienti } from "../../lib/hooks/useClienti"
+import { supabase } from "../../lib/supabase"
 import { trackEvento } from "../../lib/utils/analytics"
 
 export default function Clienti() {
@@ -13,6 +14,9 @@ export default function Clienti() {
   const [mostraForm, setMostraForm] = useState(false)
   const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', note: '' })
   const [salvando, setSalvando] = useState(false)
+  const [selezioneAttiva, setSelezioneAttiva] = useState(false)
+  const [clientiSelezionati, setClientiSelezionati] = useState<string[]>([])
+  const [clientiEliminati, setClientiEliminati] = useState<string[]>([])
 
   useFocusEffect(useCallback(() => {
     trackEvento('clienti_aperti', 'clienti')
@@ -28,10 +32,44 @@ export default function Clienti() {
     setSalvando(false)
   }
 
-  const clientiFiltrati = clienti.filter(c =>
+  const clientiVisibili = clienti.filter(c => !clientiEliminati.includes(c.id))
+
+  const clientiFiltrati = clientiVisibili.filter(c =>
     c.nome.toLowerCase().includes(cerca.toLowerCase()) ||
     (c.telefono || '').includes(cerca)
   )
+
+  function toggleSelezione(id: string) {
+    setClientiSelezionati(ids => {
+      const prossimi = ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]
+      if (prossimi.length === 0) setSelezioneAttiva(false)
+      return prossimi
+    })
+  }
+
+  function avviaSelezione(id: string) {
+    setSelezioneAttiva(true)
+    setClientiSelezionati(ids => ids.includes(id) ? ids : [...ids, id])
+  }
+
+  function annullaSelezione() {
+    setSelezioneAttiva(false)
+    setClientiSelezionati([])
+  }
+
+  async function eliminaClientiSelezionati() {
+    const ids = [...clientiSelezionati]
+    if (ids.length === 0) return
+    Alert.alert('Elimina', `Eliminare ${ids.length} clienti?`, [
+      { text: 'Annulla', style: 'cancel' },
+      { text: 'Elimina', style: 'destructive', onPress: async () => {
+        const { error } = await supabase.from('clienti').delete().in('id', ids)
+        if (error) { Alert.alert('Errore', error.message); return }
+        setClientiEliminati(prev => [...prev, ...ids])
+        annullaSelezione()
+      }}
+    ])
+  }
 
   if (loading) return (
     <View style={styles.center}>
@@ -96,11 +134,17 @@ export default function Clienti() {
             {!cerca && <Text style={styles.emptySubtext}>Tocca + per aggiungere il primo cliente</Text>}
           </View>
         ) : (
-          clientiFiltrati.map(c => (
+          clientiFiltrati.map(c => {
+            const selezionato = clientiSelezionati.includes(c.id)
+            return (
             <TouchableOpacity
               key={c.id}
-              style={styles.clienteCard}
-              onPress={() => router.push({ pathname: '/screens/cliente-dettaglio', params: { id: c.id, nome: c.nome } })}
+              style={[styles.clienteCard, selezionato && styles.clienteCardSelected]}
+              onLongPress={() => avviaSelezione(c.id)}
+              onPress={() => {
+                if (selezioneAttiva) toggleSelezione(c.id)
+                else router.push({ pathname: '/screens/cliente-dettaglio', params: { id: c.id, nome: c.nome } })
+              }}
             >
               <View style={styles.clienteAvatar}>
                 <Text style={styles.clienteAvatarText}>{c.nome.charAt(0).toUpperCase()}</Text>
@@ -117,11 +161,28 @@ export default function Clienti() {
                 )}
               </View>
             </TouchableOpacity>
-          ))
+            )
+          })
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: selezioneAttiva ? 120 : 40 }} />
       </ScrollView>
+
+      {selezioneAttiva && (
+        <View style={styles.selectionBar}>
+          <View style={styles.selectionTopRow}>
+            <Text style={styles.selectionCount}>{clientiSelezionati.length} selezionati</Text>
+            <TouchableOpacity onPress={annullaSelezione}>
+              <Text style={styles.selectionCancel}>✕ Annulla</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.selectionActions}>
+            <TouchableOpacity style={styles.selectionActionBtn} onPress={eliminaClientiSelezionati}>
+              <Text style={styles.selectionActionText}>🗑 Elimina</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   )
 }
@@ -157,4 +218,12 @@ const styles = StyleSheet.create({
   clienteStatVal: { fontSize: 18, fontWeight: '700', color: '#0D1B2A' },
   clienteStatLabel: { fontSize: 10, color: '#9CA3AF' },
   clienteStatImporto: { fontSize: 12, color: '#0E9F8E', fontWeight: '600', marginTop: 2 },
+  clienteCardSelected: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
+  selectionBar: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: '#0D1B2A', borderRadius: 16, padding: 12, gap: 10 },
+  selectionTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectionCount: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  selectionCancel: { color: '#9EC5C0', fontSize: 13, fontWeight: '600' },
+  selectionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  selectionActionBtn: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 9 },
+  selectionActionText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 })

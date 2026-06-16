@@ -3,11 +3,11 @@ import { router, useLocalSearchParams } from 'expo-router'
 import * as Sharing from 'expo-sharing'
 import { useEffect, useRef, useState } from 'react'
 import {
-  ActivityIndicator, Alert, Animated, FlatList, Modal,
+  ActivityIndicator, Alert, Animated, Dimensions, FlatList, Modal,
   ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import WebView from 'react-native-webview'
 import { creaLinkPagamento, generaPDF as generaPDFApi, generaPDFFile, salvaPDF as salvaPDFApi } from "../../lib/api/pdf"
+import PreviewPaginata from '../../lib/components/PreviewPaginata'
 import { TEMPLATES } from "../../lib/constants"
 import { eventBus } from '../../lib/eventBus'
 import { supabase } from "../../lib/supabase"
@@ -20,6 +20,10 @@ type Params = {
   metodo_pagamento_id: string
   importo_totale: string
 }
+
+const A4_RATIO = 297 / 210
+const PREVIEW_WIDTH = Dimensions.get('window').width - 16 * 2 - 16 * 2 - 2
+const PREVIEW_HEIGHT = PREVIEW_WIDTH * A4_RATIO
 
 export default function PreventivoPDF() {
   const { testo: testoParam, versione_padre_id, cliente_id, metodo_pagamento_id, importo_totale } = useLocalSearchParams<Params>()
@@ -298,17 +302,9 @@ if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
           </View>
           <View style={styles.previewContainer}>
             {htmlPreview ? (
-              <WebView
-                source={{ html: htmlPreview }}
-                style={styles.webview}
-                scrollEnabled={true}
-                scalesPageToFit={false}
-                pinchGestureEnabled={false}
-                showsVerticalScrollIndicator={false}
-                showsHorizontalScrollIndicator={false}
-              />
+              <PreviewPaginata htmlContent={htmlPreview} width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT} borderRadius={12} />
             ) : (
-              <View style={styles.previewPlaceholder}>
+              <View style={[styles.previewPlaceholder, { height: PREVIEW_HEIGHT }]}>
                 <ActivityIndicator size="large" color="#0E9F8E" />
                 <Text style={styles.previewPlaceholderText}>Caricamento anteprima...</Text>
               </View>
@@ -658,8 +654,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   cardSub: { fontSize: 12, color: '#9CA3AF', marginBottom: 8 },
-  previewContainer: { height: 420, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
-  webview: { flex: 1 },
+  previewContainer: { borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
   previewPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   previewPlaceholderText: { fontSize: 13, color: '#9CA3AF' },
   templateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },

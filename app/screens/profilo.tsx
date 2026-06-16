@@ -1,9 +1,10 @@
 import * as LocalAuthentication from 'expo-local-authentication'
+import Constants from 'expo-constants'
 import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
 import { useEffect, useState } from 'react'
 import {
-  Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View
+  ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View
 } from 'react-native'
 import { supabase } from "../../lib/supabase"
 
@@ -20,6 +21,8 @@ export default function Profilo() {
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
   const [notifiche, setNotifiche] = useState(true)
+  const [eliminandoAccount, setEliminandoAccount] = useState(false)
+  const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   useEffect(() => { carica() }, [])
 
@@ -59,6 +62,59 @@ export default function Profilo() {
         router.replace('/(auth)/login')
       }}
     ])
+  }
+
+  async function eliminaAccountConfermato() {
+    setEliminandoAccount(true)
+    try {
+      if (!backendUrl) {
+        Alert.alert('Errore', 'Backend non configurato.')
+        setEliminandoAccount(false)
+        return
+      }
+
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        Alert.alert('Errore', 'Sessione non valida. Effettua di nuovo il login.')
+        setEliminandoAccount(false)
+        return
+      }
+
+      const res = await fetch(`${backendUrl}/api/elimina-account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Impossibile eliminare account')
+
+      await supabase.auth.signOut()
+      router.replace('/(auth)/login')
+    } catch (err: any) {
+      Alert.alert('Errore', err.message || 'Impossibile eliminare account')
+      setEliminandoAccount(false)
+    }
+  }
+
+  function eliminaAccount() {
+    Alert.alert(
+      'Elimina account',
+      'Questa azione è irreversibile. Tutti i tuoi dati (preventivi, clienti, servizi, PDF) verranno eliminati permanentemente. Vuoi continuare?',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Continua',
+          style: 'destructive',
+          onPress: () => Alert.alert(
+            'Conferma finale',
+            'Sei assolutamente sicuro? Non potrai recuperare i dati.',
+            [
+              { text: 'Annulla', style: 'cancel' },
+              { text: 'Elimina account', style: 'destructive', onPress: eliminaAccountConfermato },
+            ]
+          ),
+        },
+      ]
+    )
   }
 
   return (
@@ -167,6 +223,17 @@ export default function Profilo() {
           <Text style={styles.logoutText}>Esci dall'account</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={[styles.deleteAccountBtn, eliminandoAccount && styles.deleteAccountBtnDisabled]}
+          onPress={eliminaAccount}
+          disabled={eliminandoAccount}
+        >
+          {eliminandoAccount
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.deleteAccountText}>Elimina account</Text>
+          }
+        </TouchableOpacity>
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -203,4 +270,7 @@ const styles = StyleSheet.create({
   settingBtnArrow: { fontSize: 18, color: MUTED },
   logoutBtn: { backgroundColor: '#FEE2E2', borderRadius: 14, padding: 16, alignItems: 'center' as const },
   logoutText: { color: '#EF4444', fontSize: 15, fontWeight: '600' },
+  deleteAccountBtn: { backgroundColor: '#DC2626', borderRadius: 14, padding: 16, alignItems: 'center' as const },
+  deleteAccountBtnDisabled: { opacity: 0.6 },
+  deleteAccountText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 })
