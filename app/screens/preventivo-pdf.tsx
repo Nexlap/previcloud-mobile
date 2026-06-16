@@ -11,6 +11,7 @@ import { creaLinkPagamento, generaPDF as generaPDFApi, generaPDFFile, salvaPDF a
 import { TEMPLATES } from "../../lib/constants"
 import { eventBus } from '../../lib/eventBus'
 import { supabase } from "../../lib/supabase"
+import { trackEvento } from "../../lib/utils/analytics"
 
 type Params = {
   testo: string
@@ -52,6 +53,7 @@ export default function PreventivoPDF() {
   const [segnaInviato, setSegnaInviato] = useState(false)
 
   useEffect(() => {
+    trackEvento('preview_pdf_aperta', 'preventivo-pdf')
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.replace('/(auth)/login'); return }
       setToken(session.access_token)
@@ -174,6 +176,7 @@ export default function PreventivoPDF() {
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Invia preventivo', UTI: 'com.adobe.pdf' })
+        trackEvento('pdf_condiviso', 'preventivo-pdf', { template })
       }
 
       mostraToast()

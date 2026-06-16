@@ -15,6 +15,7 @@ import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { supabase } from '../../lib/supabase'
 import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
+import { trackEvento } from '../../lib/utils/analytics'
 
 const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
@@ -76,7 +77,10 @@ export default function ClienteDettaglio() {
     totaleIncassato, totaleParziale, carica: caricaAb
   } = useAbbonamento(id)
 
-  useEffect(() => { carica() }, [])
+  useEffect(() => {
+    trackEvento('cliente_dettaglio_aperto', 'cliente-dettaglio')
+    carica()
+  }, [])
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {

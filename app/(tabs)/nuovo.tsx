@@ -8,6 +8,7 @@ import { cercaCliente, creaClienteDaChat, inviaMessaggio } from "../../lib/api/c
 import { convertiRecap } from "../../lib/api/pdf"
 import { supabase } from "../../lib/supabase"
 import { Messaggio } from "../../lib/types"
+import { trackEvento } from "../../lib/utils/analytics"
 
 //
 type Params = {
@@ -51,6 +52,7 @@ export default function Nuovo() {
 
   //
   useEffect(() => {
+    trackEvento('chat_aperta', 'chat')
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.replace('/(auth)/login'); return }
       setToken(session.access_token)
@@ -294,7 +296,14 @@ export default function Nuovo() {
             { icon: '✍️', title: 'Scrivi tu', sub: "Descrivi il lavoro a testo, l'AI fa le domande giuste", onPress: () => setModalitaScelta(false) },
             { icon: '📋', title: 'Builder manuale', sub: 'Seleziona i servizi dal listino e assembla', onPress: () => router.push({ pathname: '/screens/builder', params: { cliente_id: clienteIdAttivo || params.cliente_id || '', cliente_nome: params.cliente_nome || '' } }) },
           ].map(item => (
-            <TouchableOpacity key={item.title} style={styles.sceltaCard} onPress={item.onPress}>
+            <TouchableOpacity
+              key={item.title}
+              style={styles.sceltaCard}
+              onPress={() => {
+                if (item.title === 'Registra voce') trackEvento('chat_vocale_avviata', 'chat')
+                item.onPress()
+              }}
+            >
               <Text style={styles.sceltaCardIcon}>{item.icon}</Text>
               <View style={styles.sceltaCardBody}>
                 <Text style={styles.sceltaCardTitle}>{item.title}</Text>
@@ -328,6 +337,7 @@ export default function Nuovo() {
                 onPress={async () => {
                   setLoading(true)
                   try {
+                    trackEvento('preventivo_convertito', 'chat')
                     const preventivo = await convertiRecap(recap, token)
                     setRecap('')
                     router.push({

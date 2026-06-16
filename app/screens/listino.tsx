@@ -9,6 +9,7 @@ import {
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
 import { ServizioForm } from '../../lib/types'
+import { trackEvento } from '../../lib/utils/analytics'
 
 export default function Listino() {
   const [servizi, setServizi] = useState<ServizioForm[]>([])
@@ -29,6 +30,7 @@ export default function Listino() {
   const unitaOptions = ['cad', 'ora', 'giorno', 'mq', 'ml', 'set', 'progetto']
 
   useEffect(() => {
+    trackEvento('listino_aperto', 'listino')
     carica()
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setToken(session.access_token)

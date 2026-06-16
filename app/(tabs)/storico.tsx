@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy'
-import { router } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import * as Sharing from 'expo-sharing'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, StyleSheet,
   Text, TouchableOpacity, View,
@@ -10,6 +10,7 @@ import { eventBus } from "../../lib/eventBus"
 import { usePreventivi } from "../../lib/hooks/usePreventivi"
 import { supabase } from "../../lib/supabase"
 import { Preventivo } from "../../lib/types"
+import { trackEvento } from "../../lib/utils/analytics"
 
 export default function Storico() {
   const { preventivi, loading, refreshing, onRefresh, cambiaStato, eliminaPreventivo } = usePreventivi()
@@ -17,6 +18,10 @@ export default function Storico() {
   const [modalStato, setModalStato] = useState<string | null>(null)
   const [cronologiaAperta, setCronologiaAperta] = useState<string | null>(null)
   const [cronologia, setCronologia] = useState<{ [key: string]: Preventivo[] }>({})
+
+  useFocusEffect(useCallback(() => {
+    trackEvento('storico_aperto', 'storico')
+  }, []))
 
   async function scaricaPDF(p: Preventivo) {
     if (p.pdf_url) {

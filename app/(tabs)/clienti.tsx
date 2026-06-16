@@ -1,10 +1,11 @@
-import { router } from 'expo-router'
-import { useState } from 'react'
+import { router, useFocusEffect } from 'expo-router'
+import { useCallback, useState } from 'react'
 import {
   ActivityIndicator, RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { useClienti } from "../../lib/hooks/useClienti"
+import { trackEvento } from "../../lib/utils/analytics"
 
 export default function Clienti() {
   const { clienti, loading, refreshing, onRefresh, aggiungiCliente } = useClienti()
@@ -12,6 +13,10 @@ export default function Clienti() {
   const [mostraForm, setMostraForm] = useState(false)
   const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', note: '' })
   const [salvando, setSalvando] = useState(false)
+
+  useFocusEffect(useCallback(() => {
+    trackEvento('clienti_aperti', 'clienti')
+  }, []))
 
   async function handleAggiungi() {
     setSalvando(true)

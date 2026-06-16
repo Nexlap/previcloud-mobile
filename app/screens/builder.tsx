@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { Cliente, Servizio, VocePreventivo } from '../../lib/types';
+import { trackEvento } from '../../lib/utils/analytics';
 
 interface RisultatoFiscale {
   regime: string; lordo: number; netto: number
@@ -50,6 +51,7 @@ export default function Builder() {
   const params = useLocalSearchParams<{ cliente_id?: string, cliente_nome?: string }>()
 
   useEffect(() => {
+    trackEvento('builder_aperto', 'builder')
     caricaServizi()
     caricaProfiloFiscale()
     caricaClienti()
@@ -272,6 +274,7 @@ export default function Builder() {
     if (voci.length === 0) { Alert.alert('Preventivo vuoto', 'Aggiungi almeno un servizio.'); return }
     const testo = generaTestoPreventivo()
     const mpId = metodoPagamentoSelezionato?.id || ''
+    trackEvento('builder_pdf_generato', 'builder', { num_voci: voci.length, ha_trasferte: trasferte.length > 0 })
     router.push({
       pathname: '/screens/preventivo-pdf',
       params: {

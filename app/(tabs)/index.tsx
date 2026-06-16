@@ -7,6 +7,7 @@ import {
 import { eventBus } from "../../lib/eventBus"
 import { supabase } from "../../lib/supabase"
 import { Preventivo, Profile } from "../../lib/types"
+import { trackEvento } from "../../lib/utils/analytics"
 
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -16,7 +17,10 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false)
 
   // Ricarica ogni volta che la dashboard torna in focus
-  useFocusEffect(useCallback(() => { carica() }, []))
+  useFocusEffect(useCallback(() => {
+    trackEvento('home_aperta', 'home')
+    carica()
+  }, []))
 
   // Ricarica quando un'altra schermata segnala un cambio stato
 const caricaRef = useRef(carica)
