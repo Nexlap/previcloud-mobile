@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
 import 'react-native-url-polyfill/auto'
 import { supabase } from "../lib/supabase"
+import { trackSessione } from '../lib/utils/analytics'
 
 export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false)
@@ -42,6 +43,7 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange(
   async function checkSession() {
     const { data: { user }, error } = await supabase.auth.getUser()
     if (!user || error) { completaSplash(); router.replace('/(auth)/login'); return }
+    trackSessione()
     await redirectBasedOnProfile(user.id)
   }
 
