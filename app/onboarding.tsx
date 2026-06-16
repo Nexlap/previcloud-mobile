@@ -1,3 +1,4 @@
+import { Audio } from 'expo-av'
 import Constants from 'expo-constants'
 import { router } from 'expo-router'
 import { useRef, useState } from 'react'
@@ -7,6 +8,9 @@ import {
 } from 'react-native'
 import WebView from 'react-native-webview'
 import { supabase } from '../lib/supabase'
+import * as ImagePicker from 'expo-image-picker'
+import { ServizioForm } from '../lib/types'
+
 
 const CATEGORIE = ['videomaker', 'fotografo', 'catering', 'falegname', 'estetista', 'elettricista', 'idraulico', 'imbianchino', 'consulente', 'altro']
 const UNITA = ['cad', 'ora', 'giorno', 'mq', 'set', 'progetto']
@@ -23,13 +27,6 @@ const ESEMPI_LISTINO: Record<string, string> = {
   imbianchino: 'Tinteggiatura stanza (mq): 8€\nPreparazione pareti: 5€/mq\nSmaltimento vernice: 50€\nPosa carta da parati: 15€/mq',
   consulente: 'Consulenza oraria: 80€\nProgetto strategico: 1500€\nFormazione (mezza giornata): 400€\nReport analitico: 600€',
   altro: 'Servizio base: 100€\nServizio premium: 200€\nConsulenza: 80€/ora\nProgetto completo: 500€',
-}
-
-interface ServizioTemp {
-  nome: string
-  descrizione: string
-  costo: string
-  unita: string
 }
 
 export default function Onboarding() {
@@ -52,9 +49,12 @@ export default function Onboarding() {
   // Step 3 — servizi
   const [modalitaServizi, setModalitaServizi] = useState<'testo' | 'manuale'>('testo')
   const [testoServizi, setTestoServizi] = useState('')
-  const [servizi, setServizi] = useState<ServizioTemp[]>([])
+  const [servizi, setServizi] = useState<Omit<ServizioForm, 'id'>[]>([])
   const [nuovoServizio, setNuovoServizio] = useState({ nome: '', descrizione: '', costo: '', unita: 'ora' })
-
+  const [listinoTab, setListinoTab] = useState<'testo' | 'foto' | 'vocale'>('testo')
+  const [registrando, setRegistrando] = useState(false)
+  const [recording, setRecording] = useState<Audio.Recording | null>(null)
+  const [elaborandoMedia, setElaborandoMedia] = useState(false)
   async function elaboraServiziAI() {
     if (!testoServizi.trim()) return
     setElaborando(true)
@@ -82,7 +82,10 @@ export default function Onboarding() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
-      const testoDemo = `PREVENTIVO\nData: ${new Date().toLocaleDateString('it-IT')}  |  Validità: 30 giorni\n\nSERVIZI:\n\nSERVIZIO: Riprese video\nDETTAGLI:\n- Mezza giornata di riprese\n- Regia e direzione\nPREZZO: €400\n\nSERVIZIO: Montaggio video\nDETTAGLI:\n- Montaggio con musica\n- Color grading\nPREZZO: €300\n\nRIEPILOGO:\nImponibile: €700\nIVA 22%: €154\n─────────────────\nTOTALE: €854`
+      const totale = servizi.reduce((a, s) => a + (parseFloat(s.costo) || 0), 0)
+      const testoDemo = servizi.length > 0
+        ? `PREVENTIVO\nData: ${new Date().toLocaleDateString('it-IT')}  |  Validità: 30 giorni\n\nSERVIZI:\n\n${servizi.map(s => `SERVIZIO: ${s.nome}\nPREZZO: €${s.costo || 0}`).join('\n\n')}\n\nRIEPILOGO:\n─────────────────\nTOTALE: €${totale}`
+        : `PREVENTIVO\nData: ${new Date().toLocaleDateString('it-IT')}  |  Validità: 30 giorni\n\nSERVIZI:\n\nSERVIZIO: Riprese video\nDETTAGLI:\n- Mezza giornata di riprese\nPREZZO: €400\n\nSERVIZIO: Montaggio video\nDETTAGLI:\n- Montaggio con musica\nPREZZO: €300\n\nRIEPILOGO:\n─────────────────\nTOTALE: €700`
       const res = await fetch(`${backendUrl}/api/genera-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -254,25 +257,23 @@ export default function Onboarding() {
         <Text style={styles.stepSub}>Claude userà questi prezzi per ogni preventivo</Text>
 
         <View style={styles.modalitaTabs}>
-          <TouchableOpacity
-            style={[styles.modalitaTab, modalitaServizi === 'testo' && styles.modalitaTabActive]}
-            onPress={() => setModalitaServizi('testo')}
-          >
-            <Text style={[styles.modalitaTabText, modalitaServizi === 'testo' && styles.modalitaTabTextActive]}>
-              📋 Incolla lista
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modalitaTab, modalitaServizi === 'manuale' && styles.modalitaTabActive]}
-            onPress={() => setModalitaServizi('manuale')}
-          >
-            <Text style={[styles.modalitaTabText, modalitaServizi === 'manuale' && styles.modalitaTabTextActive]}>
-              ✏️ Aggiungi uno a uno
-            </Text>
-          </TouchableOpacity>
+          {([['testo', '📋 Incolla'] , ['foto', '📷 Foto'], ['vocale', '🎙 Vocale'], ['manuale', '✏️ Manuale']] as const).map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              style={[styles.modalitaTab, ((key === 'manuale' && modalitaServizi === 'manuale') || (key !== 'manuale' && listinoTab === key && modalitaServizi !== 'manuale')) && styles.modalitaTabActive]}
+              onPress={() => {
+                if (key === 'manuale') { setModalitaServizi('manuale') }
+                else { setModalitaServizi('testo'); setListinoTab(key) }
+              }}
+            >
+              <Text style={[styles.modalitaTabText, ((key === 'manuale' && modalitaServizi === 'manuale') || (key !== 'manuale' && listinoTab === key && modalitaServizi !== 'manuale')) && styles.modalitaTabTextActive]}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {modalitaServizi === 'testo' ? (
+        {modalitaServizi === 'testo' && listinoTab === 'testo' && (
           <View style={styles.testoServiziBox}>
             <Text style={styles.testoServiziHint}>
               Incolla il tuo listino prezzi — anche disordinato. Claude lo struttura automaticamente.
@@ -297,7 +298,130 @@ export default function Onboarding() {
               }
             </TouchableOpacity>
           </View>
-        ) : (
+        )}
+
+        {modalitaServizi === 'testo' && listinoTab === 'foto' && (
+          <View style={{ gap: 12, marginBottom: 80 }}>
+            <Text style={styles.testoServiziHint}>Scatta o carica una foto del tuo listino — anche scritto a mano.</Text>
+            <TouchableOpacity
+              style={[styles.testoServiziInput, { height: 120, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed' }]}
+              onPress={async () => {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+                if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla galleria.'); return }
+                const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, base64: true })
+                if (!result.canceled && result.assets[0].base64) {
+                  setElaborandoMedia(true)
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    if (!session) return
+                    const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                      body: JSON.stringify({ immagine_base64: result.assets[0].base64, mime_type: result.assets[0].mimeType || 'image/jpeg' })
+                    })
+                    const data = await res.json()
+                    if (data.servizi) { setServizi(data.servizi); setModalitaServizi('manuale') }
+                    else Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.')
+                  } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
+                  setElaborandoMedia(false)
+                }
+              }}
+            >
+              {elaborandoMedia ? <ActivityIndicator color="#0E9F8E" /> : <>
+                <Text style={{ fontSize: 32 }}>📷</Text>
+                <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>Scegli dalla galleria</Text>
+              </>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.elaboraBtn, elaborandoMedia && styles.nextBtnDisabled]}
+              disabled={elaborandoMedia}
+              onPress={async () => {
+                const { status } = await ImagePicker.requestCameraPermissionsAsync()
+                if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla fotocamera.'); return }
+                const result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true })
+                if (!result.canceled && result.assets[0].base64) {
+                  setElaborandoMedia(true)
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession()
+                    if (!session) return
+                    const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                      body: JSON.stringify({ immagine_base64: result.assets[0].base64, mime_type: 'image/jpeg' })
+                    })
+                    const data = await res.json()
+                    if (data.servizi) { setServizi(data.servizi); setModalitaServizi('manuale') }
+                    else Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.')
+                  } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
+                  setElaborandoMedia(false)
+                }
+              }}
+            >
+              <Text style={styles.elaboraBtnText}>📸 Scatta una foto</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {modalitaServizi === 'testo' && listinoTab === 'vocale' && (
+          <View style={{ gap: 12, alignItems: 'center' }}>
+            <Text style={styles.testoServiziHint}>Descrivi i tuoi servizi a voce — prezzi, nomi, unità. Claude trascrive e struttura tutto.</Text>
+            <TouchableOpacity
+              style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: registrando ? '#EF4444' : '#0D1B2A', justifyContent: 'center', alignItems: 'center', marginVertical: 8 }}
+              onPress={async () => {
+                if (registrando) {
+                  setRegistrando(false)
+                  if (!recording) return
+                  await recording.stopAndUnloadAsync()
+                  const uri = recording.getURI()
+                  setRecording(null)
+                  if (!uri) return
+                  setElaborandoMedia(true)
+                  try {
+                    const audioData = await fetch(uri)
+                    const blob = await audioData.blob()
+                    const reader = new FileReader()
+                    reader.onloadend = async () => {
+                      const base64 = (reader.result as string).split(',')[1]
+                      const { data: { session } } = await supabase.auth.getSession()
+                      if (!session) return
+                      const trRes = await fetch(`${backendUrl}/api/trascrivi`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ audio: base64 })
+                      })
+                      const trData = await trRes.json()
+                      if (!trData.trascrizione) { Alert.alert('Errore', 'Trascrizione fallita'); setElaborandoMedia(false); return }
+                      const elRes = await fetch(`${backendUrl}/api/elabora-servizi`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                        body: JSON.stringify({ testo: trData.trascrizione })
+                      })
+                      const elData = await elRes.json()
+                      if (elData.servizi) { setServizi(elData.servizi); setModalitaServizi('manuale') }
+                      else Alert.alert('Nessun servizio trovato', 'Riprova descrivendo meglio i servizi.')
+                      setElaborandoMedia(false)
+                    }
+                    reader.readAsDataURL(blob)
+                  } catch { Alert.alert('Errore', 'Impossibile elaborare il vocale'); setElaborandoMedia(false) }
+                } else {
+                  const { status } = await Audio.requestPermissionsAsync()
+                  if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso al microfono.'); return }
+                  await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true })
+                  const { recording: rec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
+                  setRecording(rec)
+                  setRegistrando(true)
+                }
+              }}
+            >
+              {elaborandoMedia ? <ActivityIndicator color="#fff" size="large" /> : <Text style={{ fontSize: 32 }}>{registrando ? '⏹' : '🎙'}</Text>}
+            </TouchableOpacity>
+            <Text style={{ fontSize: 13, color: registrando ? '#EF4444' : '#9CA3AF', fontWeight: '500' }}>
+              {elaborandoMedia ? 'Elaborazione...' : registrando ? 'Tocca per fermare' : 'Tocca per registrare'}
+            </Text>
+          </View>
+        )}
+
+        {modalitaServizi === 'manuale' && (
           <View style={styles.manualBox}>
             {servizi.map((s, i) => (
               <View key={i} style={styles.servizioItem}>
@@ -476,10 +600,10 @@ const styles = StyleSheet.create({
   nextBtn: { backgroundColor: '#0E9F8E', borderRadius: 16, padding: 16, alignItems: 'center' as const, marginTop: 16 },
   nextBtnDisabled: { opacity: 0.4 },
   nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  modalitaTabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 4 },
-  modalitaTab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' as const },
+  modalitaTabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 3, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 4 },
+  modalitaTab: { flex: 1, paddingVertical: 7, paddingHorizontal: 4, borderRadius: 10, alignItems: 'center' as const },
   modalitaTabActive: { backgroundColor: '#0D1B2A' },
-  modalitaTabText: { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
+  modalitaTabText: { fontSize: 10, color: '#9CA3AF', fontWeight: '500' },
   modalitaTabTextActive: { color: '#fff' },
   testoServiziBox: { gap: 10 },
   testoServiziHint: { fontSize: 13, color: '#6B7280', lineHeight: 18 },

@@ -11,10 +11,10 @@ import {
 } from 'react-native'
 import { creaLinkPagamentoRata } from '../../lib/api/pdf'
 import { eventBus } from '../../lib/eventBus'
-import { RataAbbonamento, useAbbonamento } from '../../lib/hooks/useAbbonamento'
+import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { supabase } from '../../lib/supabase'
-import { Cliente, Preventivo, Trascrizione } from '../../lib/types'
+import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
 
 const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 

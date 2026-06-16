@@ -14,18 +14,11 @@ const BORDER = '#E5E7EB'
 const TEXT = '#0D1B2A'
 const MUTED = '#9CA3AF'
 
-const PIANI = [
-  { id: 'free', nome: 'Free', prezzo: '€0/mese', colore: '6B7280' },
-  { id: 'pro', nome: 'Pro', prezzo: '€9.99/mese', colore: '0E9F8E' },
-  { id: 'business', nome: 'Business', prezzo: '€19.99/mese', colore: '7C3AED' },
-]
-
 export default function Profilo() {
   const [nomeAzienda, setNomeAzienda] = useState('')
   const [email, setEmail] = useState('')
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
-  const [pianoAttuale] = useState('free')
   const [notifiche, setNotifiche] = useState(true)
 
   useEffect(() => { carica() }, [])
@@ -92,35 +85,6 @@ export default function Profilo() {
           <TouchableOpacity onPress={() => router.push('/screens/settings')}>
             <Text style={{ fontSize: 20 }}>✏️</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Piano */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Piano abbonamento</Text>
-          <Text style={styles.cardSub}>Il tuo piano attuale</Text>
-          {PIANI.map(piano => (
-            <View key={piano.id} style={[styles.pianoRow, piano.id === pianoAttuale && styles.pianoRowActive]}>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={[styles.pianoNome, { color: `#${piano.colore}` }]}>{piano.nome}</Text>
-                  {piano.id === pianoAttuale && (
-                    <View style={[styles.pianoBadge, { backgroundColor: `#${piano.colore}20` }]}>
-                      <Text style={[styles.pianoBadgeText, { color: `#${piano.colore}` }]}>Attuale</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.pianoPrezzo}>{piano.prezzo}</Text>
-              </View>
-              {piano.id !== pianoAttuale && (
-                <TouchableOpacity
-                  style={[styles.upgradeBtn, { borderColor: `#${piano.colore}` }]}
-                  onPress={() => Alert.alert('Prossimamente', 'Gli abbonamenti saranno disponibili a breve!')}
-                >
-                  <Text style={[styles.upgradeBtnText, { color: `#${piano.colore}` }]}>Upgrade</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ))}
         </View>
 
         {/* Sicurezza */}

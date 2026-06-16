@@ -1,32 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert } from 'react-native'
 import { supabase } from '../supabase'
-
-export interface Abbonamento {
-  id: string
-  cliente_id: string
-  importo_default: number
-  giorno_scadenza: number
-  attivo: boolean
-  preventivo_id: string | null
-  numero_mensilita: number | null
-  note: string | null
-  tipo: 'canone' | 'rate'
-  nome: string | null
-}
-
-export interface RataAbbonamento {
-  id: string
-  abbonamento_id: string
-  mese: number
-  anno: number
-  importo: number
-  acconto: number
-  saldo_residuo: number
-  stato: 'da_incassare' | 'parziale' | 'incassato' | 'in_ritardo'
-  data_incasso: string | null
-  note: string | null
-}
+import { Abbonamento, RataAbbonamento } from '../types'
 
 export function useAbbonamento(clienteId: string) {
   const [abbonamento, setAbbonamento] = useState<Abbonamento | null>(null)

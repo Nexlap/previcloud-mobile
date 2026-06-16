@@ -50,6 +50,7 @@ export default function PreventivoPDF() {
   const [abVisibileNelPDF, setAbVisibileNelPDF] = useState(true)
   const toastOpacity = useRef(new Animated.Value(0)).current
   const previewTimeout = useRef<any>(null)
+  const [segnaInviato, setSegnaInviato] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -175,33 +176,18 @@ export default function PreventivoPDF() {
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Invia preventivo', UTI: 'com.adobe.pdf' })
-        if (idSalvato) {
-          Alert.alert(
-            'Preventivo inviato?',
-            'Vuoi segnare questo preventivo come "inviato"?',
-            [
-              { text: 'No', style: 'cancel' },
-              { text: 'Si, segna come inviato', onPress: async () => {
-                await supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', idSalvato)
-                eventBus.emit('aggiorna-home')
-              }}
-            ]
-          )
-        }
       }
 
       mostraToast()
 
       // Crea abbonamento automaticamente se attivo
 if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
-  console.log('Abbonamento attivo, provo a creare...')
   const { data: { user } } = await supabase.auth.getUser()
   if (user) {
     const importo = parseFloat(abImporto.replace(',', '.'))
     const giorno = parseInt(abGiorno)
     const mensilita = abMensilita ? parseInt(abMensilita) : null
-    console.log('Dati abbonamento:', { importo, giorno, mensilita, clienteId: clienteSelezionato.id, idSalvato })
-    if (importo > 0 && giorno >= 1 && giorno <= 31) {
+       if (importo > 0 && giorno >= 1 && giorno <= 31) {
       // Controlla se esiste già un abbonamento attivo
       const { data: abEsistente } = await supabase
         .from('abbonamenti')
@@ -223,7 +209,6 @@ if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
         numero_mensilita: mensilita,
         tipo: mensilita ? 'rate' : 'canone'
       }).select().single()
-      console.log('Risultato insert abbonamento:', { ab, error })
             if (ab) {
               const ora = new Date()
               const inserimenti = mensilita
@@ -607,8 +592,8 @@ if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
       <Modal visible={mostraModalTitolo} transparent animationType="fade">
         <View style={styles.titoloOverlay}>
           <View style={styles.titoloBox}>
-            <Text style={styles.titoloTitle}>Vuoi rinominarlo?</Text>
-            <Text style={styles.titoloSub}>Il preventivo e gia salvato - puoi dargli un nome piu preciso</Text>
+            <Text style={styles.titoloTitle}>Preventivo salvato ✓</Text>
+            <Text style={styles.titoloSub}>Puoi dargli un nome più preciso</Text>
             <TextInput
               style={styles.titoloInput}
               value={titolo}
@@ -617,11 +602,42 @@ if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
               placeholderTextColor="#9CA3AF"
               autoFocus
             />
-            <TouchableOpacity style={styles.titoloSaveBtn} onPress={async () => { setMostraModalTitolo(false); await aggiornaTitolo(titolo) }}>
-              <Text style={styles.titoloSaveBtnText}>Aggiorna nome</Text>
+            <TouchableOpacity
+              style={styles.inviataRow}
+              onPress={() => setSegnaInviato(v => !v)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, segnaInviato && styles.checkboxChecked]}>
+                {segnaInviato && <Text style={styles.checkboxTick}>✓</Text>}
+              </View>
+              <Text style={styles.inviataLabel}>Segna come inviato</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.titoloSkipBtn} onPress={() => setMostraModalTitolo(false)}>
-              <Text style={styles.titoloSkipText}>Va bene cosi</Text>
+            <TouchableOpacity
+              style={styles.titoloSaveBtn}
+              onPress={async () => {
+                setMostraModalTitolo(false)
+                await aggiornaTitolo(titolo)
+                if (segnaInviato && preventivoSalvatoId) {
+                  await supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', preventivoSalvatoId)
+                  eventBus.emit('aggiorna-home')
+                }
+                setSegnaInviato(false)
+              }}
+            >
+              <Text style={styles.titoloSaveBtnText}>Salva</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.titoloSkipBtn}
+              onPress={async () => {
+                setMostraModalTitolo(false)
+                if (segnaInviato && preventivoSalvatoId) {
+                  await supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', preventivoSalvatoId)
+                  eventBus.emit('aggiorna-home')
+                }
+                setSegnaInviato(false)
+              }}
+            >
+              <Text style={styles.titoloSkipText}>Va bene così</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -705,4 +721,9 @@ const styles = StyleSheet.create({
   pagamentoInfo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E7EB', gap: 12 },
   abLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8, marginBottom: 4 },
   abInput: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
+  inviataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  inviataLabel: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center' },
+  checkboxChecked: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
+  checkboxTick: { color: '#fff', fontSize: 13, fontWeight: '700' },
 })

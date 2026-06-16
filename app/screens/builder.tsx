@@ -5,25 +5,12 @@ import {
   ActivityIndicator, Alert, FlatList, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { Cliente, Servizio, VocePreventivo } from '../../lib/types';
 
-interface Servizio {
-  id: string; nome: string; descrizione: string; costo: number | null; unita: string
-}
-interface VocePreventivo {
-  servizio_id: string; nome: string; descrizione: string; costo: string; quantita: string; unita: string
-}
 interface RisultatoFiscale {
   regime: string; lordo: number; netto: number
   rivalsa: number; totaleCliente: number; imponibile: number
   contributi: number; imposta: number; iva: number; irpef: number; ritenuta: number
-}
-
-interface Cliente {
-  id: string
-  nome: string
-  telefono: string | null
-  email: string | null
-  indirizzo: string | null
 }
 
 //
@@ -31,7 +18,7 @@ const builderState = {
   voci: [] as VocePreventivo[],
   nomeCliente: '',
   noteExtra: '',
-  includiIva: false, //
+  includiIva: false,
 }
 
 export default function Builder() {
@@ -55,19 +42,24 @@ export default function Builder() {
   const [nettoDesiderato, setNettoDesiderato] = useState('')
   const [lordomCalcolato, setLordoCalcolato] = useState<number | null>(null)
   const [ricercaCliente, setRicercaCliente] = useState("")
+  const [trasferte, setTrasferte] = useState<{ id: string; tipo: 'km' | 'spesa'; nome: string; importo: string; km?: string; esente: boolean }[]>([])
+  const [mostraTrasferte, setMostraTrasferte] = useState(false)
+  const [nuovaSpesaNome, setNuovaSpesaNome] = useState('')
+  const [nuovaSpesaImporto, setNuovaSpesaImporto] = useState('')
+  const [nuoviKm, setNuoviKm] = useState('')
+  const [storicoVoci, setStoricoVoci] = useState<VocePreventivo[][]>([])
   const params = useLocalSearchParams<{ cliente_id?: string, cliente_nome?: string }>()
 
   useEffect(() => {
-  caricaServizi()
-  caricaProfiloFiscale()
-  caricaClienti()
-  caricaMetodiPagamento()
-  if (params.cliente_id && params.cliente_nome) {
-    setClienteSelezionato({ id: params.cliente_id, nome: params.cliente_nome, telefono: null, email: null, indirizzo: null })
-  }
-}, [])
+    caricaServizi()
+    caricaProfiloFiscale()
+    caricaClienti()
+    caricaMetodiPagamento()
+    if (params.cliente_id && params.cliente_nome) {
+      setClienteSelezionato({ id: params.cliente_id, nome: params.cliente_nome, telefono: null, email: null, indirizzo: null })
+    }
+  }, [])
 
-  //
   useEffect(() => {
     builderState.voci = voci
     builderState.nomeCliente = nomeCliente
@@ -139,6 +131,7 @@ export default function Builder() {
     setNoteExtra('')
     setIncludiIva(false)
     setClienteSelezionato(null)
+    setTrasferte([])
   }
 
   function calcolaIrpef(base: number): number {
@@ -158,7 +151,8 @@ export default function Builder() {
 
   function calcolaFiscale(): RisultatoFiscale | null {
     if (!profiloFiscale || !mostraFiscale) return null
-    const lordo = calcolaTotale()
+    const totaleImponibileTrasferte = trasferte.filter(t => !t.esente).reduce((a, t) => a + (parseFloat(t.importo) || 0), 0)
+    const lordo = calcolaTotale() + totaleImponibileTrasferte
     const p = profiloFiscale
     const zero: RisultatoFiscale = { regime: '', lordo, netto: 0, rivalsa: 0, totaleCliente: 0, imponibile: 0, contributi: 0, imposta: 0, iva: 0, irpef: 0, ritenuta: 0 }
 
@@ -194,24 +188,16 @@ export default function Builder() {
     if (!profiloFiscale) return null
     const p = profiloFiscale
     if (p.regime === 'forfettario') {
-      //
-      //
-      //
-      //
-      //
       const rivalsaPerc = p.rivalsa_inps ? p.rivalsa_percentuale / 100 : 0
       const coeffPerc = p.coefficiente_redditivita / 100
       const inpsPerc = p.riduzione_contributiva
         ? p.inps_percentuale * (1 - p.riduzione_percentuale / 100) / 100
         : p.inps_percentuale / 100
       const aliquotaPerc = p.aliquota_sostitutiva / 100
-      //
       const moltiplicatore = 1 + rivalsaPerc - coeffPerc * inpsPerc - coeffPerc * aliquotaPerc
       return netto / moltiplicatore
     }
     if (p.regime === 'ordinario') {
-      //
-      //
       let lordo = netto * 1.4
       for (let i = 0; i < 10; i++) {
         const costiDeducibili = lordo * (p.costi_deducibili_percentuale / 100)
@@ -239,9 +225,9 @@ export default function Builder() {
     setVoci(v => v.map(x => x.servizio_id === id ? { ...x, [campo]: valore } : x))
   }
 
-function generaTestoPreventivo() {
+  function generaTestoPreventivo() {
     const oggi = new Date().toLocaleDateString('it-IT')
-    let testo = `PREVENTIVO\nData: ${oggi}  |  Validità: 30 giorni\n`
+    let testo = `PREVENTIVO\nData: ${oggi}  |  Validita': 30 giorni\n`
     if (nomeCliente) testo += `Cliente: ${nomeCliente}\n`
     testo += `\nSERVIZI:\n`
     voci.forEach(v => {
@@ -253,12 +239,23 @@ function generaTestoPreventivo() {
       if (qty > 1) testo += `DETTAGLI:\n- ${qty} ${v.unita}\n`
       testo += `PREZZO: €${totaleVoce}\n`
     })
-    const totale = calcolaTotale()
+    if (trasferte.length > 0) {
+      testo += `\nRIMBORSI SPESE:\n`
+      trasferte.forEach(t => {
+        if (t.tipo === 'km') {
+          testo += `RIMBORSO: Trasferta km\nDETTAGLIO: ${t.km} km × €0.25 = €${t.importo}\nTIPO: ${t.esente ? 'Esente' : 'Imponibile'}\n`
+        } else {
+          testo += `RIMBORSO: ${t.nome}\nDETTAGLIO: Spesa viva\nTIPO: ${t.esente ? 'Esente' : 'Imponibile'}\nIMPORTO: €${t.importo}\n`
+        }
+      })
+    }
+    const totaleTrasferte = trasferte.reduce((a, t) => a + (parseFloat(t.importo) || 0), 0)
+    const totaleFinale = calcolaTotale() + totaleTrasferte
     testo += `\nRIEPILOGO:\n`
     if (includiIva) {
-      testo += `Imponibile: €${totale.toFixed(0)}\nIVA 22%: €${(totale * 0.22).toFixed(0)}\n─────────────────\nTOTALE: €${(totale * 1.22).toFixed(0)}\n`
+      testo += `Imponibile: €${totaleFinale.toFixed(2).replace(/\.00$/, '')}\nIVA 22%: €${(totaleFinale * 0.22).toFixed(2).replace(/\.00$/, '')}\n─────────────────\nTOTALE: €${(totaleFinale * 1.22).toFixed(2).replace(/\.00$/, '')}\n`
     } else {
-      testo += `TOTALE: €${totale.toFixed(0)}\n`
+      testo += `TOTALE: €${totaleFinale.toFixed(2).replace(/\.00$/, '')}\n`
     }
     if (noteExtra) testo += `\nNote: ${noteExtra}`
     if (metodoPagamentoSelezionato) {
@@ -271,7 +268,7 @@ function generaTestoPreventivo() {
     }
     return testo
   }
-  
+
   function generaPDF() {
     if (voci.length === 0) { Alert.alert('Preventivo vuoto', 'Aggiungi almeno un servizio.'); return }
     const testo = generaTestoPreventivo()
@@ -288,8 +285,10 @@ function generaTestoPreventivo() {
   }
 
   const totale = calcolaTotale()
-  const totaleConIva = includiIva ? totale * 1.22 : totale
+  const totaleTrasferte = trasferte.reduce((a, t) => a + (parseFloat(t.importo) || 0), 0)
+  const totaleConIva = includiIva ? (totale + totaleTrasferte) * 1.22 : (totale + totaleTrasferte)
   const f = calcolaFiscale()
+  const fmt = (n: number) => n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)
 
   return (
     <View style={styles.container}>
@@ -394,7 +393,7 @@ function generaTestoPreventivo() {
               </View>
             ))}
 
-            {/* Toggle IVA — sempre libero, default OFF */}
+            {/* Toggle IVA */}
             <View style={styles.ivaRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.ivaLabel}>Applica IVA 22%</Text>
@@ -406,9 +405,7 @@ function generaTestoPreventivo() {
                 style={[styles.ivaToggle, includiIva && styles.ivaToggleActive]}
                 onPress={() => setIncludiIva(v => !v)}
               >
-                <Text style={styles.ivaToggleText}>
-                  {includiIva ? 'ON' : 'OFF'}
-                </Text>
+                <Text style={styles.ivaToggleText}>{includiIva ? 'ON' : 'OFF'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -449,6 +446,123 @@ function generaTestoPreventivo() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Card trasferte */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View>
+              <Text style={styles.cardTitle}>Trasferte e rimborsi</Text>
+              <Text style={styles.cardSub}>Km e spese vive — esenti o imponibili</Text>
+            </View>
+            <Switch
+              value={mostraTrasferte}
+              onValueChange={setMostraTrasferte}
+              trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {mostraTrasferte && (
+            <View style={{ gap: 10 }}>
+              {trasferte.map(t => (
+                <View key={t.id} style={{ backgroundColor: '#F7F8FA', borderRadius: 12, padding: 12, gap: 8, borderWidth: 1, borderColor: '#E5E7EB' }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#0D1B2A' }}>
+                      {t.tipo === 'km' ? `🚗 ${t.km} km` : `🧾 ${t.nome}`}
+                    </Text>
+                    <TouchableOpacity onPress={() => setTrasferte(ts => ts.filter(x => x.id !== t.id))}>
+                      <Text style={{ color: '#9CA3AF', fontSize: 16 }}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, color: '#6B7280' }}>€{t.importo}</Text>
+                    <TouchableOpacity
+                      style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: t.esente ? '#F0FDF4' : '#FEF3C7', borderWidth: 1, borderColor: t.esente ? '#0E9F8E' : '#F59E0B' }}
+                      onPress={() => setTrasferte(ts => ts.map(x => x.id === t.id ? { ...x, esente: !x.esente } : x))}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: t.esente ? '#0E9F8E' : '#F59E0B' }}>
+                        {t.esente ? 'Esente' : 'Imponibile'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+
+              {/* Rimborso km */}
+              <View style={{ borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 10, gap: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.8 }}>RIMBORSO KM</Text>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Km percorsi"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="decimal-pad"
+                    value={nuoviKm}
+                    onChangeText={setNuoviKm}
+                  />
+                  <Text style={{ fontSize: 11, color: '#9CA3AF' }}>× €0.25</Text>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#0E9F8E', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}
+                    onPress={() => {
+                      const km = parseFloat(nuoviKm)
+                      if (!km || km <= 0) { Alert.alert('Inserisci i km'); return }
+                      const importo = (km * 0.25).toFixed(2)
+                      setTrasferte(ts => [...ts, { id: Date.now().toString(), tipo: 'km', nome: 'Rimborso km', importo, km: nuoviKm, esente: true }])
+                      setNuoviKm('')
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>+ Aggiungi</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ fontSize: 11, color: '#9CA3AF' }}>Tariffa ACI €0.25/km · Default: esente</Text>
+              </View>
+
+              {/* Spesa viva */}
+              <View style={{ gap: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.8 }}>SPESA VIVA</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput
+                    style={[styles.input, { flex: 2 }]}
+                    placeholder="es. Treno Milano"
+                    placeholderTextColor="#9CA3AF"
+                    value={nuovaSpesaNome}
+                    onChangeText={setNuovaSpesaNome}
+                  />
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="€"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="decimal-pad"
+                    value={nuovaSpesaImporto}
+                    onChangeText={setNuovaSpesaImporto}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={{ backgroundColor: '#F7F8FA', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' }}
+                  onPress={() => {
+                    if (!nuovaSpesaNome.trim() || !nuovaSpesaImporto) { Alert.alert('Inserisci nome e importo'); return }
+                    setTrasferte(ts => [...ts, { id: Date.now().toString(), tipo: 'spesa', nome: nuovaSpesaNome.trim(), importo: nuovaSpesaImporto, esente: true }])
+                    setNuovaSpesaNome('')
+                    setNuovaSpesaImporto('')
+                  }}
+                >
+                  <Text style={{ fontSize: 13, color: '#0E9F8E', fontWeight: '600' }}>+ Aggiungi spesa</Text>
+                </TouchableOpacity>
+              </View>
+
+              {trasferte.length > 0 && (
+                <View style={{ borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 13, color: '#6B7280' }}>Totale trasferte</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#0D1B2A' }}>
+                    €{trasferte.reduce((a, t) => a + (parseFloat(t.importo) || 0), 0).toFixed(2)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Note aggiuntive */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Note aggiuntive</Text>
           <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
@@ -459,7 +573,7 @@ function generaTestoPreventivo() {
 
         <TouchableOpacity style={[styles.generateBtn, voci.length === 0 && styles.generateBtnDisabled]} onPress={generaPDF} disabled={voci.length === 0}>
           <Text style={styles.generateBtnText}>
-            📄 Genera PDF — €{totaleConIva.toFixed(0)}
+            📄 Genera PDF — €{totaleConIva % 1 === 0 ? totaleConIva.toFixed(0) : totaleConIva.toFixed(2)}
           </Text>
         </TouchableOpacity>
 
@@ -476,35 +590,35 @@ function generaTestoPreventivo() {
                   <>
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>Fatturato lordo</Text>
-                      <Text style={styles.fiscaleVal}>€{f.lordo.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleVal}>€{fmt(f.lordo)}</Text>
                     </View>
                     {f.rivalsa > 0 && (
                       <View style={styles.fiscaleRow}>
                         <Text style={styles.fiscaleLabel}>{`+ Rivalsa INPS (${profiloFiscale.rivalsa_percentuale}%)`}</Text>
-                        <Text style={styles.fiscaleVal}>+€{f.rivalsa.toFixed(0)}</Text>
+                        <Text style={styles.fiscaleVal}>+€{fmt(f.rivalsa)}</Text>
                       </View>
                     )}
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>= Totale fattura cliente</Text>
-                      <Text style={[styles.fiscaleVal, { fontWeight: '700' }]}>€{f.totaleCliente.toFixed(0)}</Text>
+                      <Text style={[styles.fiscaleVal, { fontWeight: '700' }]}>€{fmt(f.totaleCliente)}</Text>
                     </View>
                     <View style={styles.fiscaleSep} />
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>{`Reddito imponibile (${profiloFiscale.coefficiente_redditivita}%)`}</Text>
-                      <Text style={styles.fiscaleVal}>€{f.imponibile.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleVal}>€{fmt(f.imponibile)}</Text>
                     </View>
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>- Contributi INPS</Text>
-                      <Text style={styles.fiscaleNeg}>-€{f.contributi.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleNeg}>-€{fmt(f.contributi)}</Text>
                     </View>
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>{`- Imposta sostitutiva (${profiloFiscale.aliquota_sostitutiva}%)`}</Text>
-                      <Text style={styles.fiscaleNeg}>-€{f.imposta.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleNeg}>-€{fmt(f.imposta)}</Text>
                     </View>
                     <View style={styles.fiscaleSep} />
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleNetto}>Netto stimato</Text>
-                      <Text style={styles.fiscaleNettoVal}>€{f.netto.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleNettoVal}>€{fmt(f.netto)}</Text>
                     </View>
                   </>
                 )}
@@ -512,37 +626,37 @@ function generaTestoPreventivo() {
                   <>
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>Fatturato lordo</Text>
-                      <Text style={styles.fiscaleVal}>€{f.lordo.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleVal}>€{fmt(f.lordo)}</Text>
                     </View>
                     {f.iva > 0 && (
                       <View style={styles.fiscaleRow}>
                         <Text style={styles.fiscaleLabel}>{`+ IVA (${profiloFiscale.aliquota_iva}%)`}</Text>
-                        <Text style={styles.fiscaleVal}>+€{f.iva.toFixed(0)}</Text>
+                        <Text style={styles.fiscaleVal}>+€{fmt(f.iva)}</Text>
                       </View>
                     )}
                     {f.rivalsa > 0 && (
                       <View style={styles.fiscaleRow}>
                         <Text style={styles.fiscaleLabel}>+ Rivalsa INPS</Text>
-                        <Text style={styles.fiscaleVal}>+€{f.rivalsa.toFixed(0)}</Text>
+                        <Text style={styles.fiscaleVal}>+€{fmt(f.rivalsa)}</Text>
                       </View>
                     )}
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>= Totale fattura cliente</Text>
-                      <Text style={[styles.fiscaleVal, { fontWeight: '700' }]}>€{f.totaleCliente.toFixed(0)}</Text>
+                      <Text style={[styles.fiscaleVal, { fontWeight: '700' }]}>€{fmt(f.totaleCliente)}</Text>
                     </View>
                     <View style={styles.fiscaleSep} />
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>- Contributi INPS</Text>
-                      <Text style={styles.fiscaleNeg}>-€{f.contributi.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleNeg}>-€{fmt(f.contributi)}</Text>
                     </View>
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>- IRPEF stimata</Text>
-                      <Text style={styles.fiscaleNeg}>-€{f.irpef.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleNeg}>-€{fmt(f.irpef)}</Text>
                     </View>
                     <View style={styles.fiscaleSep} />
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleNetto}>Netto stimato</Text>
-                      <Text style={styles.fiscaleNettoVal}>€{f.netto.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleNettoVal}>€{fmt(f.netto)}</Text>
                     </View>
                   </>
                 )}
@@ -550,16 +664,16 @@ function generaTestoPreventivo() {
                   <>
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>Compenso lordo</Text>
-                      <Text style={styles.fiscaleVal}>€{f.lordo.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleVal}>€{fmt(f.lordo)}</Text>
                     </View>
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleLabel}>{`- Ritenuta d'acconto (${profiloFiscale.ritenuta_acconto}%)`}</Text>
-                      <Text style={styles.fiscaleNeg}>-€{f.ritenuta.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleNeg}>-€{fmt(f.ritenuta)}</Text>
                     </View>
                     <View style={styles.fiscaleSep} />
                     <View style={styles.fiscaleRow}>
                       <Text style={styles.fiscaleNetto}>Netto stimato</Text>
-                      <Text style={styles.fiscaleNettoVal}>€{f.netto.toFixed(0)}</Text>
+                      <Text style={styles.fiscaleNettoVal}>€{fmt(f.netto)}</Text>
                     </View>
                   </>
                 )}
@@ -601,6 +715,7 @@ function generaTestoPreventivo() {
                         const totaleAttuale = calcolaTotale()
                         if (totaleAttuale === 0) { Alert.alert('I prezzi sono tutti a zero'); return }
                         const fattore = lordomCalcolato / totaleAttuale
+                        setStoricoVoci(s => [...s, voci])
                         setVoci(v => v.map(x => ({
                           ...x,
                           costo: (Math.round((parseFloat(x.costo) || 0) * fattore)).toString()
@@ -615,6 +730,20 @@ function generaTestoPreventivo() {
                       I prezzi delle voci verranno scalati proporzionalmente
                     </Text>
                   </View>
+                )}
+                {storicoVoci.length > 0 && (
+                  <TouchableOpacity
+                    style={{ alignItems: 'center', padding: 8 }}
+                    onPress={() => {
+                      const precedente = storicoVoci[storicoVoci.length - 1]
+                      setVoci(precedente)
+                      setStoricoVoci(s => s.slice(0, -1))
+                      setLordoCalcolato(null)
+                      setNettoDesiderato('')
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, color: '#9CA3AF' }}>↩ Annulla ultimo calcolo ({storicoVoci.length} step)</Text>
+                  </TouchableOpacity>
                 )}
                 {lordomCalcolato !== null && voci.length === 0 && (
                   <Text style={{ fontSize: 12, color: '#0E9F8E', marginTop: 4 }}>
@@ -651,6 +780,7 @@ function generaTestoPreventivo() {
           </ScrollView>
         </View>
       </Modal>
+
       {/* Modal selezione/creazione cliente */}
       <Modal visible={mostraModalCliente} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
@@ -745,6 +875,7 @@ function generaTestoPreventivo() {
           )}
         </View>
       </Modal>
+
       {/* Modal calcolo inverso netto */}
       <Modal visible={mostraCalcoloInverso} transparent animationType="fade" onRequestClose={() => setMostraCalcoloInverso(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMostraCalcoloInverso(false)}>
@@ -842,7 +973,8 @@ const styles = StyleSheet.create({
   generateBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   dropdownBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12 },
   dropdownText: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
-  dropdownArrow: { fontSize: 18, color: '#9CA3AF' },  ivaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  dropdownArrow: { fontSize: 18, color: '#9CA3AF' },
+  ivaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   ivaLabel: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
   ivaSub: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
   ivaToggle: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },

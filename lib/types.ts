@@ -24,7 +24,7 @@ export interface Cliente {
   telefono: string | null
   email: string | null
   indirizzo: string | null
-  note: string | null
+  note?: string | null
   created_at?: string
   totale_preventivi?: number
   num_preventivi?: number
@@ -56,6 +56,14 @@ export interface Servizio {
   costo: number | null
   unita: string
   ordine?: number
+}
+
+export interface ServizioForm {
+  id: string
+  nome: string
+  descrizione: string
+  costo: string
+  unita: string
 }
 
 export interface VocePreventivo {
@@ -105,4 +113,30 @@ export interface Segnalazione {
   titolo: string
   descrizione: string
   schermata?: string
+}
+
+export interface Abbonamento {
+  id: string
+  cliente_id: string
+  importo_default: number
+  giorno_scadenza: number
+  attivo: boolean
+  preventivo_id: string | null
+  numero_mensilita: number | null
+  note: string | null
+  tipo: 'canone' | 'rate'
+  nome: string | null
+}
+
+export interface RataAbbonamento {
+  id: string
+  abbonamento_id: string
+  mese: number
+  anno: number
+  importo: number
+  acconto: number
+  saldo_residuo: number
+  stato: 'da_incassare' | 'parziale' | 'incassato' | 'in_ritardo'
+  data_incasso: string | null
+  note: string | null
 }

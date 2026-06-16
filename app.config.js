@@ -20,6 +20,12 @@ export default {
   "expo-secure-store",
   "expo-web-browser"
     ],
+updates: {
+  url: "https://u.expo.dev/a842ab0e-24f7-41b4-b93a-6b97a75b9621"
+},
+runtimeVersion: {
+  policy: "appVersion"
+},
 extra: {
   eas: {
     projectId: "a842ab0e-24f7-41b4-b93a-6b97a75b9621"

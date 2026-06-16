@@ -29,11 +29,11 @@ export function useClienti() {
     const clientiConStats = await Promise.all(data.map(async (c) => {
       const { data: prevs } = await supabase
         .from('preventivi')
-        .select('importo_totale')
+        .select('importo_totale, stato')
         .eq('cliente_id', c.id)
         .eq('is_ultimo', true)
 
-      const totale = prevs?.reduce((a, p) => a + (p.importo_totale || 0), 0) || 0
+      const totale = prevs?.filter(p => p.stato === 'accettato').reduce((a, p) => a + (p.importo_totale || 0), 0) || 0
       return { ...c, totale_preventivi: totale, num_preventivi: prevs?.length || 0 }
     }))
 

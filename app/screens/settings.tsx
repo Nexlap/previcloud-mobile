@@ -1,3 +1,4 @@
+import { Audio } from 'expo-av'
 import Constants from 'expo-constants'
 import * as ImagePicker from 'expo-image-picker'
 import { router, useNavigation } from 'expo-router'
@@ -7,14 +8,7 @@ import {
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
-
-interface Servizio {
-  id: string
-  nome: string
-  descrizione: string
-  costo: string
-  unita: string
-}
+import { ServizioForm } from '../../lib/types'
 
 export default function Settings() {
   const [form, setForm] = useState({
@@ -33,9 +27,9 @@ export default function Settings() {
   const [logoUrl, setLogoUrl] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [token, setToken] = useState('')
-  const [servizi, setServizi] = useState<Servizio[]>([])
+  const [servizi, setServizi] = useState<ServizioForm[]>([])
   const [mostraModalServizio, setMostraModalServizio] = useState(false)
-  const [servizioInEdit, setServizioInEdit] = useState<Servizio | null>(null)
+  const [servizioInEdit, setServizioInEdit] = useState<ServizioForm | null>(null)
   const [nuovoServizio, setNuovoServizio] = useState({ nome: '', descrizione: '', costo: '', unita: 'cad' })
   const [salvandoServizio, setSalvandoServizio] = useState(false)
   const [mostraModalListino, setMostraModalListino] = useState(false)
@@ -59,6 +53,10 @@ export default function Settings() {
   const unitaOptions = ['cad', 'ora', 'giorno', 'mq', 'ml', 'set', 'progetto']
   const categorie = ['videomaker', 'fotografo', 'catering', 'falegname', 'estetista', 'elettricista', 'idraulico', 'imbianchino', 'altro']
   const toni = ['professionale e diretto', 'cordiale e disponibile', 'formale e preciso', 'semplice e informale']
+  const [listinoTab, setListinoTab] = useState<'testo' | 'foto' | 'vocale'>('testo')
+  const [registrando, setRegistrando] = useState(false)
+  const [recording, setRecording] = useState<Audio.Recording | null>(null)
+  
 
   function apriNuovoMetodo() {
     setMetodoInEdit(null)
@@ -255,7 +253,7 @@ export default function Settings() {
     setMostraModalServizio(true)
   }
 
-  function apriModificaServizio(s: Servizio) {
+  function apriModificaServizio(s: ServizioForm) {
     setServizioInEdit(s)
     setNuovoServizio({ nome: s.nome, descrizione: s.descrizione, costo: s.costo, unita: s.unita })
     setMostraModalServizio(true)
@@ -377,54 +375,10 @@ export default function Settings() {
         </View>
 
         {/* Servizi */}
-        <View style={styles.card}>
-<View style={styles.cardHeaderRow}>
-  <View style={{ flex: 1, marginRight: 8 }}>
-    <Text style={styles.cardTitle}>I miei servizi</Text>
-    <Text style={styles.cardSub}>L'AI usa questi servizi per generare i preventivi</Text>
-  </View>
-  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-    <TouchableOpacity 
-      style={{ width: 32, height: 32, borderRadius: 18, backgroundColor: '#F0FDF4', borderWidth: 1.5, borderColor: '#0E9F8E', justifyContent: 'center', alignItems: 'center' }} 
-      onPress={() => setMostraModalListino(true)}
-    >
-      <Text style={{ fontSize: 18, paddingBottom: 2 }}>🤖</Text>
-    </TouchableOpacity>
-    <TouchableOpacity style={styles.addBtn} onPress={apriNuovoServizio}>
-      <Text style={styles.addBtnText}>+</Text>
-    </TouchableOpacity>
-  </View>
-</View>
-          {servizi.length === 0 ? (
-            <TouchableOpacity style={styles.emptyServizi} onPress={apriNuovoServizio}>
-              <Text style={styles.emptyServiziIcon}>📋</Text>
-              <Text style={styles.emptyServiziText}>Nessun servizio ancora</Text>
-              <Text style={styles.emptyServiziSub}>Tocca + per aggiungere il primo</Text>
-            </TouchableOpacity>
-          ) : (
-            servizi.map(s => (
-              <View key={s.id} style={styles.servizioRow}>
-                <View style={styles.servizioLeft}>
-                  <Text style={styles.servizioNome}>{s.nome}</Text>
-                  {s.descrizione ? <Text style={styles.servizioDesc}>{s.descrizione}</Text> : null}
-                </View>
-                <View style={styles.servizioRight}>
-                  {s.costo ? (
-                    <Text style={styles.servizioCosto}>€{s.costo}/{s.unita}</Text>
-                  ) : null}
-                  <View style={styles.servizioActions}>
-                    <TouchableOpacity onPress={() => apriModificaServizio(s)} style={styles.servizioActionBtn}>
-                      <Text style={styles.servizioActionText}>✏️</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => eliminaServizio(s.id)} style={styles.servizioActionBtn}>
-                      <Text style={styles.servizioActionText}>🗑</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
+        <TouchableOpacity style={styles.fiscaleBtn} onPress={() => router.push('/screens/listino')}>
+          <Text style={styles.fiscaleBtnText}>📋 I miei servizi</Text>
+          <Text style={styles.fiscaleBtnArrow}>›</Text>
+        </TouchableOpacity>
 
         {/* Tono */}
         <View style={styles.card}>
@@ -607,7 +561,7 @@ export default function Settings() {
       <Modal visible={mostraModalListino} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setMostraModalListino(false)}>
+            <TouchableOpacity onPress={() => { setMostraModalListino(false); setListinoTab('testo') }}>
               <Text style={styles.modalClose}>✕</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Listino smart</Text>
@@ -616,32 +570,216 @@ export default function Settings() {
           <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
             <View style={{ backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#BFDBFE' }}>
               <Text style={{ fontSize: 13, color: '#1D4ED8', lineHeight: 18 }}>
-                Incolla o scrivi i tuoi servizi — anche disordinati. Claude li struttura e li aggiunge al tuo listino.
+                Testo, foto o vocale — Claude struttura tutto e aggiunge i servizi al tuo listino.
               </Text>
             </View>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>I TUOI SERVIZI</Text>
-              <TextInput
-                style={[styles.fieldInput, { height: 200, textAlignVertical: 'top' }]}
-                value={testoListino}
-                onChangeText={setTestoListino}
-                placeholder="es. Editing video: 300, Riprese mezza giornata: 400, Color grading: 150"
-                placeholderTextColor="#9CA3AF"
-                multiline
-                autoFocus
-              />
+
+            {/* Tab selector */}
+            <View style={{ flexDirection: 'row', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' }}>
+              {([['testo', '📋 Testo'], ['foto', '📷 Foto'], ['vocale', '🎙 Vocale']] as const).map(([key, label]) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' as const }, listinoTab === key && { backgroundColor: '#0D1B2A' }]}
+                  onPress={() => setListinoTab(key)}
+                >
+                  <Text style={[{ fontSize: 12, fontWeight: '500', color: '#9CA3AF' }, listinoTab === key && { color: '#fff' }]}>{label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-            <TouchableOpacity
-              style={[styles.saveBtn, (!testoListino.trim() || elaborandoListino) && styles.saveBtnDisabled]}
-              onPress={elaboraListinoAI}
-              disabled={!testoListino.trim() || elaborandoListino}
-            >
-              {elaborandoListino
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.saveBtnText}>Struttura con AI e aggiungi</Text>
-              }
-            </TouchableOpacity>
-            <TouchableOpacity style={{ alignItems: 'center', padding: 8 }} onPress={() => setMostraModalListino(false)}>
+
+            {/* Tab Testo */}
+            {listinoTab === 'testo' && (
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>I TUOI SERVIZI</Text>
+                <TextInput
+                  style={[styles.fieldInput, { height: 200, textAlignVertical: 'top' }]}
+                  value={testoListino}
+                  onChangeText={setTestoListino}
+                  placeholder="es. Editing video: 300, Riprese mezza giornata: 400, Color grading: 150"
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  autoFocus
+                />
+              </View>
+            )}
+
+            {/* Tab Foto */}
+            {listinoTab === 'foto' && (
+              <View style={{ gap: 12 }}>
+                <Text style={{ fontSize: 13, color: '#6B7280', lineHeight: 18 }}>
+                  Scatta o carica una foto del tuo listino prezzi — anche scritto a mano.
+                </Text>
+                <TouchableOpacity
+                  style={{ backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', borderStyle: 'dashed', padding: 32, alignItems: 'center', gap: 8 }}
+                  onPress={async () => {
+                    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+                    if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla galleria.'); return }
+                    const result = await ImagePicker.launchImageLibraryAsync({
+                      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                      quality: 0.7, base64: true
+                    })
+                    if (!result.canceled && result.assets[0].base64) {
+                      setElaborandoListino(true)
+                      try {
+                        const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify({ immagine_base64: result.assets[0].base64, mime_type: result.assets[0].mimeType || 'image/jpeg' })
+                        })
+                        const data = await res.json()
+                        if (!data.servizi?.length) { Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.'); setElaborandoListino(false); return }
+                        const { data: { user } } = await supabase.auth.getUser()
+                        if (!user) return
+                        const nuovi = data.servizi.map((s: any, i: number) => ({
+                          user_id: user.id, nome: s.nome, descrizione: s.descrizione || null,
+                          costo: s.costo ? parseFloat(s.costo) : null, unita: s.unita || 'cad', ordine: servizi.length + i
+                        }))
+                        const { data: inseriti } = await supabase.from('servizi').insert(nuovi).select()
+                        if (inseriti) setServizi(s => [...s, ...inseriti as any[]])
+                        setMostraModalListino(false); setListinoTab('testo')
+                        Alert.alert('✓ Servizi aggiunti', `${inseriti?.length} servizi aggiunti al tuo listino.`)
+                      } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
+                      setElaborandoListino(false)
+                    }
+                  }}
+                >
+                  {elaborandoListino
+                    ? <ActivityIndicator color="#0E9F8E" />
+                    : <>
+                        <Text style={{ fontSize: 36 }}>📷</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#0D1B2A' }}>Scegli dalla galleria</Text>
+                        <Text style={{ fontSize: 12, color: '#9CA3AF' }}>JPG, PNG — anche scritto a mano</Text>
+                      </>
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 16, alignItems: 'center', gap: 6 }}
+                  onPress={async () => {
+                    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+                    if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla fotocamera.'); return }
+                    const result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true })
+                    if (!result.canceled && result.assets[0].base64) {
+                      setElaborandoListino(true)
+                      try {
+                        const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify({ immagine_base64: result.assets[0].base64, mime_type: 'image/jpeg' })
+                        })
+                        const data = await res.json()
+                        if (!data.servizi?.length) { Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.'); setElaborandoListino(false); return }
+                        const { data: { user } } = await supabase.auth.getUser()
+                        if (!user) return
+                        const nuovi = data.servizi.map((s: any, i: number) => ({
+                          user_id: user.id, nome: s.nome, descrizione: s.descrizione || null,
+                          costo: s.costo ? parseFloat(s.costo) : null, unita: s.unita || 'cad', ordine: servizi.length + i
+                        }))
+                        const { data: inseriti } = await supabase.from('servizi').insert(nuovi).select()
+                        if (inseriti) setServizi(s => [...s, ...inseriti as any[]])
+                        setMostraModalListino(false); setListinoTab('testo')
+                        Alert.alert('✓ Servizi aggiunti', `${inseriti?.length} servizi aggiunti al tuo listino.`)
+                      } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
+                      setElaborandoListino(false)
+                    }
+                  }}
+                >
+                  <Text style={{ fontSize: 36 }}>📸</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#0D1B2A' }}>Scatta una foto</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Tab Vocale */}
+            {listinoTab === 'vocale' && (
+              <View style={{ gap: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: '#6B7280', lineHeight: 18, textAlign: 'center' }}>
+                  Descrivi i tuoi servizi a voce — prezzi, nomi, unità. Claude trascrive e struttura tutto.
+                </Text>
+                <TouchableOpacity
+                  style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: registrando ? '#EF4444' : '#0D1B2A', justifyContent: 'center', alignItems: 'center', marginVertical: 8 }}
+                  onPress={async () => {
+                    if (registrando) {
+                      // Stop registrazione
+                      setRegistrando(false)
+                      if (!recording) return
+                      await recording.stopAndUnloadAsync()
+                      const uri = recording.getURI()
+                      setRecording(null)
+                      if (!uri) return
+                      setElaborandoListino(true)
+                      try {
+                        const audioData = await fetch(uri)
+                        const blob = await audioData.blob()
+                        const reader = new FileReader()
+                        reader.onloadend = async () => {
+                          const base64 = (reader.result as string).split(',')[1]
+                          // Prima trascrivi
+                          const trRes = await fetch(`${backendUrl}/api/trascrivi`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify({ audio: base64 })
+                          })
+                          const trData = await trRes.json()
+                          if (!trData.trascrizione) { Alert.alert('Errore', 'Trascrizione fallita'); setElaborandoListino(false); return }
+                          // Poi elabora
+                          const elRes = await fetch(`${backendUrl}/api/elabora-servizi`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify({ testo: trData.trascrizione })
+                          })
+                          const elData = await elRes.json()
+                          if (!elData.servizi?.length) { Alert.alert('Nessun servizio trovato', 'Riprova descrivendo meglio i servizi.'); setElaborandoListino(false); return }
+                          const { data: { user } } = await supabase.auth.getUser()
+                          if (!user) return
+                          const nuovi = elData.servizi.map((s: any, i: number) => ({
+                            user_id: user.id, nome: s.nome, descrizione: s.descrizione || null,
+                            costo: s.costo ? parseFloat(s.costo) : null, unita: s.unita || 'cad', ordine: servizi.length + i
+                          }))
+                          const { data: inseriti } = await supabase.from('servizi').insert(nuovi).select()
+                          if (inseriti) setServizi(s => [...s, ...inseriti as any[]])
+                          setMostraModalListino(false); setListinoTab('testo')
+                          Alert.alert('✓ Servizi aggiunti', `${inseriti?.length} servizi aggiunti al tuo listino.`)
+                          setElaborandoListino(false)
+                        }
+                        reader.readAsDataURL(blob)
+                      } catch { Alert.alert('Errore', 'Impossibile elaborare il vocale'); setElaborandoListino(false) }
+                    } else {
+                      // Avvia registrazione
+                      const { status } = await Audio.requestPermissionsAsync()
+                      if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso al microfono.'); return }
+                      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true })
+                      const { recording: rec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
+                      setRecording(rec)
+                      setRegistrando(true)
+                    }
+                  }}
+                >
+                  {elaborandoListino
+                    ? <ActivityIndicator color="#fff" size="large" />
+                    : <Text style={{ fontSize: 36 }}>{registrando ? '⏹' : '🎙'}</Text>
+                  }
+                </TouchableOpacity>
+                <Text style={{ fontSize: 13, color: registrando ? '#EF4444' : '#9CA3AF', fontWeight: '500' }}>
+                  {elaborandoListino ? 'Elaborazione in corso...' : registrando ? 'Registrazione in corso — tocca per fermare' : 'Tocca per iniziare a registrare'}
+                </Text>
+              </View>
+            )}
+
+            {/* Bottone elabora per tab testo */}
+            {listinoTab === 'testo' && (
+              <TouchableOpacity
+                style={[styles.saveBtn, (!testoListino.trim() || elaborandoListino) && styles.saveBtnDisabled]}
+                onPress={elaboraListinoAI}
+                disabled={!testoListino.trim() || elaborandoListino}
+              >
+                {elaborandoListino
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.saveBtnText}>Struttura con AI e aggiungi</Text>
+                }
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={{ alignItems: 'center', padding: 8 }} onPress={() => { setMostraModalListino(false); setListinoTab('testo') }}>
               <Text style={{ fontSize: 13, color: '#9CA3AF' }}>Annulla</Text>
             </TouchableOpacity>
           </ScrollView>
