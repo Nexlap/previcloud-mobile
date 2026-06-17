@@ -18,6 +18,8 @@ export const COLORS = {
   warning: '#F59E0B',
 } as const
 
+export const MESI_BREVI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'] as const
+
 // ── Template PDF disponibili ───────────────────────────────────────
 export const TEMPLATES = [
   { id: 'pulito', nome: 'Pulito', desc: 'Moderno e professionale', emoji: '⬜' },

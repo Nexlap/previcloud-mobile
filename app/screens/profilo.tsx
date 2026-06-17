@@ -2,17 +2,18 @@ import Constants from 'expo-constants'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import {
-  ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View
+  ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View
 } from 'react-native'
 import { attivaBiometrico, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, logoutAccount, sessioneCorrente, verificaPasswordAccount } from '../../lib/api/profilo'
+import { ProfiloAppCard } from '../../lib/components/profilo/ProfiloAppCard'
+import { ProfiloAspettoCard } from '../../lib/components/profilo/ProfiloAspettoCard'
+import { ProfiloAvatarCard } from '../../lib/components/profilo/ProfiloAvatarCard'
+import { ProfiloHeader } from '../../lib/components/profilo/ProfiloHeader'
+import { ProfiloNotificheCard } from '../../lib/components/profilo/ProfiloNotificheCard'
+import { ProfiloPasswordModal } from '../../lib/components/profilo/ProfiloPasswordModal'
+import { ProfiloSicurezzaCard } from '../../lib/components/profilo/ProfiloSicurezzaCard'
+import { profiloStyles as styles } from '../../lib/components/profilo/profiloStyles'
 import { errorMessage } from '../../lib/utils/errors'
-
-const NAVY = '#0D1B2A'
-const TEAL = '#0E9F8E'
-const GRAY = '#F7F8FA'
-const BORDER = '#E5E7EB'
-const TEXT = '#0D1B2A'
-const MUTED = '#9CA3AF'
 
 export default function Profilo() {
   const [nomeAzienda, setNomeAzienda] = useState('')
@@ -54,7 +55,7 @@ export default function Profilo() {
       { text: 'Esci', style: 'destructive', onPress: async () => {
         await logoutAccount()
         router.replace('/(auth)/login')
-      }}
+      }},
     ])
   }
 
@@ -148,154 +149,43 @@ export default function Profilo() {
     )
   }
 
+  function chiudiModalPassword() {
+    setModalPasswordElimina(false)
+    setPasswordElimina('')
+  }
+
   return (
     <View style={styles.container}>
-      <Modal
+      <ProfiloPasswordModal
         visible={modalPasswordElimina}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalPasswordElimina(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.passwordModal}>
-            <Text style={styles.passwordModalTitle}>Conferma identita</Text>
-            <Text style={styles.passwordModalDesc}>
-              Inserisci la password attuale per eliminare definitivamente l'account.
-            </Text>
-            <TextInput
-              style={styles.passwordModalInput}
-              value={passwordElimina}
-              onChangeText={setPasswordElimina}
-              placeholder="Password attuale"
-              placeholderTextColor={MUTED}
-              secureTextEntry
-              autoCapitalize="none"
-            />
-            <View style={styles.passwordModalActions}>
-              <TouchableOpacity
-                style={styles.passwordCancelBtn}
-                onPress={() => {
-                  setModalPasswordElimina(false)
-                  setPasswordElimina('')
-                }}
-                disabled={verificandoPassword}
-              >
-                <Text style={styles.passwordCancelText}>Annulla</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.passwordConfirmBtn, verificandoPassword && styles.deleteAccountBtnDisabled]}
-                onPress={confermaPasswordEliminazione}
-                disabled={verificandoPassword}
-              >
-                {verificandoPassword
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.passwordConfirmText}>Conferma</Text>
-                }
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profilo</Text>
-        <View style={{ width: 50 }} />
-      </View>
+        password={passwordElimina}
+        verificando={verificandoPassword}
+        onChangePassword={setPasswordElimina}
+        onClose={chiudiModalPassword}
+        onConfirm={confermaPasswordEliminazione}
+      />
+
+      <ProfiloHeader onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+        <ProfiloAvatarCard
+          nomeAzienda={nomeAzienda}
+          email={email}
+          onEditSettings={() => router.push('/screens/settings')}
+        />
 
-        {/* Avatar */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{nomeAzienda.charAt(0).toUpperCase() || '?'}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.profileName}>{nomeAzienda || 'Nome azienda'}</Text>
-            <Text style={styles.profileEmail}>{email}</Text>
-          </View>
-          <TouchableOpacity onPress={() => router.push('/screens/settings')}>
-            <Text style={{ fontSize: 20 }}>✏️</Text>
-          </TouchableOpacity>
-        </View>
+        <ProfiloSicurezzaCard
+          biometricoDisponibile={biometricoDisponibile}
+          biometricoAttivato={biometricoAttivato}
+          onToggleBiometrico={toggleBiometrico}
+        />
 
-        {/* Sicurezza */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sicurezza</Text>
-          {biometricoDisponibile && (
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Accesso biometrico</Text>
-                <Text style={styles.settingDesc}>Impronta digitale o Face ID</Text>
-              </View>
-              <Switch
-                value={biometricoAttivato}
-                onValueChange={toggleBiometrico}
-                trackColor={{ false: BORDER, true: TEAL }}
-                thumbColor="#fff"
-              />
-            </View>
-          )}
-          <TouchableOpacity
-            style={styles.settingBtn}
-            onPress={() => Alert.alert('Prossimamente', 'Il cambio password sarà disponibile a breve.')}
-          >
-            <Text style={styles.settingBtnText}>🔑 Cambia password</Text>
-            <Text style={styles.settingBtnArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
+        <ProfiloAspettoCard />
 
-        {/* Aspetto */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Aspetto</Text>
-          <View style={styles.settingBtn}>
-            <Text style={styles.settingBtnText}>🎨 Tema scuro</Text>
-            <Text style={styles.settingDesc}>Prossimamente</Text>
-          </View>
-        </View>
+        <ProfiloNotificheCard notifiche={notifiche} onChangeNotifiche={setNotifiche} />
 
-        {/* Notifiche */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Notifiche</Text>
-          <View style={styles.settingRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.settingLabel}>Notifiche push</Text>
-              <Text style={styles.settingDesc}>Promemoria e aggiornamenti</Text>
-            </View>
-            <Switch
-              value={notifiche}
-              onValueChange={setNotifiche}
-              trackColor={{ false: BORDER, true: TEAL }}
-              thumbColor="#fff"
-            />
-          </View>
-        </View>
+        <ProfiloAppCard />
 
-        {/* Info app */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>App</Text>
-          <TouchableOpacity
-            style={styles.settingBtn}
-            onPress={() => Alert.alert('Termini di servizio', 'Disponibili su preventivoai.it/termini')}
-          >
-            <Text style={styles.settingBtnText}>📄 Termini di servizio</Text>
-            <Text style={styles.settingBtnArrow}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.settingBtn}
-            onPress={() => Alert.alert('Privacy Policy', 'Disponibile su preventivoai.it/privacy')}
-          >
-            <Text style={styles.settingBtnText}>🔒 Privacy Policy</Text>
-            <Text style={styles.settingBtnArrow}>›</Text>
-          </TouchableOpacity>
-          <View style={styles.settingBtn}>
-            <Text style={styles.settingBtnText}>📱 Versione app</Text>
-            <Text style={styles.settingDesc}>0.4.0</Text>
-          </View>
-        </View>
-
-        {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
           <Text style={styles.logoutText}>Esci dall'account</Text>
         </TouchableOpacity>
@@ -316,48 +206,3 @@ export default function Profilo() {
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: GRAY },
-  header: { backgroundColor: NAVY, paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { padding: 4, width: 50 },
-  backText: { color: '#9CA3AF', fontSize: 22 },
-  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  profileCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: BORDER, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: NAVY, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontSize: 24, fontWeight: '700' },
-  profileName: { fontSize: 17, fontWeight: '700', color: TEXT },
-  profileEmail: { fontSize: 13, color: MUTED, marginTop: 2 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: BORDER, gap: 8 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: TEXT },
-  cardSub: { fontSize: 12, color: MUTED },
-  pianoRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: BORDER },
-  pianoRowActive: { backgroundColor: '#F0FDF4', borderColor: TEAL },
-  pianoNome: { fontSize: 14, fontWeight: '700' },
-  pianoPrezzo: { fontSize: 12, color: MUTED, marginTop: 2 },
-  pianoBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  pianoBadgeText: { fontSize: 10, fontWeight: '600' },
-  upgradeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1.5 },
-  upgradeBtnText: { fontSize: 12, fontWeight: '600' },
-  settingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-  settingLabel: { fontSize: 14, color: TEXT, fontWeight: '500' },
-  settingDesc: { fontSize: 12, color: MUTED, marginTop: 1 },
-  settingBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: BORDER },
-  settingBtnText: { fontSize: 14, color: TEXT },
-  settingBtnArrow: { fontSize: 18, color: MUTED },
-  logoutBtn: { backgroundColor: '#FEE2E2', borderRadius: 14, padding: 16, alignItems: 'center' as const },
-  logoutText: { color: '#EF4444', fontSize: 15, fontWeight: '600' },
-  deleteAccountBtn: { backgroundColor: '#DC2626', borderRadius: 14, padding: 16, alignItems: 'center' as const },
-  deleteAccountBtnDisabled: { opacity: 0.6 },
-  deleteAccountText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(13, 27, 42, 0.45)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  passwordModal: { width: '100%', backgroundColor: '#fff', borderRadius: 18, padding: 20, borderWidth: 1, borderColor: BORDER },
-  passwordModalTitle: { fontSize: 17, fontWeight: '700', color: TEXT },
-  passwordModalDesc: { fontSize: 13, color: MUTED, lineHeight: 19, marginTop: 6, marginBottom: 16 },
-  passwordModalInput: { backgroundColor: GRAY, borderRadius: 12, borderWidth: 1.5, borderColor: BORDER, padding: 12, fontSize: 14, color: TEXT },
-  passwordModalActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  passwordCancelBtn: { flex: 1, borderRadius: 12, padding: 13, alignItems: 'center' as const, backgroundColor: GRAY, borderWidth: 1, borderColor: BORDER },
-  passwordCancelText: { color: TEXT, fontSize: 14, fontWeight: '600' },
-  passwordConfirmBtn: { flex: 1, borderRadius: 12, padding: 13, alignItems: 'center' as const, backgroundColor: '#DC2626' },
-  passwordConfirmText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-})

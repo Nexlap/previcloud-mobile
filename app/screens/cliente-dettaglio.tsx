@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy'
 import { router, useLocalSearchParams, useNavigation } from 'expo-router'
 import * as Sharing from 'expo-sharing'
 import { useEffect, useState } from 'react'
+import type { EventArg, NavigationAction } from '@react-navigation/native'
 import {
   ActivityIndicator, Alert, BackHandler,
   Linking,
@@ -9,6 +10,7 @@ import {
   RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
+import { MESI_BREVI } from '../../lib/constants'
 import { creaLinkPagamentoRata } from '../../lib/api/pdf'
 import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCronologiaCliente, eliminaClienteDettaglio, eliminaPreventiviCliente, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
 import { eventBus } from '../../lib/eventBus'
@@ -17,8 +19,20 @@ import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
+import { ClienteAbbonamentoTab } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoTab'
+import { ClienteAbbonamentoModals } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoModals'
+import {
+  ClienteDettaglioHeader,
+  ClienteInfoCard,
+  ClienteSelectionBar,
+  ClienteStats,
+  ClienteTabs,
+} from '../../lib/components/clienteDettaglio/ClienteOverview'
+import { ClientePreventivoModals } from '../../lib/components/clienteDettaglio/ClientePreventivoModals'
+import { ClientePreventiviList } from '../../lib/components/clienteDettaglio/ClientePreventiviList'
+import { ClienteTrascrizioniList } from '../../lib/components/clienteDettaglio/ClienteTrascrizioniList'
 
-const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 
 export default function ClienteDettaglio() {
   const { id, nome } = useLocalSearchParams<{ id: string, nome: string }>()
@@ -84,7 +98,7 @@ export default function ClienteDettaglio() {
   }, [])
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: BeforeRemoveEvent) => {
       if (!modificheNonSalvate || !mostraModalRinominaCliente) return
       e.preventDefault()
       Alert.alert('Modifiche non salvate', 'Vuoi salvare le modifiche al cliente?', [
@@ -232,27 +246,13 @@ export default function ClienteDettaglio() {
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  function statoRataColore(stato: string) {
-    if (stato === 'incassato') return '#0E9F8E'
-    if (stato === 'in_ritardo') return '#EF4444'
-    if (stato === 'parziale') return '#F59E0B'
-    return '#9CA3AF'
-  }
-
-  function statoRataLabel(stato: string) {
-    if (stato === 'incassato') return '✅ Incassato'
-    if (stato === 'in_ritardo') return '⚠️ In ritardo'
-    if (stato === 'parziale') return '🔸 Parziale'
-    return '⏳ Da incassare'
-  }
-
   function apriModalPagamento(rata: RataAbbonamento) {
-  setRataSelezionata(rata)
-  const residuo = rata.importo - (rata.acconto || 0)
-  setPagamentoImporto(residuo.toString())
-  setPagamentoNota('')
-  setRataImporto(rata.importo.toString())
-}
+    setRataSelezionata(rata)
+    const residuo = rata.importo - (rata.acconto || 0)
+    setPagamentoImporto(residuo.toString())
+    setPagamentoNota('')
+    setRataImporto(rata.importo.toString())
+  }
 
   async function inviaReminder(rata: RataAbbonamento) {
     try {
@@ -280,6 +280,52 @@ export default function ClienteDettaglio() {
     }
   }
 
+  async function salvaNuovoAbbonamento() {
+    const importo = parseFloat(abImporto.replace(',', '.'))
+    const giorno = parseInt(abGiorno)
+    if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
+    if (!giorno || giorno < 1 || giorno > 31) { Alert.alert('Inserisci un giorno valido (1-31)'); return }
+    const mensilita = abMensilita ? parseInt(abMensilita) : undefined
+    const tipo = mensilita ? 'rate' : 'canone'
+    await creaAbbonamento(importo, giorno, { numeroMensilita: mensilita, tipo })
+    setMostraModalNuovoAb(false)
+  }
+
+  async function salvaModificaAbbonamento() {
+    const importo = parseFloat(abImporto.replace(',', '.'))
+    const giorno = parseInt(abGiorno)
+    if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
+    await aggiornaAbbonamento(importo, giorno)
+    setMostraModalModificaAb(false)
+  }
+
+  async function confermaPagamentoRata() {
+    if (!rataSelezionata) return
+    const importo = parseFloat(pagamentoImporto.replace(',', '.'))
+    if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
+    const nuovoImportoRata = parseFloat(rataImporto.replace(',', '.'))
+    if (nuovoImportoRata && nuovoImportoRata !== rataSelezionata.importo) {
+      await modificaImportoRata(rataSelezionata.id, nuovoImportoRata)
+    }
+    await registraPagamento(rataSelezionata.id, importo, pagamentoNota || undefined)
+    setRataSelezionata(null)
+  }
+
+  async function salvaRinominaAbbonamento() {
+    await rinominaAbbonamento(nomeAbTemp)
+    setMostraModalRinominaAb(false)
+  }
+
+  function apriModificaCliente() {
+    setNuovoNomeCliente(cliente?.nome || '')
+    setNuovoTelefono(cliente?.telefono || '')
+    setNuovaEmail(cliente?.email || '')
+    setNuovoIndirizzo(cliente?.indirizzo || '')
+    setNuoveNote(cliente?.note || '')
+    setModificheNonSalvate(false)
+    setMostraModalRinominaCliente(true)
+  }
+
   const ora = new Date()
   const meseCorrente = ora.getMonth() + 1
   const annoCorrente = ora.getFullYear()
@@ -294,44 +340,20 @@ const rateStoriche = rate.filter(r =>
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{cliente.nome || nome}</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => {
-            setNuovoNomeCliente(cliente.nome || '')
-            setNuovoTelefono(cliente.telefono || '')
-            setNuovaEmail(cliente.email || '')
-            setNuovoIndirizzo(cliente.indirizzo || '')
-            setNuoveNote(cliente.note || '')
-            setModificheNonSalvate(false)
-            setMostraModalRinominaCliente(true)
-          }}>
-            <Text style={styles.headerActionText}>✏️</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={eliminaCliente}>
-            <Text style={styles.headerActionText}>🗑</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ClienteDettaglioHeader
+        title={cliente.nome || nome}
+        onBack={() => router.back()}
+        onEdit={apriModificaCliente}
+        onDelete={eliminaCliente}
+      />
 
       {modalitaSelezione && (
-        <View style={styles.selectionBar}>
-          <TouchableOpacity onPress={annullaSelezione} style={styles.selectionCancel}>
-            <Text style={styles.selectionCancelText}>✕</Text>
-          </TouchableOpacity>
-          <Text style={styles.selectionCount}>{selezione.length} selezionati</Text>
-          <View style={styles.selectionActions}>
-            <TouchableOpacity style={styles.selectionAction} onPress={async () => { await caricaClientiDisponibili(); setMostraModalSposta('multi') }}>
-              <Text style={styles.selectionActionText}>↗ Sposta</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.selectionAction, styles.selectionActionDelete]} onPress={eliminaSelezionati}>
-              <Text style={[styles.selectionActionText, { color: '#EF4444' }]}>🗑 Elimina</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <ClienteSelectionBar
+          count={selezione.length}
+          onCancel={annullaSelezione}
+          onMove={async () => { await caricaClientiDisponibili(); setMostraModalSposta('multi') }}
+          onDelete={eliminaSelezionati}
+        />
       )}
 
       <ScrollView
@@ -339,398 +361,81 @@ const rateStoriche = rate.filter(r =>
         contentContainerStyle={{ padding: 16, gap: 12 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}
       >
-        {/* Info cliente */}
-        <View style={styles.card}>
-          <View style={styles.avatarRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(cliente.nome || 'C').charAt(0).toUpperCase()}</Text>
-            </View>
-            <View style={styles.avatarInfo}>
-              <Text style={styles.clienteNome}>{cliente.nome || ''}</Text>
-              {cliente.telefono && <Text style={styles.clienteInfo}>📞 {cliente.telefono}</Text>}
-              {cliente.email && <Text style={styles.clienteInfo}>✉️ {cliente.email}</Text>}
-              {cliente.indirizzo && <Text style={styles.clienteInfo}>📍 {cliente.indirizzo}</Text>}
-              {cliente.note && <Text style={styles.clienteNote}>{cliente.note}</Text>}
-            </View>
-          </View>
-        </View>
+        <ClienteInfoCard cliente={cliente} />
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statVal}>{preventivi.filter(p => p.is_ultimo).length}</Text>
-            <Text style={styles.statLabel}>Preventivi</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`€${totaleValore.toFixed(0)}`}</Text>
-            <Text style={styles.statLabel}>Fatturato</Text>
-          </View>
-          {abbonamento ? (
-            <View style={styles.statCard}>
-              <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`€${(totaleIncassato + totaleParziale).toFixed(0)}`}</Text>
-              <Text style={styles.statLabel}>Abbonamento</Text>
-            </View>
-          ) : (
-            <View style={styles.statCard}>
-              <Text style={styles.statVal}>{trascrizioni.length}</Text>
-              <Text style={styles.statLabel}>Chiamate</Text>
-            </View>
-          )}
-        </View>
+        <ClienteStats
+          preventiviCount={preventivi.filter(p => p.is_ultimo).length}
+          totaleValore={totaleValore}
+          trascrizioniCount={trascrizioni.length}
+          abbonamentoTotale={abbonamento ? totaleIncassato + totaleParziale : null}
+        />
 
-        {/* Tab */}
-        <View style={styles.tabs}>
-          <TouchableOpacity style={[styles.tabBtn, tab === 'preventivi' && styles.tabBtnActive]} onPress={() => setTab('preventivi')}>
-            <Text style={[styles.tabText, tab === 'preventivi' && styles.tabTextActive]}>Preventivi</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabBtn, tab === 'chiamate' && styles.tabBtnActive]} onPress={() => setTab('chiamate')}>
-            <Text style={[styles.tabText, tab === 'chiamate' && styles.tabTextActive]}>Chiamate</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabBtn, tab === 'abbonamento' && styles.tabBtnActive]} onPress={() => setTab('abbonamento')}>
-            <Text style={[styles.tabText, tab === 'abbonamento' && styles.tabTextActive]}>💰 Abbonamento</Text>
-          </TouchableOpacity>
-        </View>
+        <ClienteTabs active={tab} onChange={setTab} />
 
         {/* Tab Preventivi */}
         {tab === 'preventivi' && (
-          preventivi.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>Nessun preventivo per questo cliente</Text>
-            </View>
-          ) : (
-            preventivi.map(p => (
-              <TouchableOpacity
-                key={p.id}
-                style={[styles.prevCard, !p.is_ultimo && styles.prevCardOld, selezione.includes(p.id) && styles.prevCardSelected]}
-                onPress={() => { if (modalitaSelezione) toggleSelezione(p.id); else setAperto(aperto === p.id ? null : p.id) }}
-                onLongPress={() => iniziaSelezione(p.id)}
-              >
-                <View style={styles.prevRow}>
-                  {modalitaSelezione && (
-                    <View style={[styles.checkCircle, selezione.includes(p.id) && styles.checkCircleActive]}>
-                      {selezione.includes(p.id) && <Text style={styles.checkMark}>✓</Text>}
-                    </View>
-                  )}
-                  <View style={styles.prevLeft}>
-                    <Text style={styles.prevVersione}>{p.titolo || `v${p.versione || 1}`}</Text>
-                    <Text style={styles.prevData}>
-                      {`${new Date(p.created_at).toLocaleDateString('it-IT')}${p.is_ultimo ? ' · attivo' : ''}`}
-                    </Text>
-                  </View>
-                  <View style={[styles.prevRightRow, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
-                    <TouchableOpacity style={styles.prevRight} onPress={() => setModalStato(p.id)}>
-                      <Text style={styles.prevImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
-                      <Text style={[styles.prevStato,
-                        p.stato === 'accettato' ? { color: '#0E9F8E' } :
-                        p.stato === 'rifiutato' ? { color: '#EF4444' } :
-                        p.stato === 'inviato' ? { color: '#1D4ED8' } : {}
-                      ]}>{`${p.stato || 'bozza'} ▼`}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => scaricaPDF(p)}>
-                      <Text style={{ fontSize: 16 }}>{p.pdf_url ? '📄' : '🔄'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => eliminaPreventivo(p.id)}>
-                      <Text style={{ fontSize: 16 }}>🗑</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {aperto === p.id && p.testo_preventivo && (
-                  <View style={styles.prevDetail}>
-                    <Text style={styles.prevTesto}>{p.testo_preventivo}</Text>
-                    {p.versione && p.versione > 1 && (
-                      <TouchableOpacity style={styles.cronologiaBtn} onPress={() => caricaCronologia(p.id, p.preventivo_padre_id)}>
-                        <Text style={styles.cronologiaBtnText}>
-                          {cronologiaAperta === p.id ? '▲ Nascondi cronologia' : `▼ Mostra cronologia (${p.versione - 1} vers. precedenti)`}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    {cronologiaAperta === p.id && cronologia[p.id]?.map(v => (
-                      <View key={v.id}>
-                        <TouchableOpacity style={styles.cronologiaItem} onPress={() => setCronologiaVersioneAperta(cronologiaVersioneAperta === v.id ? null : v.id)}>
-                          <Text style={styles.cronologiaVer}>v{v.versione || 1}</Text>
-                          <Text style={styles.cronologiaData}>{new Date(v.created_at).toLocaleDateString('it-IT')}</Text>
-                          <Text style={styles.cronologiaImporto}>{v.importo_totale ? `€${v.importo_totale}` : '—'}</Text>
-                        </TouchableOpacity>
-                        {cronologiaVersioneAperta === v.id && (
-                          <View style={styles.cronologiaDetail}>
-                            <Text style={styles.prevTesto}>{v.testo_preventivo}</Text>
-                            <TouchableOpacity style={styles.ripristinaBtn} onPress={() => router.push({
-                              pathname: '/(tabs)/nuovo',
-                              params: { testo_modifica: v.testo_preventivo || '', versione_padre_id: p.id, versione_numero: String((p.versione || 1) + 1) }
-                            })}>
-                              <Text style={styles.ripristinaBtnText}>✏️ Modifica e genera nuova versione</Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-                    ))}
-                    {p.is_ultimo && (
-                      <TouchableOpacity style={styles.editBtn} onPress={() => router.push({
-                        pathname: '/(tabs)/nuovo',
-                        params: { testo_modifica: p.testo_preventivo || '', versione_padre_id: p.id, versione_numero: String((p.versione || 1) + 1) }
-                      })}>
-                        <Text style={styles.editBtnText}>{`✏️ Modifica e genera v${(p.versione || 1) + 1}`}</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity style={styles.spostaBtn} onPress={async () => { await caricaClientiDisponibili(); setMostraModalSposta(p.id) }}>
-                      <Text style={styles.postaBtnText}>↗ Sposta ad altro cliente</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.spostaBtn} onPress={() => { setNuovoTitolo(p.titolo || ''); setMostraModalRinomina(p.id) }}>
-                      <Text style={styles.postaBtnText}>✏️ Rinomina preventivo</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))
-          )
+          <ClientePreventiviList
+            preventivi={preventivi}
+            selezione={selezione}
+            modalitaSelezione={modalitaSelezione}
+            aperto={aperto}
+            cronologiaAperta={cronologiaAperta}
+            cronologia={cronologia}
+            cronologiaVersioneAperta={cronologiaVersioneAperta}
+            onToggleCard={(preventivoId) => { if (modalitaSelezione) toggleSelezione(preventivoId); else setAperto(aperto === preventivoId ? null : preventivoId) }}
+            onLongPress={iniziaSelezione}
+            onStatoPress={setModalStato}
+            onScaricaPdf={scaricaPDF}
+            onElimina={eliminaPreventivo}
+            onCaricaCronologia={caricaCronologia}
+            onToggleVersione={(versioneId) => setCronologiaVersioneAperta(cronologiaVersioneAperta === versioneId ? null : versioneId)}
+            onModificaVersione={(versione, preventivoCorrente) => router.push({
+              pathname: '/(tabs)/nuovo',
+              params: { testo_modifica: versione.testo_preventivo || '', versione_padre_id: preventivoCorrente.id, versione_numero: String((preventivoCorrente.versione || 1) + 1) }
+            })}
+            onModificaUltimo={(preventivo) => router.push({
+              pathname: '/(tabs)/nuovo',
+              params: { testo_modifica: preventivo.testo_preventivo || '', versione_padre_id: preventivo.id, versione_numero: String((preventivo.versione || 1) + 1) }
+            })}
+            onSposta={async (preventivoId) => { await caricaClientiDisponibili(); setMostraModalSposta(preventivoId) }}
+            onRinomina={(preventivo) => { setNuovoTitolo(preventivo.titolo || ''); setMostraModalRinomina(preventivo.id) }}
+          />
         )}
 
         {/* Tab Chiamate */}
         {tab === 'chiamate' && (
-          trascrizioni.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>Nessuna chiamata registrata</Text>
-            </View>
-          ) : (
-            trascrizioni.map(t => (
-              <TouchableOpacity key={t.id} style={styles.chiamataCard} onPress={() => setAperto(aperto === t.id ? null : t.id)}>
-                <View style={styles.chiamataRow}>
-                  <View>
-                    <Text style={styles.chiamataTitolo}>{t.titolo || 'Chiamata'}</Text>
-                    <Text style={styles.chiamataData}>{`${new Date(t.created_at).toLocaleDateString('it-IT')} · ${formatDurata(t.durata_secondi)}`}</Text>
-                  </View>
-                  <Text style={styles.chiamataArrow}>{aperto === t.id ? '▲' : '▼'}</Text>
-                </View>
-                {aperto === t.id && t.testo && (
-                  <View style={styles.chiamataDetail}>
-                    <Text style={styles.chiamataTesto}>{t.testo}</Text>
-                    <TouchableOpacity style={styles.editBtn} onPress={() => router.push({ pathname: '/(tabs)/nuovo', params: { trascrizione: t.testo } })}>
-                      <Text style={styles.editBtnText}>💬 Genera preventivo da questa chiamata</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))
-          )
+          <ClienteTrascrizioniList
+            trascrizioni={trascrizioni}
+            aperto={aperto}
+            onToggle={(trascrizioneId) => setAperto(aperto === trascrizioneId ? null : trascrizioneId)}
+            onGeneraPreventivo={(testo) => router.push({ pathname: '/(tabs)/nuovo', params: { trascrizione: testo } })}
+            formatDurata={formatDurata}
+          />
         )}
 
         {/* Tab Abbonamento */}
         {tab === 'abbonamento' && (
-          loadingAb ? (
-            <ActivityIndicator color="#0E9F8E" style={{ marginTop: 40 }} />
-          ) : !abbonamento ? (
-            <View style={styles.abEmpty}>
-              <Text style={styles.abEmptyIcon}>💰</Text>
-              <Text style={styles.abEmptyTitle}>Nessun abbonamento</Text>
-              <Text style={styles.abEmptyText}>Configura un canone mensile ricorrente per questo cliente</Text>
-              <TouchableOpacity style={styles.abCreaBtn} onPress={() => {
-                setAbImporto('')
-                setAbGiorno('1')
-                setAbMensilita('')
-                setMostraModalNuovoAb(true)
-              }}>
-                <Text style={styles.abCreaBtnText}>+ Configura abbonamento</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              {/* Header collassabile */}
-              <TouchableOpacity style={styles.abHeader} onPress={() => setAbEspanso(v => !v)}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.abHeaderNome}>{abbonamento.nome || 'Abbonamento N.1'}</Text>
-                  <Text style={styles.abHeaderSub}>
-                    {abbonamento.tipo === 'rate' ? 'Pagamento a rate' : 'Canone mensile'} · €{abbonamento.importo_default}/mese
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-                  <TouchableOpacity onPress={() => {
-                    setNomeAbTemp(abbonamento.nome || 'Abbonamento N.1')
-                    setMostraModalRinominaAb(true)
-                  }}>
-                    <Text style={{ fontSize: 16 }}>✏️</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.abHeaderArrow}>{abEspanso ? '▲' : '▼'}</Text>
-                </View>
-              </TouchableOpacity>
-
-              {abEspanso && (
-                <View style={{ gap: 10 }}>
-
-                  {/* Mese corrente */}
-                  {rataMeseCorrente ? (
-                    <View style={styles.rataCardCorrente}>
-                      <View style={styles.rataRow}>
-                        <View style={{ flex: 1 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <Text style={styles.rataMese}>{MESI[rataMeseCorrente.mese - 1]} {rataMeseCorrente.anno}</Text>
-                            <Text style={styles.rataMeseTag}>corrente</Text>
-                          </View>
-                          {rataMeseCorrente.note ? <Text style={styles.rataNota}>{rataMeseCorrente.note}</Text> : null}
-                        </View>
-                        <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                          <Text style={styles.rataImporto}>€{rataMeseCorrente.importo}</Text>
-                          <Text style={[styles.rataStato, { color: statoRataColore(rataMeseCorrente.stato) }]}>
-                            {statoRataLabel(rataMeseCorrente.stato)}
-                          </Text>
-                        </View>
-                      </View>
-                      {rataMeseCorrente.stato === 'parziale' && (
-                        <View style={styles.rataBarraContainer}>
-                          <View style={styles.rataBarra}>
-                            <View style={[styles.rataBarraFill, { width: `${((rataMeseCorrente.acconto || 0) / rataMeseCorrente.importo) * 100}%` as any }]} />
-                          </View>
-                          <View style={styles.rataBarraLabels}>
-                            <Text style={styles.rataBarraAcconto}>Acconto: €{rataMeseCorrente.acconto}</Text>
-                            <Text style={styles.rataBarraResiduo}>Residuo: €{rataMeseCorrente.importo - (rataMeseCorrente.acconto || 0)}</Text>
-                          </View>
-                        </View>
-                      )}
-                      <View style={styles.rataAzioni}>
-                        {rataMeseCorrente.stato !== 'incassato' && (
-                          <TouchableOpacity style={styles.rataAzioneBtn} onPress={() => apriModalPagamento(rataMeseCorrente)}>
-                            <Text style={styles.rataAzioneBtnText}>+ Registra pagamento</Text>
-                          </TouchableOpacity>
-                        )}
-                        {rataMeseCorrente.stato !== 'incassato' && (
-                          <TouchableOpacity
-                            style={[styles.rataAzioneBtn, { borderColor: '#25D366', flex: 0, paddingHorizontal: 12 }]}
-                            onPress={() => inviaReminder(rataMeseCorrente)}
-                            disabled={invioReminderLoading === rataMeseCorrente.id}
-                          >
-                            {invioReminderLoading === rataMeseCorrente.id
-                              ? <ActivityIndicator size="small" color="#25D366" />
-                              : <Text style={[styles.rataAzioneBtnText, { color: '#25D366' }]}>📤 WA</Text>
-                            }
-                          </TouchableOpacity>
-                        )}
-                        {rataMeseCorrente.stato === 'incassato' && (
-                          <TouchableOpacity
-                            style={[styles.rataAzioneBtn, { borderColor: '#E5E7EB' }]}
-                            onPress={() => Alert.alert('Azzera', 'Riportare a "da incassare"?', [
-                              { text: 'Annulla', style: 'cancel' },
-                              { text: 'Azzera', style: 'destructive', onPress: () => azzeraPagamento(rataMeseCorrente.id) }
-                            ])}
-                          >
-                            <Text style={[styles.rataAzioneBtnText, { color: '#9CA3AF' }]}>↩ Azzera</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity style={styles.abGeneraBtn} onPress={() => aggiungiRataMese(meseCorrente, annoCorrente, abbonamento.importo_default)}>
-                      <Text style={styles.abGeneraBtnText}>+ Aggiungi rata {MESI[meseCorrente - 1]} {annoCorrente}</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Rate storiche mini-tab */}
-                  {rateStoriche.length > 0 && (
-                    <View style={styles.rateStoricoContainer}>
-                      <Text style={styles.rateStoricoTitolo}>Storico rate</Text>
-                      {rateStoriche.map(r => (
-                        <TouchableOpacity
-                          key={r.id}
-                          style={styles.rataMiniTab}
-                          onPress={() => setRataMiniAperta(rataMiniAperta === r.id ? null : r.id)}
-                        >
-                          <View style={styles.rataMiniRow}>
-                            <Text style={styles.rataMiniMese}>{MESI[r.mese - 1]} {r.anno}</Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                              <Text style={styles.rataMiniImporto}>€{r.importo}</Text>
-                              <Text style={{ fontSize: 14 }}>
-                                {r.stato === 'incassato' ? '✅' : r.stato === 'in_ritardo' ? '⚠️' : r.stato === 'parziale' ? '🔸' : '⏳'}
-                              </Text>
-                              <Text style={{ fontSize: 10, color: '#9CA3AF' }}>{rataMiniAperta === r.id ? '▲' : '▼'}</Text>
-                            </View>
-                          </View>
-                          {rataMiniAperta === r.id && (
-                            <View style={styles.rataMiniDetail}>
-                              {r.stato === 'parziale' && (
-                                <View style={styles.rataBarraContainer}>
-                                  <View style={styles.rataBarra}>
-                                    <View style={[styles.rataBarraFill, { width: `${((r.acconto || 0) / r.importo) * 100}%` as any }]} />
-                                  </View>
-                                  <View style={styles.rataBarraLabels}>
-                                    <Text style={styles.rataBarraAcconto}>Acconto: €{r.acconto}</Text>
-                                    <Text style={styles.rataBarraResiduo}>Residuo: €{r.importo - (r.acconto || 0)}</Text>
-                                  </View>
-                                </View>
-                              )}
-                              {r.note && <Text style={styles.rataNota}>{r.note}</Text>}
-                              <View style={styles.rataAzioni}>
-                                {r.stato !== 'incassato' && (
-                                  <TouchableOpacity style={styles.rataAzioneBtn} onPress={() => apriModalPagamento(r)}>
-                                    <Text style={styles.rataAzioneBtnText}>+ Registra pagamento</Text>
-                                  </TouchableOpacity>
-                                )}
-                                {r.stato !== 'incassato' && (
-                                  <TouchableOpacity
-                                    style={[styles.rataAzioneBtn, { borderColor: '#25D366', flex: 0, paddingHorizontal: 12 }]}
-                                    onPress={() => inviaReminder(r)}
-                                    disabled={invioReminderLoading === r.id}
-                                  >
-                                    {invioReminderLoading === r.id
-                                      ? <ActivityIndicator size="small" color="#25D366" />
-                                      : <Text style={[styles.rataAzioneBtnText, { color: '#25D366' }]}>📤 WA</Text>
-                                    }
-                                  </TouchableOpacity>
-                                )}
-                                {r.stato === 'incassato' && (
-                                  <TouchableOpacity
-                                    style={[styles.rataAzioneBtn, { borderColor: '#E5E7EB' }]}
-                                    onPress={() => Alert.alert('Azzera', 'Riportare a "da incassare"?', [
-                                      { text: 'Annulla', style: 'cancel' },
-                                      { text: 'Azzera', style: 'destructive', onPress: () => azzeraPagamento(r.id) }
-                                    ])}
-                                  >
-                                    <Text style={[styles.rataAzioneBtnText, { color: '#9CA3AF' }]}>↩ Azzera</Text>
-                                  </TouchableOpacity>
-                                )}
-                              </View>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* Azioni abbonamento */}
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity style={styles.abAzioneBtn} onPress={() => {
-                      setAbImporto(abbonamento.importo_default.toString())
-                      setAbGiorno(abbonamento.giorno_scadenza.toString())
-                      setMostraModalModificaAb(true)
-                    }}>
-                      <Text style={styles.abAzioneBtnText}>✏️ Modifica canone</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.abAzioneBtn, { borderColor: '#FCA5A5' }]} onPress={() => {
-                      Alert.alert('Elimina abbonamento', 'Le rate storiche resteranno salvate. Vuoi procedere?', [
-                        { text: 'Annulla', style: 'cancel' },
-                        { text: 'Elimina', style: 'destructive', onPress: eliminaAbbonamento }
-                      ])
-                    }}>
-                      <Text style={[styles.abAzioneBtnText, { color: '#EF4444' }]}>🗑 Elimina</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <TouchableOpacity style={styles.abAggiungiBtn} onPress={() => {
-                    const mPrec = meseCorrente === 1 ? 12 : meseCorrente - 1
-                    const aPrec = meseCorrente === 1 ? annoCorrente - 1 : annoCorrente
-                    aggiungiRataMese(mPrec, aPrec, abbonamento.importo_default)
-                  }}>
-                    <Text style={styles.abAggiungiText}>+ Aggiungi mese precedente</Text>
-                  </TouchableOpacity>
-
-                  {!rataMeseCorrente && (
-                    <TouchableOpacity style={styles.abAggiungiBtn} onPress={() => aggiungiRataMese(meseCorrente, annoCorrente, abbonamento.importo_default)}>
-                      <Text style={styles.abAggiungiText}>+ Aggiungi {MESI[meseCorrente - 1]} {annoCorrente}</Text>
-                    </TouchableOpacity>
-                  )}
-
-                </View>
-              )}
-            </>
-          )
+          <ClienteAbbonamentoTab
+            loading={loadingAb}
+            abbonamento={abbonamento}
+            meseCorrente={meseCorrente}
+            annoCorrente={annoCorrente}
+            rataMeseCorrente={rataMeseCorrente}
+            rateStoriche={rateStoriche}
+            abEspanso={abEspanso}
+            rataMiniAperta={rataMiniAperta}
+            invioReminderLoading={invioReminderLoading}
+            onCreate={() => { setAbImporto(''); setAbGiorno('1'); setAbMensilita(''); setMostraModalNuovoAb(true) }}
+            onToggleEspanso={() => setAbEspanso(v => !v)}
+            onRename={() => { setNomeAbTemp(abbonamento?.nome || 'Abbonamento N.1'); setMostraModalRinominaAb(true) }}
+            onAddRata={aggiungiRataMese}
+            onOpenPagamento={apriModalPagamento}
+            onSendReminder={inviaReminder}
+            onAzzeraPagamento={azzeraPagamento}
+            onToggleRataMini={(rataId) => setRataMiniAperta(rataMiniAperta === rataId ? null : rataId)}
+            onEditCanone={() => { if (!abbonamento) return; setAbImporto(abbonamento.importo_default.toString()); setAbGiorno(abbonamento.giorno_scadenza.toString()); setMostraModalModificaAb(true) }}
+            onDeleteAbbonamento={eliminaAbbonamento}
+          />
         )}
 
         <View style={{ height: 40 }} />
@@ -744,199 +449,49 @@ const rateStoriche = rate.filter(r =>
         <Text style={styles.nuovoBtnText}>+ Nuovo preventivo</Text>
       </TouchableOpacity>
 
-      {/* Modal cambia stato preventivo */}
-      <Modal visible={modalStato !== null} transparent animationType="fade" onRequestClose={() => setModalStato(null)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalStato(null)}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Cambia stato</Text>
-            {['bozza', 'inviato', 'accettato', 'rifiutato'].map(s => (
-              <TouchableOpacity key={s} style={styles.modalOption} onPress={() => { if (modalStato) { cambiaStato(modalStato, s); eventBus.emit('aggiorna-home') } setModalStato(null) }}>
-                <Text style={styles.modalOptionIcon}>{s === 'bozza' ? '📝' : s === 'inviato' ? '📤' : s === 'accettato' ? '✅' : '❌'}</Text>
-                <Text style={styles.modalOptionText}>{s}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.modalCancel} onPress={() => setModalStato(null)}>
-              <Text style={styles.modalCancelText}>Annulla</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      <ClientePreventivoModals
+        modalStato={modalStato}
+        onCloseStato={() => setModalStato(null)}
+        onChangeStato={(preventivoId, stato) => { cambiaStato(preventivoId, stato); eventBus.emit('aggiorna-home') }}
+        mostraModalSposta={mostraModalSposta}
+        clientiDisponibili={clientiDisponibili}
+        onCloseSposta={() => setMostraModalSposta(null)}
+        onSposta={(target, clienteId, clienteNome) => { if (target === 'multi') spostaSelezionati(clienteId, clienteNome); else spostaPreventivo(target, clienteId, clienteNome) }}
+        mostraModalRinomina={mostraModalRinomina}
+        nuovoTitolo={nuovoTitolo}
+        onChangeTitolo={setNuovoTitolo}
+        onCloseRinomina={() => setMostraModalRinomina(null)}
+        onSaveRinomina={rinominaPreventivo}
+      />
 
-      {/* Modal sposta preventivo */}
-      <Modal visible={mostraModalSposta !== null} transparent animationType="fade" onRequestClose={() => setMostraModalSposta(null)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMostraModalSposta(null)}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Sposta a quale cliente?</Text>
-            {clientiDisponibili.length === 0 ? (
-              <Text style={{ textAlign: 'center', color: '#9CA3AF', padding: 20 }}>Nessun altro cliente disponibile</Text>
-            ) : (
-              clientiDisponibili.map(c => (
-                <TouchableOpacity key={c.id} style={styles.modalOption} onPress={() => {
-                  if (mostraModalSposta === 'multi') spostaSelezionati(c.id, c.nome)
-                  else if (mostraModalSposta) spostaPreventivo(mostraModalSposta, c.id, c.nome)
-                  setMostraModalSposta(null)
-                }}>
-                  <Text style={styles.modalOptionIcon}>👤</Text>
-                  <Text style={styles.modalOptionText}>{c.nome}</Text>
-                </TouchableOpacity>
-              ))
-            )}
-            <TouchableOpacity style={styles.modalCancel} onPress={() => setMostraModalSposta(null)}>
-              <Text style={styles.modalCancelText}>Annulla</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Modal rinomina preventivo */}
-      <Modal visible={mostraModalRinomina !== null} transparent animationType="fade" onRequestClose={() => setMostraModalRinomina(null)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMostraModalRinomina(null)}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Rinomina preventivo</Text>
-            <TextInput style={styles.modalInput} value={nuovoTitolo} onChangeText={setNuovoTitolo} placeholder="es. Preventivo caldaia" placeholderTextColor="#9CA3AF" autoFocus />
-            <TouchableOpacity style={styles.modalSaveBtn} onPress={() => { if (mostraModalRinomina) rinominaPreventivo(mostraModalRinomina, nuovoTitolo); setMostraModalRinomina(null) }}>
-              <Text style={styles.modalSaveBtnText}>Salva</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancel} onPress={() => setMostraModalRinomina(null)}>
-              <Text style={styles.modalCancelText}>Annulla</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Modal nuovo abbonamento */}
-      <Modal visible={mostraModalNuovoAb} transparent animationType="fade" onRequestClose={() => setMostraModalNuovoAb(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMostraModalNuovoAb(false)}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Nuovo abbonamento</Text>
-            <Text style={styles.modalFieldLabel}>IMPORTO MENSILE (€)</Text>
-            <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abImporto} onChangeText={setAbImporto} placeholder="es. 500" placeholderTextColor="#9CA3AF" keyboardType="decimal-pad" autoFocus />
-            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
-            <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abGiorno} onChangeText={setAbGiorno} placeholder="es. 15" placeholderTextColor="#9CA3AF" keyboardType="number-pad" />
-            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>N° MENSILITA (opzionale)</Text>
-            <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abMensilita} onChangeText={setAbMensilita} placeholder="es. 12 — lascia vuoto per canone aperto" placeholderTextColor="#9CA3AF" keyboardType="number-pad" />
-            <TouchableOpacity style={styles.modalSaveBtn} onPress={async () => {
-              const importo = parseFloat(abImporto.replace(',', '.'))
-              const giorno = parseInt(abGiorno)
-              if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
-              if (!giorno || giorno < 1 || giorno > 31) { Alert.alert('Inserisci un giorno valido (1-31)'); return }
-              const mensilita = abMensilita ? parseInt(abMensilita) : undefined
-              const tipo = mensilita ? 'rate' : 'canone'
-              await creaAbbonamento(importo, giorno, { numeroMensilita: mensilita, tipo })
-              setMostraModalNuovoAb(false)
-            }}>
-              <Text style={styles.modalSaveBtnText}>Crea abbonamento</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancel} onPress={() => setMostraModalNuovoAb(false)}>
-              <Text style={styles.modalCancelText}>Annulla</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Modal modifica abbonamento */}
-      <Modal visible={mostraModalModificaAb} transparent animationType="fade" onRequestClose={() => setMostraModalModificaAb(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMostraModalModificaAb(false)}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Modifica abbonamento</Text>
-            <Text style={styles.modalFieldLabel}>IMPORTO MENSILE (€)</Text>
-            <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abImporto} onChangeText={setAbImporto} keyboardType="decimal-pad" autoFocus />
-            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
-            <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abGiorno} onChangeText={setAbGiorno} keyboardType="number-pad" />
-            <TouchableOpacity style={styles.modalSaveBtn} onPress={async () => {
-              const importo = parseFloat(abImporto.replace(',', '.'))
-              const giorno = parseInt(abGiorno)
-              if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
-              await aggiornaAbbonamento(importo, giorno)
-              setMostraModalModificaAb(false)
-            }}>
-              <Text style={styles.modalSaveBtnText}>Salva</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancel} onPress={() => setMostraModalModificaAb(false)}>
-              <Text style={styles.modalCancelText}>Annulla</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Modal registra pagamento rata */}
-      <Modal visible={rataSelezionata !== null} transparent animationType="fade" onRequestClose={() => setRataSelezionata(null)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setRataSelezionata(null)}>
-          <View style={styles.modalBox}>
-            {rataSelezionata && (
-              <>
-                <Text style={styles.modalTitle}>{MESI[rataSelezionata.mese - 1]} {rataSelezionata.anno}</Text>
-                <View style={styles.modalRiepilogo}>
-                  <View style={styles.modalRiepilogoRow}>
-                    <Text style={styles.modalRiepilogoLabel}>Totale</Text>
-                    <Text style={styles.modalRiepilogoVal}>€{rataSelezionata.importo}</Text>
-                  </View>
-                  {(rataSelezionata.acconto || 0) > 0 && (
-                    <View style={styles.modalRiepilogoRow}>
-                      <Text style={styles.modalRiepilogoLabel}>Già incassato</Text>
-                      <Text style={[styles.modalRiepilogoVal, { color: '#0E9F8E' }]}>€{rataSelezionata.acconto}</Text>
-                    </View>
-                  )}
-                  <View style={styles.modalRiepilogoRow}>
-                    <Text style={styles.modalRiepilogoLabel}>Residuo</Text>
-                    <Text style={[styles.modalRiepilogoVal, { color: '#EF4444' }]}>€{rataSelezionata.importo - (rataSelezionata.acconto || 0)}</Text>
-                  </View>
-                </View>
-                <Text style={styles.modalFieldLabel}>IMPORTO RATA (€)</Text>
-<TextInput
-  style={[styles.modalInput, { marginTop: 6 }]}
-  value={rataImporto}
-  onChangeText={setRataImporto}
-  keyboardType="decimal-pad"
-  placeholder="Modifica importo rata"
-  placeholderTextColor="#9CA3AF"
-/>
-                <Text style={styles.modalFieldLabel}>IMPORTO RICEVUTO ORA (€)</Text>
-                <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={pagamentoImporto} onChangeText={setPagamentoImporto} keyboardType="decimal-pad" autoFocus />
-                <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>NOTA (opzionale)</Text>
-                <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={pagamentoNota} onChangeText={setPagamentoNota} placeholder="es. Bonifico 10 giugno" placeholderTextColor="#9CA3AF" />
-                <TouchableOpacity
-                  style={[styles.modalSaveBtn, { backgroundColor: '#0E9F8E' }]}
-                  onPress={async () => {
-                    const importo = parseFloat(pagamentoImporto.replace(',', '.'))
-                    if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
-                    const nuovoImportoRata = parseFloat(rataImporto.replace(',', '.'))
-                    if (nuovoImportoRata && nuovoImportoRata !== rataSelezionata.importo) {
-                      await modificaImportoRata(rataSelezionata.id, nuovoImportoRata)
-                    }
-                    await registraPagamento(rataSelezionata.id, importo, pagamentoNota || undefined)
-                    setRataSelezionata(null)
-                  }}
-                >
-                  <Text style={styles.modalSaveBtnText}>✓ Registra pagamento</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.modalCancel} onPress={() => setRataSelezionata(null)}>
-                  <Text style={styles.modalCancelText}>Annulla</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Modal rinomina abbonamento */}
-      <Modal visible={mostraModalRinominaAb} transparent animationType="fade" onRequestClose={() => setMostraModalRinominaAb(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setMostraModalRinominaAb(false)}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Rinomina abbonamento</Text>
-            <TextInput style={styles.modalInput} value={nomeAbTemp} onChangeText={setNomeAbTemp} placeholder="es. Sito web mensile" placeholderTextColor="#9CA3AF" autoFocus />
-            <TouchableOpacity style={styles.modalSaveBtn} onPress={async () => {
-              await rinominaAbbonamento(nomeAbTemp)
-              setMostraModalRinominaAb(false)
-            }}>
-              <Text style={styles.modalSaveBtnText}>Salva</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancel} onPress={() => setMostraModalRinominaAb(false)}>
-              <Text style={styles.modalCancelText}>Annulla</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      <ClienteAbbonamentoModals
+        mostraNuovo={mostraModalNuovoAb}
+        onCloseNuovo={() => setMostraModalNuovoAb(false)}
+        abImporto={abImporto}
+        onChangeAbImporto={setAbImporto}
+        abGiorno={abGiorno}
+        onChangeAbGiorno={setAbGiorno}
+        abMensilita={abMensilita}
+        onChangeAbMensilita={setAbMensilita}
+        onCreaAbbonamento={salvaNuovoAbbonamento}
+        mostraModifica={mostraModalModificaAb}
+        onCloseModifica={() => setMostraModalModificaAb(false)}
+        onAggiornaAbbonamento={salvaModificaAbbonamento}
+        rataSelezionata={rataSelezionata}
+        onCloseRata={() => setRataSelezionata(null)}
+        rataImporto={rataImporto}
+        onChangeRataImporto={setRataImporto}
+        pagamentoImporto={pagamentoImporto}
+        onChangePagamentoImporto={setPagamentoImporto}
+        pagamentoNota={pagamentoNota}
+        onChangePagamentoNota={setPagamentoNota}
+        onConfermaPagamento={confermaPagamentoRata}
+        mostraRinomina={mostraModalRinominaAb}
+        onCloseRinomina={() => setMostraModalRinominaAb(false)}
+        nomeAbTemp={nomeAbTemp}
+        onChangeNomeAbTemp={setNomeAbTemp}
+        onSalvaRinomina={salvaRinominaAbbonamento}
+      />
 
       {/* Modal modifica cliente */}
       <Modal visible={mostraModalRinominaCliente} transparent animationType="slide" onRequestClose={() => {
@@ -1008,147 +563,17 @@ const rateStoriche = rate.filter(r =>
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { padding: 4, width: 50 },
-  backText: { color: '#9CA3AF', fontSize: 22 },
-  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
-  headerActions: { flexDirection: 'row', gap: 12, width: 50, justifyContent: 'flex-end' },
-  headerActionText: { fontSize: 18 },
-  scroll: { flex: 1 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
-  avatarRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' as const },
-  avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontSize: 22, fontWeight: '700' as const },
-  avatarInfo: { flex: 1, gap: 3 },
-  clienteNome: { fontSize: 18, fontWeight: '700' as const, color: '#0D1B2A' },
-  clienteInfo: { fontSize: 13, color: '#6B7280' },
-  clienteNote: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' as const, marginTop: 4 },
-  statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  statVal: { fontSize: 20, fontWeight: '700' as const, color: '#0D1B2A' },
-  statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' },
-  tabBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' as const },
-  tabBtnActive: { backgroundColor: '#0D1B2A' },
-  tabText: { fontSize: 12, fontWeight: '500' as const, color: '#9CA3AF' },
-  tabTextActive: { color: '#fff' },
-  empty: { alignItems: 'center' as const, paddingTop: 40 },
-  emptyText: { fontSize: 14, color: '#9CA3AF', marginBottom: 12 },
-  prevCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
-  prevCardOld: { opacity: 0.6 },
-  prevRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
-  prevLeft: { flex: 1 },
-  prevBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  prevVersione: { fontSize: 13, fontWeight: '700' as const, color: '#0D1B2A' },
-  prevUltimo: { fontSize: 11, color: '#0E9F8E', fontWeight: '600' as const },
-  prevData: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  prevRightRow: { alignItems: 'flex-end' as const, gap: 6 },
-  prevRight: { alignItems: 'flex-end' as const },
-  prevImporto: { fontSize: 14, fontWeight: '600' as const, color: '#0D1B2A' },
-  prevStato: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  prevDetail: { padding: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
-  prevTesto: { fontSize: 12, color: '#6B7280', lineHeight: 18, fontFamily: 'monospace' },
-  editBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' as const },
-  editBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
-  spostaBtn: { borderRadius: 10, padding: 10, alignItems: 'center' as const, borderWidth: 1, borderColor: '#E5E7EB' },
-  postaBtnText: { fontSize: 13, color: '#6B7280', fontWeight: '500' as const },
-  chiamataCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
-  chiamataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
-  chiamataTitolo: { fontSize: 14, fontWeight: '500' as const, color: '#0D1B2A' },
-  chiamataData: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  chiamataArrow: { fontSize: 12, color: '#9CA3AF' },
-  chiamataDetail: { padding: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
-  chiamataTesto: { fontSize: 12, color: '#6B7280', lineHeight: 18 },
-  cronologiaBtn: { paddingVertical: 8, alignItems: 'center' as const },
-  cronologiaBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' as const },
-  cronologiaItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F7F8FA', borderRadius: 8, padding: 10 },
-  cronologiaVer: { fontSize: 13, fontWeight: '700' as const, color: '#9CA3AF' },
-  cronologiaData: { fontSize: 12, color: '#9CA3AF' },
-  cronologiaImporto: { fontSize: 12, color: '#9CA3AF' },
-  cronologiaDetail: { backgroundColor: '#F7F8FA', borderRadius: 10, padding: 12, gap: 10 },
-  ripristinaBtn: { backgroundColor: '#0E9F8E', borderRadius: 10, padding: 10, alignItems: 'center' as const },
-  ripristinaBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' as const },
-  nuovoBtn: { backgroundColor: '#0E9F8E', margin: 16, marginTop: 8, borderRadius: 14, padding: 14, alignItems: 'center' as const },
-  nuovoBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' as const },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center' as const, alignItems: 'center' as const, padding: 32 },
-  modalBox: { backgroundColor: '#fff', borderRadius: 20, padding: 20, width: '100%' },
-  modalTitle: { fontSize: 16, fontWeight: '600' as const, color: '#0D1B2A', marginBottom: 16, textAlign: 'center' as const },
-  modalOption: { flexDirection: 'row', alignItems: 'center' as const, gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  modalOptionIcon: { fontSize: 20 },
-  modalOptionText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500' as const, textTransform: 'capitalize' as const },
-  modalCancel: { paddingTop: 14, alignItems: 'center' as const },
-  modalCancelText: { fontSize: 14, color: '#9CA3AF' },
-  modalInput: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A', marginBottom: 12 },
-  modalSaveBtn: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, alignItems: 'center' as const, marginBottom: 8 },
-  modalSaveBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' as const },
+  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  modalFieldGroup: { gap: 6 },
+  modalFieldInput: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
+  modalFieldLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8 },
+  modalFullClose: { color: '#9CA3AF', fontSize: 20, width: 40 },
   modalFullContainer: { flex: 1, backgroundColor: '#F7F8FA' },
   modalFullHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 56, backgroundColor: '#0D1B2A' },
-  modalFullTitle: { color: '#fff', fontSize: 16, fontWeight: '600' as const },
-  modalFullClose: { color: '#9CA3AF', fontSize: 20, width: 40 },
   modalFullSave: { color: '#0E9F8E', fontSize: 15, fontWeight: '600' as const, width: 40, textAlign: 'right' as const },
-  modalFieldGroup: { gap: 6 },
-  modalFieldLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8 },
-  modalFieldInput: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
-  prevCardSelected: { borderColor: '#0E9F8E', borderWidth: 2 },
-  checkCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D5DB', marginRight: 8, justifyContent: 'center', alignItems: 'center' as const },
-  checkCircleActive: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
-  checkMark: { color: '#fff', fontSize: 14, fontWeight: '700' as const },
-  selectionBar: { backgroundColor: '#0D1B2A', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  selectionCancel: { padding: 4 },
-  selectionCancelText: { color: '#9CA3AF', fontSize: 18 },
-  selectionCount: { flex: 1, color: '#fff', fontSize: 14, fontWeight: '600' as const },
-  selectionActions: { flexDirection: 'row', gap: 12 },
-  selectionAction: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.1)' },
-  selectionActionDelete: { backgroundColor: 'rgba(239,68,68,0.15)' },
-  selectionActionText: { color: '#fff', fontSize: 13, fontWeight: '500' as const },
-  // Abbonamento
-  abEmpty: { alignItems: 'center' as const, paddingTop: 40, gap: 10 },
-  abEmptyIcon: { fontSize: 40 },
-  abEmptyTitle: { fontSize: 16, fontWeight: '700', color: '#0D1B2A' },
-  abEmptyText: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' as const, paddingHorizontal: 20 },
-  abCreaBtn: { backgroundColor: '#0D1B2A', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12, marginTop: 8 },
-  abCreaBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' as const },
-  abHeader: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center' },
-  abHeaderNome: { fontSize: 15, fontWeight: '700', color: '#0D1B2A' },
-  abHeaderSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  abHeaderArrow: { fontSize: 12, color: '#9CA3AF' },
-  abGeneraBtn: { backgroundColor: '#F7F8FA', borderRadius: 10, padding: 10, alignItems: 'center' as const, borderWidth: 1, borderColor: '#E5E7EB' },
-  abGeneraBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' as const },
-  abAggiungiBtn: { alignItems: 'center' as const, padding: 12 },
-  abAggiungiText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' as const },
-  abAzioneBtn: { flex: 1, borderRadius: 10, padding: 10, alignItems: 'center' as const, borderWidth: 1, borderColor: '#E5E7EB' },
-  abAzioneBtnText: { fontSize: 12, color: '#6B7280', fontWeight: '500' as const },
-  // Rata card
-  rataCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 14, gap: 10 },
-  rataCardCorrente: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: '#0E9F8E', padding: 14, gap: 10 },
-  rataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  rataMese: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
-  rataMeseTag: { fontSize: 10, fontWeight: '600', color: '#0E9F8E', backgroundColor: '#F0FDF4', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  rataNota: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  rataImporto: { fontSize: 15, fontWeight: '700', color: '#0D1B2A' },
-  rataStato: { fontSize: 11, marginTop: 2, fontWeight: '500' },
-  rataBarraContainer: { gap: 4 },
-  rataBarra: { height: 6, backgroundColor: '#F3F4F6', borderRadius: 3, overflow: 'hidden' },
-  rataBarraFill: { height: 6, backgroundColor: '#F59E0B', borderRadius: 3 },
-  rataBarraLabels: { flexDirection: 'row', justifyContent: 'space-between' },
-  rataBarraAcconto: { fontSize: 11, color: '#F59E0B', fontWeight: '500' },
-  rataBarraResiduo: { fontSize: 11, color: '#EF4444', fontWeight: '500' },
-  rataAzioni: { flexDirection: 'row', gap: 8 },
-  rataAzioneBtn: { flex: 1, borderRadius: 10, padding: 9, alignItems: 'center' as const, borderWidth: 1, borderColor: '#0E9F8E' },
-  rataAzioneBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600' as const },
-  // Rate storiche
-  rateStoricoContainer: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
-  rateStoricoTitolo: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, textTransform: 'uppercase' as const },
-  rataMiniTab: { borderTopWidth: 1, borderTopColor: '#F3F4F6', padding: 12 },
-  rataMiniRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rataMiniMese: { fontSize: 13, fontWeight: '500', color: '#0D1B2A' },
-  rataMiniImporto: { fontSize: 13, fontWeight: '600', color: '#0D1B2A' },
-  rataMiniDetail: { marginTop: 10, gap: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 10 },
-  // Modal riepilogo rata
-  modalRiepilogo: { backgroundColor: '#F7F8FA', borderRadius: 12, padding: 12, marginBottom: 16, gap: 6 },
-  modalRiepilogoRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  modalRiepilogoLabel: { fontSize: 13, color: '#6B7280' },
-  modalRiepilogoVal: { fontSize: 13, fontWeight: '700', color: '#0D1B2A' },
+  modalFullTitle: { color: '#fff', fontSize: 16, fontWeight: '600' as const },
+  nuovoBtn: { backgroundColor: '#0E9F8E', margin: 16, marginTop: 8, borderRadius: 14, padding: 14, alignItems: 'center' as const },
+  nuovoBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' as const },
+  scroll: { flex: 1 },
 })

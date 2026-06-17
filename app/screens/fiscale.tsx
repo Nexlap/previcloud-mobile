@@ -1,10 +1,13 @@
-import { router } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { router, useNavigation } from 'expo-router'
+import { useEffect, useRef, useState } from 'react'
+import type { EventArg, NavigationAction } from '@react-navigation/native'
 import {
     ActivityIndicator, Alert, ScrollView, StyleSheet,
     Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { caricaProfiloFiscale, salvaProfiloFiscale } from '../../lib/api/fiscale'
+
+type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 
 type Regime = 'forfettario' | 'ordinario' | 'occasionale'
 type ProfiloFiscaleValue = string | boolean | Regime
@@ -44,13 +47,64 @@ const DEFAULT_PROFILO: ProfiloFiscale = {
   soglia_occasionale: '5000',
 }
 
+function FiscaleNumericField({
+  label,
+  value,
+  unit,
+  onChangeText,
+}: {
+  label: string
+  value: string
+  unit: string
+  onChangeText: (v: string) => void
+}) {
+  return (
+    <View style={styles.fieldRow}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.fieldInputWrap}>
+        <TextInput
+          style={styles.fieldInput}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType="decimal-pad"
+        />
+        <Text style={styles.fieldUnit}>{unit}</Text>
+      </View>
+    </View>
+  )
+}
+
 export default function Fiscale() {
+  const navigation = useNavigation()
   const [profilo, setProfilo] = useState<ProfiloFiscale>(DEFAULT_PROFILO)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [featureAttiva, setFeatureAttiva] = useState(false)
+  const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
+  const profiloRef = useRef(profilo)
+  const featureAttivaRef = useRef(featureAttiva)
+  useEffect(() => { profiloRef.current = profilo }, [profilo])
+  useEffect(() => { featureAttivaRef.current = featureAttiva }, [featureAttiva])
 
   useEffect(() => { carica() }, [])
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: BeforeRemoveEvent) => {
+      if (!modificheNonSalvate) return
+      e.preventDefault()
+      Alert.alert('Modifiche non salvate', 'Vuoi salvare le modifiche al profilo fiscale?', [
+        { text: 'Abbandona', style: 'destructive', onPress: () => { setModificheNonSalvate(false); navigation.dispatch(e.data.action) } },
+        { text: 'Continua', style: 'cancel' },
+        { text: 'Salva', onPress: async () => {
+          const id = await salvaProfiloFiscale(profiloRef.current, featureAttivaRef.current)
+          if (id) profiloRef.current = { ...profiloRef.current, id }
+          setModificheNonSalvate(false)
+          navigation.dispatch(e.data.action)
+        }},
+      ])
+    })
+    return unsubscribe
+  }, [modificheNonSalvate, navigation])
 
   async function carica() {
     const data = await caricaProfiloFiscale()
@@ -66,27 +120,19 @@ export default function Fiscale() {
     const id = await salvaProfiloFiscale(profilo, featureAttiva)
     if (id) setProfilo(p => ({ ...p, id }))
     setSaving(false)
+    setModificheNonSalvate(false)
     Alert.alert('✓ Salvato', 'Profilo fiscale aggiornato.')
   }
 
   function set(key: keyof ProfiloFiscale, val: ProfiloFiscaleValue) {
     setProfilo(p => ({ ...p, [key]: val }))
+    setModificheNonSalvate(true)
   }
 
-  const Field = ({ label, field }: { label: string, field: keyof ProfiloFiscale }) => (
-    <View style={styles.fieldRow}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.fieldInputWrap}>
-        <TextInput
-          style={styles.fieldInput}
-          value={profilo[field] as string}
-          onChangeText={v => set(field, v)}
-          keyboardType="decimal-pad"
-        />
-        <Text style={styles.fieldUnit}>%</Text>
-      </View>
-    </View>
-  )
+  function onFeatureAttivaChange(value: boolean) {
+    setFeatureAttiva(value)
+    setModificheNonSalvate(true)
+  }
 
   if (loading) return (
     <View style={styles.center}>
@@ -104,7 +150,7 @@ export default function Fiscale() {
         <View style={{ width: 50 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
 
         {/* Toggle feature */}
         <View style={styles.card}>
@@ -116,7 +162,7 @@ export default function Fiscale() {
             </View>
             <Switch
               value={featureAttiva}
-              onValueChange={setFeatureAttiva}
+              onValueChange={onFeatureAttivaChange}
               trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
               thumbColor="#fff"
             />
@@ -154,8 +200,8 @@ export default function Fiscale() {
             {profilo.regime === 'forfettario' && (
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Parametri forfettario</Text>
-                <Field label="Coefficiente di redditività" field="coefficiente_redditivita" />
-                <Field label="Imposta sostitutiva" field="aliquota_sostitutiva" />
+                <FiscaleNumericField label="Coefficiente di redditività" value={profilo.coefficiente_redditivita} unit="%" onChangeText={v => set('coefficiente_redditivita', v)} />
+                <FiscaleNumericField label="Imposta sostitutiva" value={profilo.aliquota_sostitutiva} unit="%" onChangeText={v => set('aliquota_sostitutiva', v)} />
                 <Text style={styles.sectionLabel}>TIPO INPS</Text>
                 <View style={styles.inpsTabs}>
                   {[
@@ -173,7 +219,7 @@ export default function Fiscale() {
                     </TouchableOpacity>
                   ))}
                 </View>
-                <Field label="Contributi INPS" field="inps_percentuale" />
+                <FiscaleNumericField label="Contributi INPS" value={profilo.inps_percentuale} unit="%" onChangeText={v => set('inps_percentuale', v)} />
                 <View style={styles.switchRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.switchLabel}>Riduzione contributiva</Text>
@@ -184,7 +230,7 @@ export default function Fiscale() {
                     trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }} thumbColor="#fff" />
                 </View>
                 {profilo.riduzione_contributiva && (
-                  <Field label="Riduzione contributiva" field="riduzione_percentuale" />
+                  <FiscaleNumericField label="Riduzione contributiva" value={profilo.riduzione_percentuale} unit="%" onChangeText={v => set('riduzione_percentuale', v)} />
                 )}
                 <View style={styles.switchRow}>
                   <View style={{ flex: 1 }}>
@@ -196,16 +242,9 @@ export default function Fiscale() {
                     trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }} thumbColor="#fff" />
                 </View>
                 {profilo.rivalsa_inps && (
-                  <Field label="Rivalsa INPS" field="rivalsa_percentuale" />
+                  <FiscaleNumericField label="Rivalsa INPS" value={profilo.rivalsa_percentuale} unit="%" onChangeText={v => set('rivalsa_percentuale', v)} />
                 )}
-                <View style={styles.fieldRow}>
-                  <Text style={styles.fieldLabel}>Soglia massima fatturato</Text>
-                  <View style={styles.fieldInputWrap}>
-                    <TextInput style={styles.fieldInput} value={profilo.soglia_fatturato}
-                      onChangeText={v => set('soglia_fatturato', v)} keyboardType="decimal-pad" />
-                    <Text style={styles.fieldUnit}>€</Text>
-                  </View>
-                </View>
+                <FiscaleNumericField label="Soglia massima fatturato" value={profilo.soglia_fatturato} unit="€" onChangeText={v => set('soglia_fatturato', v)} />
               </View>
             )}
 
@@ -213,9 +252,9 @@ export default function Fiscale() {
             {profilo.regime === 'ordinario' && (
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Parametri ordinario</Text>
-                <Field label="Aliquota IVA" field="aliquota_iva" />
-                <Field label="Costi deducibili stimati" field="costi_deducibili_percentuale" />
-                <Field label="INPS gestione separata" field="inps_percentuale" />
+                <FiscaleNumericField label="Aliquota IVA" value={profilo.aliquota_iva} unit="%" onChangeText={v => set('aliquota_iva', v)} />
+                <FiscaleNumericField label="Costi deducibili stimati" value={profilo.costi_deducibili_percentuale} unit="%" onChangeText={v => set('costi_deducibili_percentuale', v)} />
+                <FiscaleNumericField label="INPS gestione separata" value={profilo.inps_percentuale} unit="%" onChangeText={v => set('inps_percentuale', v)} />
                 <View style={styles.switchRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.switchLabel}>Rivalsa INPS in fattura</Text>
@@ -226,7 +265,7 @@ export default function Fiscale() {
                     trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }} thumbColor="#fff" />
                 </View>
                 {profilo.rivalsa_inps && (
-                  <Field label="Rivalsa INPS" field="rivalsa_percentuale" />
+                  <FiscaleNumericField label="Rivalsa INPS" value={profilo.rivalsa_percentuale} unit="%" onChangeText={v => set('rivalsa_percentuale', v)} />
                 )}
                 <Text style={styles.noteText}>
                   ℹ️ L'IRPEF viene calcolata automaticamente a scaglioni sul reddito imponibile
@@ -238,15 +277,8 @@ export default function Fiscale() {
             {profilo.regime === 'occasionale' && (
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Parametri collaborazione occasionale</Text>
-                <Field label="Ritenuta d'acconto" field="ritenuta_acconto" />
-                <View style={styles.fieldRow}>
-                  <Text style={styles.fieldLabel}>Soglia esenzione contributi</Text>
-                  <View style={styles.fieldInputWrap}>
-                    <TextInput style={styles.fieldInput} value={profilo.soglia_occasionale}
-                      onChangeText={v => set('soglia_occasionale', v)} keyboardType="decimal-pad" />
-                    <Text style={styles.fieldUnit}>€</Text>
-                  </View>
-                </View>
+                <FiscaleNumericField label="Ritenuta d'acconto" value={profilo.ritenuta_acconto} unit="%" onChangeText={v => set('ritenuta_acconto', v)} />
+                <FiscaleNumericField label="Soglia esenzione contributi" value={profilo.soglia_occasionale} unit="€" onChangeText={v => set('soglia_occasionale', v)} />
               </View>
             )}
           </>

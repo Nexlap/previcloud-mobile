@@ -1,0 +1,133 @@
+import { StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+
+type TariffaProps = {
+  nascondiPrezzi: boolean
+  onChangeNascondiPrezzi: (value: boolean) => void
+}
+
+export function PreventivoPdfTariffaToggle({ nascondiPrezzi, onChangeNascondiPrezzi }: TariffaProps) {
+  return (
+    <View style={styles.toggleRow}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.toggleLabel}>Tariffa a corpo</Text>
+        <Text style={styles.toggleSub}>Nasconde i prezzi delle singole voci - mostra solo il totale</Text>
+      </View>
+      <Switch
+        value={nascondiPrezzi}
+        onValueChange={onChangeNascondiPrezzi}
+        trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
+        thumbColor="#fff"
+      />
+    </View>
+  )
+}
+
+type AbbonamentoProps = {
+  attivo: boolean
+  importo: string
+  giorno: string
+  mensilita: string
+  visibileNelPDF: boolean
+  importoTotale?: string
+  onChangeAttivo: (value: boolean) => void
+  onChangeImporto: (value: string) => void
+  onChangeGiorno: (value: string) => void
+  onChangeMensilita: (value: string) => void
+  onChangeVisibileNelPDF: (value: boolean) => void
+}
+
+export function PreventivoPdfAbbonamentoCard({
+  attivo,
+  importo,
+  giorno,
+  mensilita,
+  visibileNelPDF,
+  importoTotale,
+  onChangeAttivo,
+  onChangeImporto,
+  onChangeGiorno,
+  onChangeMensilita,
+  onChangeVisibileNelPDF,
+}: AbbonamentoProps) {
+  return (
+    <View style={styles.card}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>Abbonamento mensile</Text>
+          <Text style={styles.cardSub}>Configura un canone ricorrente per questo cliente</Text>
+        </View>
+        <Switch
+          value={attivo}
+          onValueChange={(v) => {
+            onChangeAttivo(v)
+            if (v && importoTotale) onChangeImporto(importoTotale)
+          }}
+          trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
+          thumbColor="#fff"
+        />
+      </View>
+      {attivo && (
+        <View style={{ gap: 10, marginTop: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.abLabel}>IMPORTO MENSILE (EUR)</Text>
+              <TextInput
+                style={styles.abInput}
+                value={importo}
+                onChangeText={onChangeImporto}
+                keyboardType="decimal-pad"
+                placeholder="es. 400"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.abLabel}>GIORNO SCADENZA</Text>
+              <TextInput
+                style={styles.abInput}
+                value={giorno}
+                onChangeText={onChangeGiorno}
+                keyboardType="number-pad"
+                placeholder="es. 1"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+          </View>
+          <View>
+            <Text style={styles.abLabel}>N. MENSILITA (opzionale)</Text>
+            <TextInput
+              style={styles.abInput}
+              value={mensilita}
+              onChangeText={onChangeMensilita}
+              keyboardType="number-pad"
+              placeholder="es. 12 - lascia vuoto per canone aperto"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '500', color: '#0D1B2A' }}>Mostra nel PDF</Text>
+              <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>Aggiunge il canone mensile al documento</Text>
+            </View>
+            <Switch
+              value={visibileNelPDF}
+              onValueChange={onChangeVisibileNelPDF}
+              trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
+      )}
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  toggleRow: { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  toggleLabel: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
+  toggleSub: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
+  cardSub: { fontSize: 12, color: '#9CA3AF', marginBottom: 8 },
+  abLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8, marginBottom: 4 },
+  abInput: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
+})

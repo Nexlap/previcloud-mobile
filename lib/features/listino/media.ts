@@ -36,7 +36,7 @@ export async function scegliFotoListinoSmart(config: ListinoSmartConfig) {
   if (status !== 'granted') return { permissionDenied: 'gallery' as const, inseriti: [] }
 
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: ['images'],
     quality: 0.7,
     base64: true,
   })
@@ -78,7 +78,7 @@ export async function scegliFotoServiziSmart(config: EstraiServiziConfig) {
   if (status !== 'granted') return { permissionDenied: 'gallery' as const, servizi: [] as ServizioEstratto[] }
 
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    mediaTypes: ['images'],
     quality: 0.7,
     base64: true,
   })

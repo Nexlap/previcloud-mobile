@@ -14,7 +14,7 @@ type SettingsProfile = {
   logo_url?: string | null
 }
 
-type SettingsForm = ReturnType<typeof normalizzaFormProfilo>
+export type SettingsForm = ReturnType<typeof normalizzaFormProfilo>
 
 type SegnalazioneSettings = {
   tipo: string
