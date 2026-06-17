@@ -1,22 +1,19 @@
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { supabase } from '../../lib/supabase'
+import { eliminaMetodoPagamento, caricaMetodiPagamento, MetodoPagamento, MetodoPagamentoForm, salvaMetodoPagamento, TipoPagamento } from '../../lib/api/pagamenti'
 
 export default function Pagamenti() {
-  const [metodi, setMetodi] = useState<any[]>([])
+  const [metodi, setMetodi] = useState<MetodoPagamento[]>([])
   const [modal, setModal] = useState(false)
-  const [edit, setEdit] = useState<any | null>(null)
-  const [form, setForm] = useState({ tipo: 'bonifico', nome: '', dati: {} as any, predefinito: false })
+  const [edit, setEdit] = useState<MetodoPagamento | null>(null)
+  const [form, setForm] = useState<MetodoPagamentoForm>({ tipo: 'bonifico', nome: '', dati: {}, predefinito: false })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { carica() }, [])
 
   async function carica() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase.from('metodi_pagamento').select('*').eq('user_id', user.id).order('predefinito', { ascending: false })
-    if (data) setMetodi(data)
+    setMetodi(await caricaMetodiPagamento())
   }
 
   function nuovo() {
@@ -25,7 +22,7 @@ export default function Pagamenti() {
     setModal(true)
   }
 
-  function modifica(m: any) {
+  function modifica(m: MetodoPagamento) {
     setEdit(m)
     setForm({ tipo: m.tipo, nome: m.nome, dati: m.dati || {}, predefinito: !!m.predefinito })
     setModal(true)
@@ -34,16 +31,8 @@ export default function Pagamenti() {
   async function salva() {
     if (!form.nome.trim()) { Alert.alert('Errore', 'Inserisci un nome'); return }
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { error, user } = await salvaMetodoPagamento(form, edit?.id)
     if (!user) { setSaving(false); return }
-    const payload = { user_id: user.id, tipo: form.tipo, nome: form.nome.trim(), dati: form.dati, predefinito: form.predefinito }
-    if (form.predefinito) {
-      const { error } = await supabase.from('metodi_pagamento').update({ predefinito: false }).eq('user_id', user.id)
-      if (error) { setSaving(false); Alert.alert('Errore', error.message); return }
-    }
-    const { error } = edit
-      ? await supabase.from('metodi_pagamento').update(payload).eq('id', edit.id)
-      : await supabase.from('metodi_pagamento').insert(payload)
     if (error) { setSaving(false); Alert.alert('Errore', error.message); return }
     setSaving(false)
     setModal(false)
@@ -54,13 +43,13 @@ export default function Pagamenti() {
     Alert.alert('Elimina', 'Vuoi eliminare questo metodo?', [
       { text: 'Annulla', style: 'cancel' },
       { text: 'Elimina', style: 'destructive', onPress: async () => {
-        await supabase.from('metodi_pagamento').delete().eq('id', id)
+        await eliminaMetodoPagamento(id)
         setMetodi(m => m.filter(x => x.id !== id))
       }}
     ])
   }
 
-  function icon(tipo: string) {
+  function icon(tipo: TipoPagamento) {
     return tipo === 'bonifico' ? '🏦' : tipo === 'paypal' ? '💙' : tipo === 'contanti' ? '💵' : '💳'
   }
 
@@ -110,7 +99,7 @@ export default function Pagamenti() {
                 { key: 'carta', label: '💳 Carta' },
                 { key: 'stripe', label: '🔗 Stripe link' },
               ].map(t => (
-                <TouchableOpacity key={t.key} style={[styles.chip, form.tipo === t.key && styles.chipActive]} onPress={() => setForm(f => ({ ...f, tipo: t.key, dati: {} }))}>
+                <TouchableOpacity key={t.key} style={[styles.chip, form.tipo === t.key && styles.chipActive]} onPress={() => setForm(f => ({ ...f, tipo: t.key as TipoPagamento, dati: {} }))}>
                   <Text style={[styles.chipText, form.tipo === t.key && styles.chipTextActive]}>{t.label}</Text>
                 </TouchableOpacity>
               ))}

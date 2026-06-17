@@ -4,8 +4,8 @@ import {
   ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
+import { eliminaClienti } from '../../lib/api/clienti'
 import { useClienti } from "../../lib/hooks/useClienti"
-import { supabase } from "../../lib/supabase"
 import { trackEvento } from "../../lib/utils/analytics"
 
 export default function Clienti() {
@@ -63,7 +63,7 @@ export default function Clienti() {
     Alert.alert('Elimina', `Eliminare ${ids.length} clienti?`, [
       { text: 'Annulla', style: 'cancel' },
       { text: 'Elimina', style: 'destructive', onPress: async () => {
-        const { error } = await supabase.from('clienti').delete().in('id', ids)
+        const { error } = await eliminaClienti(ids)
         if (error) { Alert.alert('Errore', error.message); return }
         setClientiEliminati(prev => [...prev, ...ids])
         annullaSelezione()

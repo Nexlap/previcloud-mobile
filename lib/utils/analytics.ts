@@ -1,6 +1,6 @@
 import { supabase } from '../supabase'
 
-export async function trackEvento(evento: string, schermata?: string, dati?: Record<string, any>) {
+export async function trackEvento(evento: string, schermata?: string, dati?: Record<string, unknown>) {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return

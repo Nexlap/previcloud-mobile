@@ -4,9 +4,10 @@ import {
     ActivityIndicator, Alert, ScrollView, StyleSheet,
     Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from "../../lib/supabase"
+import { caricaProfiloFiscale, salvaProfiloFiscale } from '../../lib/api/fiscale'
 
 type Regime = 'forfettario' | 'ordinario' | 'occasionale'
+type ProfiloFiscaleValue = string | boolean | Regime
 
 interface ProfiloFiscale {
   id?: string
@@ -52,66 +53,23 @@ export default function Fiscale() {
   useEffect(() => { carica() }, [])
 
   async function carica() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase
-      .from('profili_fiscali').select('*').eq('user_id', user.id).single()
+    const data = await caricaProfiloFiscale()
     if (data) {
-      setProfilo({
-        id: data.id,
-        regime: data.regime,
-        coefficiente_redditivita: data.coefficiente_redditivita?.toString() || '78',
-        aliquota_sostitutiva: data.aliquota_sostitutiva?.toString() || '15',
-        inps_percentuale: data.inps_percentuale?.toString() || '26.07',
-        inps_tipo: data.inps_tipo || 'gestione_separata',
-        riduzione_contributiva: data.riduzione_contributiva || false,
-        riduzione_percentuale: data.riduzione_percentuale?.toString() || '35',
-        rivalsa_inps: data.rivalsa_inps ?? true,
-        rivalsa_percentuale: data.rivalsa_percentuale?.toString() || '4',
-        soglia_fatturato: data.soglia_fatturato?.toString() || '85000',
-        aliquota_iva: data.aliquota_iva?.toString() || '22',
-        costi_deducibili_percentuale: data.costi_deducibili_percentuale?.toString() || '20',
-        ritenuta_acconto: data.ritenuta_acconto?.toString() || '20',
-        soglia_occasionale: data.soglia_occasionale?.toString() || '5000',
-      })
-      setFeatureAttiva(data.attivo ?? false)
+      setProfilo(data.profilo as ProfiloFiscale)
+      setFeatureAttiva(data.featureAttiva)
     }
     setLoading(false)
   }
 
   async function salva() {
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const payload = {
-      user_id: user.id,
-      attivo: featureAttiva,
-      regime: profilo.regime,
-      coefficiente_redditivita: parseFloat(profilo.coefficiente_redditivita) || 78,
-      aliquota_sostitutiva: parseFloat(profilo.aliquota_sostitutiva) || 15,
-      inps_percentuale: parseFloat(profilo.inps_percentuale) || 26.07,
-      inps_tipo: profilo.inps_tipo,
-      riduzione_contributiva: profilo.riduzione_contributiva,
-      riduzione_percentuale: parseFloat(profilo.riduzione_percentuale) || 35,
-      rivalsa_inps: profilo.rivalsa_inps,
-      rivalsa_percentuale: parseFloat(profilo.rivalsa_percentuale) || 4,
-      soglia_fatturato: parseFloat(profilo.soglia_fatturato) || 85000,
-      aliquota_iva: parseFloat(profilo.aliquota_iva) || 22,
-      costi_deducibili_percentuale: parseFloat(profilo.costi_deducibili_percentuale) || 20,
-      ritenuta_acconto: parseFloat(profilo.ritenuta_acconto) || 20,
-      soglia_occasionale: parseFloat(profilo.soglia_occasionale) || 5000,
-    }
-    if (profilo.id) {
-      await supabase.from('profili_fiscali').update(payload).eq('id', profilo.id)
-    } else {
-      const { data } = await supabase.from('profili_fiscali').insert(payload).select().single()
-      if (data) setProfilo(p => ({ ...p, id: data.id }))
-    }
+    const id = await salvaProfiloFiscale(profilo, featureAttiva)
+    if (id) setProfilo(p => ({ ...p, id }))
     setSaving(false)
     Alert.alert('✓ Salvato', 'Profilo fiscale aggiornato.')
   }
 
-  function set(key: keyof ProfiloFiscale, val: any) {
+  function set(key: keyof ProfiloFiscale, val: ProfiloFiscaleValue) {
     setProfilo(p => ({ ...p, [key]: val }))
   }
 

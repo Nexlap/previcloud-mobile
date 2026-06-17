@@ -10,12 +10,13 @@ import {
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { creaLinkPagamentoRata } from '../../lib/api/pdf'
+import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCronologiaCliente, eliminaClienteDettaglio, eliminaPreventiviCliente, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
 import { eventBus } from '../../lib/eventBus'
 import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
-import { supabase } from '../../lib/supabase'
 import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
 import { trackEvento } from '../../lib/utils/analytics'
+import { errorMessage } from '../../lib/utils/errors'
 
 const MESI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
@@ -112,12 +113,9 @@ export default function ClienteDettaglio() {
   }, [mostraModalRinominaCliente, modificheNonSalvate])
 
   async function carica() {
-    const [{ data: cl }, { data: trascr }] = await Promise.all([
-      supabase.from('clienti').select('*').eq('id', id).single(),
-      supabase.from('trascrizioni').select('*').eq('cliente_id', id).order('created_at', { ascending: false })
-    ])
-    if (cl) setCliente(cl as Cliente)
-    if (trascr) setTrascrizioni(trascr as Trascrizione[])
+    const { cliente, trascrizioni } = await caricaClienteDettaglio(id)
+    if (cliente) setCliente(cliente)
+    setTrascrizioni(trascrizioni)
     setLoading(false)
   }
 
@@ -138,7 +136,7 @@ export default function ClienteDettaglio() {
     Alert.alert('Elimina cliente', 'Vuoi eliminare questo cliente?', [
       { text: 'Annulla', style: 'cancel' },
       { text: 'Elimina', style: 'destructive', onPress: async () => {
-        await supabase.from('clienti').delete().eq('id', id)
+        await eliminaClienteDettaglio(id)
         router.back()
       }}
     ])
@@ -153,31 +151,21 @@ export default function ClienteDettaglio() {
       indirizzo: nuovoIndirizzo.trim() || null,
       note: nuoveNote.trim() || null,
     }
-    await supabase.from('clienti').update(aggiornamento).eq('id', id)
+    await aggiornaClienteDettaglio(id, aggiornamento)
     setCliente(c => c ? { ...c, ...aggiornamento } : c)
     setMostraModalRinominaCliente(false)
     setModificheNonSalvate(false)
   }
 
   async function caricaClientiDisponibili() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase.from('clienti').select('id, nome').eq('user_id', user.id).neq('id', id).order('nome')
+    const data = await caricaClientiDisponibiliData(id)
     if (data) setClientiDisponibili(data)
   }
 
   async function caricaCronologia(preventivoId: string, padreId: string | null) {
     if (cronologiaAperta === preventivoId) { setCronologiaAperta(null); return }
     if (!padreId) return
-    const versioni: Preventivo[] = []
-    let currentId: string | null = padreId
-    while (currentId) {
-      const result = await supabase.from('preventivi').select('*').eq('id', currentId).single()
-      const data = result.data as Preventivo | null
-      if (!data) break
-      versioni.unshift(data as Preventivo)
-      currentId = (data as Preventivo).preventivo_padre_id
-    }
+    const versioni = await caricaCronologiaCliente(padreId)
     if (versioni.length > 0) {
       setCronologia(c => ({ ...c, [preventivoId]: versioni }))
       setCronologiaAperta(preventivoId)
@@ -210,16 +198,14 @@ export default function ClienteDettaglio() {
     Alert.alert('Elimina', `Vuoi eliminare ${selezione.length} preventivi?`, [
       { text: 'Annulla', style: 'cancel' },
       { text: 'Elimina', style: 'destructive', onPress: async () => {
-        await Promise.all(selezione.map(sid => supabase.from('preventivi').delete().eq('id', sid)))
+        await eliminaPreventiviCliente(selezione)
         annullaSelezione()
       }}
     ])
   }
 
   async function spostaSelezionati(nuovoClienteId: string, nuovoClienteNome: string) {
-    await Promise.all(selezione.map(sid =>
-      supabase.from('preventivi').update({ cliente_id: nuovoClienteId, nome_cliente: nuovoClienteNome }).eq('id', sid)
-    ))
+    await spostaPreventiviCliente(selezione, nuovoClienteId, nuovoClienteNome)
     annullaSelezione()
     setMostraModalSposta(null)
     Alert.alert('✓ Spostati', `${selezione.length} preventivi spostati a ${nuovoClienteNome}`)
@@ -271,7 +257,7 @@ export default function ClienteDettaglio() {
   async function inviaReminder(rata: RataAbbonamento) {
     try {
       setInvioReminderLoading(rata.id)
-      const { data: { session } } = await supabase.auth.getSession()
+      const session = await sessioneClienteDettaglio()
       if (!session) return
       const residuo = rata.importo - (rata.acconto || 0)
       const link = await creaLinkPagamentoRata(rata.id, cliente?.nome || '', session.access_token)
@@ -287,8 +273,8 @@ export default function ClienteDettaglio() {
           { text: 'OK' }
         ])
       }
-    } catch (err: any) {
-      Alert.alert('Errore', err.message)
+    } catch (err: unknown) {
+      Alert.alert('Errore', errorMessage(err))
     } finally {
       setInvioReminderLoading(null)
     }

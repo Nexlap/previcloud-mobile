@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect } from 'react'
 import { ActivityIndicator, View } from 'react-native'
-import { supabase } from "../../lib/supabase"
+import { setAuthSession } from '../../lib/api/auth'
 
 export default function AuthCallback() {
   const params = useLocalSearchParams()
@@ -12,7 +12,7 @@ export default function AuthCallback() {
       const refresh_token = params.refresh_token as string
 
       if (access_token && refresh_token) {
-        await supabase.auth.setSession({ access_token, refresh_token })
+        await setAuthSession(access_token, refresh_token)
         router.replace('/(tabs)')
       } else {
         router.replace('/(auth)/login')

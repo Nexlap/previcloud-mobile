@@ -6,9 +6,10 @@ import {
 } from 'react-native'
 import { cercaCliente, creaClienteDaChat, inviaMessaggio } from "../../lib/api/chat"
 import { convertiRecap } from "../../lib/api/pdf"
-import { supabase } from "../../lib/supabase"
+import { caricaBozzaChat, caricaMetodiPagamentoNuovo, salvaBozzaChat, salvaPreventivoNuovo, tokenNuovo } from "../../lib/api/nuovo"
 import { Messaggio } from "../../lib/types"
 import { trackEvento } from "../../lib/utils/analytics"
+import { errorMessage } from "../../lib/utils/errors"
 
 //
 type Params = {
@@ -53,22 +54,15 @@ export default function Nuovo() {
   //
   useEffect(() => {
     trackEvento('chat_aperta', 'chat')
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.replace('/(auth)/login'); return }
-      setToken(session.access_token)
-    })
+    tokenNuovo().then(setToken)
     caricaMetodiPagamento()
   }, [])
 
   async function caricaMetodiPagamento() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase.from('metodi_pagamento').select('*').eq('user_id', user.id).order('predefinito', { ascending: false })
-    if (data) {
-      setMetodiPagamento(data)
-      const predefinito = data.find((m: any) => m.predefinito)
-      if (predefinito) setMetodoPagamentoSelezionato(predefinito)
-    }
+    const data = await caricaMetodiPagamentoNuovo()
+    setMetodiPagamento(data)
+    const predefinito = data.find((m: any) => m.predefinito)
+    if (predefinito) setMetodoPagamentoSelezionato(predefinito)
   }
 
   function parametriPDF(testo: string) {
@@ -109,14 +103,10 @@ export default function Nuovo() {
   //
   useEffect(() => {
     if (params.preventivo_id) {
-      supabase.from('preventivi')
-        .select('testo_preventivo, messaggi_chat')
-        .eq('id', params.preventivo_id)
-        .single()
-        .then(({ data }) => {
-          if (data?.messaggi_chat) setMessaggi(data.messaggi_chat as Messaggio[])
-          if (data?.testo_preventivo) setPreventivo(data.testo_preventivo)
-        })
+      caricaBozzaChat(params.preventivo_id).then(data => {
+        if (data?.messaggi_chat) setMessaggi(data.messaggi_chat as Messaggio[])
+        if (data?.testo_preventivo) setPreventivo(data.testo_preventivo)
+      })
     }
   }, [params.preventivo_id])
 
@@ -130,18 +120,11 @@ export default function Nuovo() {
         { text: 'Abbandona', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
         { text: 'Continua', style: 'cancel' },
         { text: 'Salva bozza', onPress: async () => {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            await supabase.from('preventivi').insert({
-              user_id: user.id,
-              testo_preventivo: recap || messaggi.filter(m => m.role === 'assistant').pop()?.content || '',
-              messaggi_chat: messaggi,
-              stato: 'bozza',
-              is_ultimo: true,
-              versione: 1,
-              titolo: 'Bozza — ' + new Date().toLocaleDateString('it-IT')
-            })
-          }
+          await salvaBozzaChat({
+            testo: recap || messaggi.filter(m => m.role === 'assistant').pop()?.content || '',
+            messaggi,
+            titolo: 'Bozza — ' + new Date().toLocaleDateString('it-IT')
+          })
           navigation.dispatch(e.data.action)
         }}
       ])
@@ -214,8 +197,8 @@ export default function Nuovo() {
       } else {
         setMessaggi([...nuovi, { role: 'assistant', content: reply }])
       }
-    } catch (e: any) {
-      Alert.alert('Errore', e.message)
+    } catch (e: unknown) {
+      Alert.alert('Errore', errorMessage(e))
     }
 
     setLoading(false)
@@ -227,16 +210,7 @@ export default function Nuovo() {
     if (!preventivo || salvato) return
     const match = preventivo.match(/TOTALE[:\s]*€?\s*([\d.,]+)/i)
     const importo = match ? parseFloat(match[1].replace(',', '.')) : null
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('preventivi').insert({
-      user_id: user.id,
-      testo_preventivo: preventivo,
-      importo_totale: importo,
-      stato: 'bozza',
-      is_ultimo: true,
-      versione: 1,
-    })
+    await salvaPreventivoNuovo({ testo: preventivo, importoTotale: importo })
     setSalvato(true)
     Alert.alert('Salvato!', 'Preventivo salvato nello storico.')
   }
@@ -344,7 +318,7 @@ export default function Nuovo() {
                       pathname: '/screens/preventivo-pdf',
                       params: parametriPDF(preventivo)
                     })
-                  } catch (e: any) { Alert.alert('Errore', e.message) }
+                  } catch (e: unknown) { Alert.alert('Errore', errorMessage(e)) }
                   setLoading(false)
                 }}
               >

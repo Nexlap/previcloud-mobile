@@ -7,7 +7,8 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from "../../lib/supabase"
+import { currentUserId, hasCompletedProfile, resetPassword, signInWithEmail, signUpWithEmail } from '../../lib/api/auth'
+import { errorMessage } from '../../lib/utils/errors'
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -15,7 +16,9 @@ export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [mostraPassword, setMostraPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
   const loadingGoogle = false
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
@@ -32,10 +35,10 @@ export default function Login() {
   }, [])
 
   async function controllaOnboarding() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: profile } = await supabase.from('profiles').select('nome_azienda').eq('id', user.id).single()
-    if (!profile?.nome_azienda) {
+    const userId = await currentUserId()
+    if (!userId) return
+    const profiloCompleto = await hasCompletedProfile(userId)
+    if (!profiloCompleto) {
       router.replace('/onboarding')
     } else {
       router.replace('/(tabs)')
@@ -49,11 +52,11 @@ export default function Login() {
     }
     setLoading(true)
     if (mode === 'register') {
-      const { error } = await supabase.auth.signUp({ email, password })
+      const { error } = await signUpWithEmail(email, password)
       if (error) Alert.alert('Errore', error.message)
       else Alert.alert('Fatto!', 'Controlla la tua email per confermare.')
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await signInWithEmail(email, password)
       if (error) {
         Alert.alert('Errore', 'Email o password non corretti.')
       } else {
@@ -94,10 +97,7 @@ export default function Login() {
         const savedEmail = await SecureStore.getItemAsync('saved_email')
         const savedPassword = await SecureStore.getItemAsync('saved_password')
         if (savedEmail && savedPassword) {
-          const { error } = await supabase.auth.signInWithPassword({
-            email: savedEmail,
-            password: savedPassword,
-          })
+          const { error } = await signInWithEmail(savedEmail, savedPassword)
           if (error) {
             Alert.alert('Errore', 'Sessione scaduta. Accedi con email e password.')
             await SecureStore.deleteItemAsync('biometrico_attivato')
@@ -107,8 +107,8 @@ export default function Login() {
           }
         }
       }
-    } catch (err: any) {
-      Alert.alert('Errore', err.message)
+    } catch (err: unknown) {
+      Alert.alert('Errore', errorMessage(err))
     }
     setLoading(false)
   }
@@ -119,6 +119,24 @@ export default function Login() {
       'Il login con Google sarà disponibile nella versione completa dell\'app. Per ora usa email e password.',
       [{ text: 'OK' }]
     )
+  }
+
+  async function recuperaPassword() {
+    if (!email.trim()) {
+      Alert.alert('Email richiesta', 'Inserisci la tua email e poi riprova.')
+      return
+    }
+
+    setResetLoading(true)
+    const { error } = await resetPassword(email.trim())
+    setResetLoading(false)
+
+    if (error) {
+      Alert.alert('Errore', error.message)
+      return
+    }
+
+    Alert.alert('Email inviata', 'Controlla la tua email e segui il link per reimpostare la password.')
   }
 
   return (
@@ -153,8 +171,18 @@ export default function Login() {
           </View>
           <View style={styles.inputWrap}>
             <Text style={styles.label}>PASSWORD</Text>
-            <TextInput style={styles.input} value={password} onChangeText={setPassword}
-              placeholder="Minimo 6 caratteri" placeholderTextColor="#9CA3AF" secureTextEntry />
+            <View style={styles.passwordRow}>
+              <TextInput style={styles.passwordInput} value={password} onChangeText={setPassword}
+                placeholder="Minimo 6 caratteri" placeholderTextColor="#9CA3AF" secureTextEntry={!mostraPassword} />
+              <TouchableOpacity style={styles.passwordToggle} onPress={() => setMostraPassword(v => !v)}>
+                <Text style={styles.passwordToggleText}>{mostraPassword ? 'Nascondi' : 'Mostra'}</Text>
+              </TouchableOpacity>
+            </View>
+            {mode === 'login' && (
+              <TouchableOpacity style={styles.forgotBtn} onPress={recuperaPassword} disabled={resetLoading}>
+                <Text style={styles.forgotText}>{resetLoading ? 'Invio email...' : 'Password dimenticata?'}</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSubmit} disabled={loading}>
@@ -202,6 +230,12 @@ const styles = StyleSheet.create({
   inputWrap: { marginBottom: 16 },
   label: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.8, marginBottom: 6 },
   input: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
+  passwordRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB' },
+  passwordInput: { flex: 1, padding: 12, fontSize: 14, color: '#0D1B2A' },
+  passwordToggle: { paddingHorizontal: 12, alignSelf: 'stretch', justifyContent: 'center' },
+  passwordToggleText: { fontSize: 12, color: '#0E9F8E', fontWeight: '600' },
+  forgotBtn: { alignSelf: 'flex-end', marginTop: 8, paddingVertical: 4 },
+  forgotText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600' },
   btn: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, alignItems: 'center' as const, marginTop: 8 },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: '#fff', fontSize: 15, fontWeight: '600' },

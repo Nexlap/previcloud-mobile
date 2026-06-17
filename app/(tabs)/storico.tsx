@@ -8,7 +8,7 @@ import {
 } from 'react-native'
 import { eventBus } from "../../lib/eventBus"
 import { usePreventivi } from "../../lib/hooks/usePreventivi"
-import { supabase } from "../../lib/supabase"
+import { cambiaStatoPreventivi, caricaClientiPerSposta, caricaCronologiaPreventivo, eliminaPreventivi, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
 import { Cliente, Preventivo } from "../../lib/types"
 import { trackEvento } from "../../lib/utils/analytics"
 
@@ -84,7 +84,7 @@ export default function Storico() {
         text: 'Elimina',
         style: 'destructive',
         onPress: async () => {
-          const { error } = await supabase.from('preventivi').delete().in('id', ids)
+          const { error } = await eliminaPreventivi(ids)
           if (error) { Alert.alert('Errore', error.message); return }
           setPreventiviEliminati(prev => [...prev, ...ids])
           annullaSelezione()
@@ -97,7 +97,7 @@ export default function Storico() {
   async function cambiaStatoSelezionati(stato: string) {
     const ids = [...preventiviSelezionati]
     if (ids.length === 0) return
-    const { error } = await supabase.from('preventivi').update({ stato }).in('id', ids)
+    const { error } = await cambiaStatoPreventivi(ids, stato)
     if (error) { Alert.alert('Errore', error.message); return }
     setModalStatoMultiplo(false)
     annullaSelezione()
@@ -119,9 +119,7 @@ export default function Storico() {
 
   async function caricaClienti() {
     setCaricandoClienti(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setCaricandoClienti(false); return }
-    const { data, error } = await supabase.from('clienti').select('id, nome, telefono, email, indirizzo').eq('user_id', user.id).order('nome')
+    const { data, error } = await caricaClientiPerSposta()
     if (error) Alert.alert('Errore', error.message)
     else setClienti((data || []) as Cliente[])
     setCaricandoClienti(false)
@@ -135,10 +133,7 @@ export default function Storico() {
   async function spostaSelezionati(cliente: Cliente) {
     const ids = [...preventiviSelezionati]
     if (ids.length === 0) return
-    const { error } = await supabase
-      .from('preventivi')
-      .update({ cliente_id: cliente.id, nome_cliente: cliente.nome })
-      .in('id', ids)
+    const { error } = await spostaPreventivi(ids, cliente)
     if (error) { Alert.alert('Errore', error.message); return }
     setPreventiviSpostati(prev => ids.reduce((acc, id) => ({
       ...acc,
@@ -154,15 +149,7 @@ export default function Storico() {
   async function caricaCronologia(preventivoId: string, padreId: string | null) {
     if (cronologiaAperta === preventivoId) { setCronologiaAperta(null); return }
     if (!padreId) return
-    const versioni: Preventivo[] = []
-    let currentId: string | null = padreId
-    while (currentId) {
-      const result = await supabase.from('preventivi').select('*').eq('id', currentId).single()
-      const data = result.data as Preventivo | null
-      if (!data) break
-      versioni.unshift(data as Preventivo)
-      currentId = (data as Preventivo).preventivo_padre_id
-    }
+    const versioni = await caricaCronologiaPreventivo(padreId)
     if (versioni.length > 0) {
       setCronologia(c => ({ ...c, [preventivoId]: versioni }))
       setCronologiaAperta(preventivoId)
@@ -272,8 +259,7 @@ export default function Storico() {
                           onPress={() => Alert.alert('Ripristina versione', `Vuoi ripristinare la v${v.versione || 1}?`, [
                             { text: 'Annulla', style: 'cancel' },
                             { text: 'Ripristina', onPress: async () => {
-                              await supabase.from('preventivi').update({ is_ultimo: false }).eq('id', p.id)
-                              await supabase.from('preventivi').update({ is_ultimo: true }).eq('id', v.id)
+                              await ripristinaVersionePreventivo(p.id, v.id)
                               Alert.alert('✓ Ripristinato')
                               setAperto(null)
                               setCronologiaAperta(null)

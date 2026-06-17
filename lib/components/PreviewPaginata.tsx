@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dimensions, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native'
-import WebView from 'react-native-webview'
+import WebView, { WebViewMessageEvent } from 'react-native-webview'
 
 const A4_RATIO = 297 / 210
 
@@ -44,7 +44,7 @@ export default function PreviewPaginata({ htmlContent, width, height, borderRadi
     )
   }
 
-  function onMessage(event: any) {
+  function onMessage(event: WebViewMessageEvent) {
     try {
       const data = JSON.parse(event.nativeEvent.data) as PageBreakMessage
       if (data.type !== 'page-breaks') return

@@ -5,7 +5,7 @@ import {
   Text, TouchableOpacity, View
 } from 'react-native'
 import { eventBus } from "../../lib/eventBus"
-import { supabase } from "../../lib/supabase"
+import { caricaHomeData } from '../../lib/api/home'
 import { Preventivo, Profile } from "../../lib/types"
 import { trackEvento } from "../../lib/utils/analytics"
 
@@ -28,7 +28,6 @@ useEffect(() => { caricaRef.current = carica })
 
 useEffect(() => {
   const handler = () => {
-    console.log('RICEVUTO IN HOME')
     caricaRef.current()
   }
   eventBus.on('aggiorna-home', handler)
@@ -41,27 +40,11 @@ useEffect(() => {
   }
 
   async function carica() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.replace('/(auth)/login'); return }
-
-    const [{ data: prof }, { data: prevs }, { data: accettati }] = await Promise.all([
-      supabase.from('profiles').select('nome_azienda, plan').eq('id', user.id).single(),
-      supabase.from('preventivi')
-        .select('id, nome_cliente, importo_totale, stato, created_at, is_ultimo, cliente_id, clienti(nome)')
-        .eq('user_id', user.id).eq('is_ultimo', true)
-        .order('created_at', { ascending: false }).limit(5),
-      supabase.from('preventivi')
-        .select('importo_totale')
-        .eq('user_id', user.id).eq('is_ultimo', true).eq('stato', 'accettato')
-    ])
-
-    if (prof) setProfile(prof as Profile)
-    if (prevs) setPreventivi(prevs.map((p: any) => ({
-      ...p, nome_cliente: p.clienti?.nome || p.nome_cliente || 'Senza cliente'
-    })))
-    setPagamentiIncassati((accettati || []).reduce((a, p) => a + (p.importo_totale || 0), 0))
-    setPagamentiIncassati((accettati || []).reduce((a, p) => a + (p.importo_totale || 0), 0))
-console.log('ACCETTATI:', accettati)
+    const data = await caricaHomeData()
+    if (!data) { router.replace('/(auth)/login'); return }
+    if (data.profile) setProfile(data.profile)
+    setPreventivi(data.preventivi)
+    setPagamentiIncassati(data.pagamentiIncassati)
     setLoading(false)
   }
 

@@ -6,10 +6,12 @@ import {
   ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform,
   Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from '../lib/supabase'
-import * as ImagePicker from 'expo-image-picker'
+import { elaboraServiziDaTesto } from '../lib/api/listinoSmart'
+import { avviaRegistrazioneListinoSmart, fermaRegistrazioneServiziSmart, scattaFotoServiziSmart, scegliFotoServiziSmart } from '../lib/features/listino/media'
 import { ServizioForm } from '../lib/types'
 import PreviewPaginata from '../lib/components/PreviewPaginata'
+import { completaOnboarding, generaPreviewOnboarding, tokenOnboarding } from '../lib/api/onboarding'
+import { errorMessage } from '../lib/utils/errors'
 
 
 const CATEGORIE = ['videomaker', 'fotografo', 'catering', 'falegname', 'estetista', 'elettricista', 'idraulico', 'imbianchino', 'consulente', 'altro']
@@ -250,16 +252,18 @@ function formatEuro(valore: number) {
   return valore.toFixed(2).replace('.', ',')
 }
 
-function generaTestoDemo(categoria: string): string {
+function generaTestoDemo(categoria: string, compatto = false): string {
   const demo = DEMO_PREVENTIVO[categoria] || DEMO_PREVENTIVO.altro
+  const serviziDemo = compatto ? demo.servizi.slice(0, 4) : demo.servizi
+  const rimborsiDemo = compatto ? demo.rimborsi.slice(0, 1) : demo.rimborsi
   const data = new Date().toLocaleDateString('it-IT')
-  const imponibile = demo.servizi.reduce((tot, s) => tot + s.prezzo, 0) + demo.rimborsi.reduce((tot, r) => tot + r.importo, 0)
+  const imponibile = serviziDemo.reduce((tot, s) => tot + s.prezzo, 0) + rimborsiDemo.reduce((tot, r) => tot + r.importo, 0)
   const iva = imponibile * 0.22
   const totale = imponibile + iva
-  const servizi = demo.servizi.map(s =>
+  const servizi = serviziDemo.map(s =>
     `SERVIZIO: ${s.nome}\nDETTAGLI:\n- ${s.dettagli[0]}\n- ${s.dettagli[1]}\nPREZZO: €${formatEuro(s.prezzo)}`
   ).join('\n\n')
-  const rimborsi = demo.rimborsi.map(r =>
+  const rimborsi = rimborsiDemo.map(r =>
     `RIMBORSO: ${r.nome}\nDETTAGLIO: ${r.dettaglio}\nTIPO: ${r.tipo}\nIMPORTO: €${formatEuro(r.importo)}`
   ).join('\n\n')
 
@@ -298,14 +302,9 @@ export default function Onboarding() {
     if (!testoServizi.trim()) return
     setElaborando(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ testo: testoServizi })
-      })
-      const data = await res.json()
+      const token = await tokenOnboarding()
+      if (!token) return
+      const data = await elaboraServiziDaTesto({ backendUrl, token, testo: testoServizi })
       if (data.servizi) {
         setServizi(data.servizi)
         setModalitaServizi('manuale')
@@ -316,36 +315,82 @@ export default function Onboarding() {
     setElaborando(false)
   }
 
+  async function gestisciFotoServiziOnboarding(sorgente: 'galleria' | 'camera') {
+    setElaborandoMedia(true)
+    try {
+      const token = await tokenOnboarding()
+      if (!token) return
+      const result = sorgente === 'galleria'
+        ? await scegliFotoServiziSmart({ backendUrl, token })
+        : await scattaFotoServiziSmart({ backendUrl, token })
+
+      if (result.permissionDenied === 'gallery') { Alert.alert('Permesso negato', 'Serve accesso alla galleria.'); return }
+      if (result.permissionDenied === 'camera') { Alert.alert('Permesso negato', 'Serve accesso alla fotocamera.'); return }
+      if (result.canceled) return
+      if (result.servizi.length) {
+        setServizi(result.servizi)
+        setModalitaServizi('manuale')
+      } else {
+        Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.')
+      }
+    } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
+    setElaborandoMedia(false)
+  }
+
+  async function toggleRegistrazioneServiziOnboarding() {
+    if (registrando) {
+      setRegistrando(false)
+      if (!recording) return
+      setRecording(null)
+      setElaborandoMedia(true)
+      try {
+        const token = await tokenOnboarding()
+        if (!token) return
+        const serviziEstratti = await fermaRegistrazioneServiziSmart(recording, { backendUrl, token })
+        if (serviziEstratti.length) {
+          setServizi(serviziEstratti)
+          setModalitaServizi('manuale')
+        } else {
+          Alert.alert('Nessun servizio trovato', 'Riprova descrivendo meglio i servizi.')
+        }
+      } catch { Alert.alert('Errore', 'Impossibile elaborare il vocale') }
+      setElaborandoMedia(false)
+      return
+    }
+
+    const rec = await avviaRegistrazioneListinoSmart()
+    if (!rec) { Alert.alert('Permesso negato', 'Serve accesso al microfono.'); return }
+    setRecording(rec)
+    setRegistrando(true)
+  }
+
   async function aggiornaPreview(tmpl: string) {
     setCaricandoPreview(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      const token = await tokenOnboarding()
+      if (!token) return
       const categoriaDemo = categoria && DEMO_PREVENTIVO[categoria] ? categoria : 'altro'
-      const testoDemo = generaTestoDemo(categoriaDemo)
-      const res = await fetch(`${backendUrl}/api/genera-pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          testo: testoDemo,
-          template: tmpl,
-          versione_padre_id: null,
-          demo_profile: {
-            nome_azienda: DEMO_NOME_AZIENDA[categoriaDemo],
-            citta: 'Roma',
-            piva: '12345678901',
-            telefono: '06 1234567',
-            firma_nome: firmaNome.trim() || 'Mario Rossi',
-          },
-          demo_cliente: {
-            nome: 'Marco Bianchi',
-            email: 'marco.bianchi@email.it',
-            telefono: '333 1234567',
-            indirizzo: 'Via Roma 24, 00100 Roma',
-          },
-        })
+      const nomeAziendaDemo = DEMO_NOME_AZIENDA[categoriaDemo]
+      const testoDemo = generaTestoDemo(categoriaDemo, tmpl === 'artigiano')
+      const data = await generaPreviewOnboarding({
+        backendUrl,
+        token,
+        testo: testoDemo,
+        template: tmpl,
+        demoProfile: {
+          nome_azienda: nomeAziendaDemo,
+          citta: 'Roma',
+          piva: '12345678901',
+          telefono: '06 1234567',
+          firma_nome: firmaNome.trim() || nomeAziendaDemo,
+        },
+        demoCliente: {
+          nome: 'Marco Bianchi',
+          email: 'marco.bianchi@email.it',
+          telefono: '333 1234567',
+          indirizzo: 'Via Roma 24, 00100 Roma',
+        },
       })
-      const data = await res.json()
       if (data.html) {
         const htmlScalato = data.html.replace(
           '</head>',
@@ -355,7 +400,7 @@ export default function Onboarding() {
         )
         setHtmlPreview(htmlScalato)
       }
-    } catch (e) { console.log('Preview fallita:', e) }
+    } catch {}
     setCaricandoPreview(false)
   }
 
@@ -460,37 +505,19 @@ export default function Onboarding() {
   async function completa() {
     setSaving(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Salva profilo
-      await supabase.from('profiles').upsert({
-        id: user.id,
-        nome_azienda: nomeAzienda.trim(),
-        citta: citta.trim(),
+      const { error } = await completaOnboarding({
+        nomeAzienda,
+        citta,
         categoria,
-        template_preferito: templateScelto,
-        firma_nome: firmaNome.trim(),
+        templateScelto,
+        firmaNome,
+        servizi,
       })
-
-      // Salva servizi
-      if (servizi.length > 0) {
-        const { error: erroreServizi } = await supabase.from('servizi').insert(
-          servizi.map((s, i) => ({
-            user_id: user.id,
-            nome: s.nome,
-            descrizione: s.descrizione || null,
-            costo: s.costo ? parseFloat(s.costo) : null,
-            unita: s.unita,
-            ordine: i
-          }))
-        )
-        if (erroreServizi) console.log('ERRORE SALVATAGGIO SERVIZI:', erroreServizi.message)
-      }
+      if (error) throw error
 
       router.replace('/(tabs)')
-    } catch (err: any) {
-      Alert.alert('Errore', err.message)
+    } catch (err: unknown) {
+      Alert.alert('Errore', errorMessage(err))
     }
     setSaving(false)
   }
@@ -654,27 +681,7 @@ export default function Onboarding() {
             <Text style={styles.testoServiziHint}>Scatta o carica una foto del tuo listino — anche scritto a mano.</Text>
             <TouchableOpacity
               style={[styles.testoServiziInput, { height: 120, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed' }]}
-              onPress={async () => {
-                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-                if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla galleria.'); return }
-                const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, base64: true })
-                if (!result.canceled && result.assets[0].base64) {
-                  setElaborandoMedia(true)
-                  try {
-                    const { data: { session } } = await supabase.auth.getSession()
-                    if (!session) return
-                    const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                      body: JSON.stringify({ immagine_base64: result.assets[0].base64, mime_type: result.assets[0].mimeType || 'image/jpeg' })
-                    })
-                    const data = await res.json()
-                    if (data.servizi) { setServizi(data.servizi); setModalitaServizi('manuale') }
-                    else Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.')
-                  } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
-                  setElaborandoMedia(false)
-                }
-              }}
+              onPress={() => gestisciFotoServiziOnboarding('galleria')}
             >
               {elaborandoMedia ? <ActivityIndicator color="#0E9F8E" /> : <>
                 <Text style={{ fontSize: 32 }}>📷</Text>
@@ -684,27 +691,7 @@ export default function Onboarding() {
             <TouchableOpacity
               style={[styles.elaboraBtn, elaborandoMedia && styles.nextBtnDisabled]}
               disabled={elaborandoMedia}
-              onPress={async () => {
-                const { status } = await ImagePicker.requestCameraPermissionsAsync()
-                if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla fotocamera.'); return }
-                const result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true })
-                if (!result.canceled && result.assets[0].base64) {
-                  setElaborandoMedia(true)
-                  try {
-                    const { data: { session } } = await supabase.auth.getSession()
-                    if (!session) return
-                    const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                      body: JSON.stringify({ immagine_base64: result.assets[0].base64, mime_type: 'image/jpeg' })
-                    })
-                    const data = await res.json()
-                    if (data.servizi) { setServizi(data.servizi); setModalitaServizi('manuale') }
-                    else Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.')
-                  } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
-                  setElaborandoMedia(false)
-                }
-              }}
+              onPress={() => gestisciFotoServiziOnboarding('camera')}
             >
               <Text style={styles.elaboraBtnText}>📸 Scatta una foto</Text>
             </TouchableOpacity>
@@ -716,51 +703,7 @@ export default function Onboarding() {
             <Text style={styles.testoServiziHint}>Descrivi i tuoi servizi a voce — prezzi, nomi, unità. Claude trascrive e struttura tutto.</Text>
             <TouchableOpacity
               style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: registrando ? '#EF4444' : '#0D1B2A', justifyContent: 'center', alignItems: 'center', marginVertical: 8 }}
-              onPress={async () => {
-                if (registrando) {
-                  setRegistrando(false)
-                  if (!recording) return
-                  await recording.stopAndUnloadAsync()
-                  const uri = recording.getURI()
-                  setRecording(null)
-                  if (!uri) return
-                  setElaborandoMedia(true)
-                  try {
-                    const audioData = await fetch(uri)
-                    const blob = await audioData.blob()
-                    const reader = new FileReader()
-                    reader.onloadend = async () => {
-                      const base64 = (reader.result as string).split(',')[1]
-                      const { data: { session } } = await supabase.auth.getSession()
-                      if (!session) return
-                      const trRes = await fetch(`${backendUrl}/api/trascrivi`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                        body: JSON.stringify({ audio: base64 })
-                      })
-                      const trData = await trRes.json()
-                      if (!trData.trascrizione) { Alert.alert('Errore', 'Trascrizione fallita'); setElaborandoMedia(false); return }
-                      const elRes = await fetch(`${backendUrl}/api/elabora-servizi`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-                        body: JSON.stringify({ testo: trData.trascrizione })
-                      })
-                      const elData = await elRes.json()
-                      if (elData.servizi) { setServizi(elData.servizi); setModalitaServizi('manuale') }
-                      else Alert.alert('Nessun servizio trovato', 'Riprova descrivendo meglio i servizi.')
-                      setElaborandoMedia(false)
-                    }
-                    reader.readAsDataURL(blob)
-                  } catch { Alert.alert('Errore', 'Impossibile elaborare il vocale'); setElaborandoMedia(false) }
-                } else {
-                  const { status } = await Audio.requestPermissionsAsync()
-                  if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso al microfono.'); return }
-                  await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true })
-                  const { recording: rec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
-                  setRecording(rec)
-                  setRegistrando(true)
-                }
-              }}
+              onPress={toggleRegistrazioneServiziOnboarding}
             >
               {elaborandoMedia ? <ActivityIndicator color="#fff" size="large" /> : <Text style={{ fontSize: 32 }}>{registrando ? '⏹' : '🎙'}</Text>}
             </TouchableOpacity>

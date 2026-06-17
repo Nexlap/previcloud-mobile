@@ -10,8 +10,23 @@ import { creaLinkPagamento, generaPDF as generaPDFApi, generaPDFFile, salvaPDF a
 import PreviewPaginata from '../../lib/components/PreviewPaginata'
 import { TEMPLATES } from "../../lib/constants"
 import { eventBus } from '../../lib/eventBus'
-import { supabase } from "../../lib/supabase"
+import {
+  aggiornaTitoloPreventivo,
+  caricaClientePreventivo,
+  caricaClientiPreventivo,
+  caricaMetodiPagamentoPreventivo,
+  caricaTemplatePreferito,
+  creaAbbonamentoDaPreventivo,
+  creaClientePreventivo,
+  MetodoPagamento,
+  salvaPreventivoPdf,
+  salvaTemplatePreferito,
+  segnaPreventivoInviato,
+  tokenPreventivoPdf,
+} from '../../lib/api/preventivoPdf'
 import { trackEvento } from "../../lib/utils/analytics"
+import { errorMessage } from '../../lib/utils/errors'
+import { resetBuilderState } from './builder'
 
 type Params = {
   testo: string
@@ -58,10 +73,7 @@ export default function PreventivoPDF() {
 
   useEffect(() => {
     trackEvento('preview_pdf_aperta', 'preventivo-pdf')
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.replace('/(auth)/login'); return }
-      setToken(session.access_token)
-    })
+    tokenPreventivoPdf().then(setToken)
     caricaTemplatePref()
     caricaClienti()
     caricaMetodiPagamento()
@@ -69,8 +81,7 @@ export default function PreventivoPDF() {
 
   useEffect(() => {
     if (cliente_id) {
-      supabase.from('clienti').select('id, nome').eq('id', cliente_id).single()
-        .then(({ data }) => { if (data) setClienteSelezionato(data) })
+      caricaClientePreventivo(cliente_id).then(data => { if (data) setClienteSelezionato(data) })
     }
   }, [cliente_id])
 
@@ -114,44 +125,31 @@ export default function PreventivoPDF() {
         setHtmlPreview(htmlScalato)
       }
     } catch (e) {
-      console.log('Preview fallita:', e)
+      return
     }
     setCaricandoPreview(false)
   }
 
   async function caricaTemplatePref() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase.from('profiles').select('template_preferito').eq('id', user.id).single()
-    if (data?.template_preferito) setTemplate(data.template_preferito)
+    const templatePreferito = await caricaTemplatePreferito()
+    if (templatePreferito) setTemplate(templatePreferito)
   }
 
   async function caricaClienti() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase.from('clienti').select('id, nome').eq('user_id', user.id).order('nome')
-    if (data) setClienti(data)
+    setClienti(await caricaClientiPreventivo())
   }
 
   async function caricaMetodiPagamento() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase.from('metodi_pagamento').select('*').eq('user_id', user.id).order('predefinito', { ascending: false })
-    if (data) {
-      setMetodiPagamento(data)
-      const metodoDaParam = metodo_pagamento_id ? data.find((m: any) => m.id === metodo_pagamento_id) : null
-      const predefinito = data.find((m: any) => m.predefinito)
-      if (metodoDaParam || predefinito) setMetodoPagamentoSelezionato(metodoDaParam || predefinito)
-    }
+    const data = await caricaMetodiPagamentoPreventivo()
+    setMetodiPagamento(data)
+    const metodoDaParam = metodo_pagamento_id ? data.find((m: MetodoPagamento) => m.id === metodo_pagamento_id) : null
+    const predefinito = data.find((m: MetodoPagamento) => m.predefinito)
+    if (metodoDaParam || predefinito) setMetodoPagamentoSelezionato(metodoDaParam || predefinito)
   }
 
   async function aggiungiESelezionaCliente() {
     if (!nuovoNomeCliente.trim()) return
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase.from('clienti')
-      .insert({ nome: nuovoNomeCliente.trim(), user_id: user.id })
-      .select().single()
+    const data = await creaClientePreventivo(nuovoNomeCliente)
     if (data) {
       setClienteSelezionato({ id: data.id, nome: data.nome })
       setClienti(c => [...c, { id: data.id, nome: data.nome }])
@@ -165,12 +163,12 @@ export default function PreventivoPDF() {
     try {
       const data = await generaPDFFile({ testo: await testoConPagamento(), template, token, versione_padre_id: versione_padre_id || null, cliente_id: clienteSelezionato?.id || '', nascondi_prezzi: nascondiPrezzi })
       const uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
-      await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as any })
+      await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as FileSystem.EncodingType })
 
       let pdfUrl = ''
       try {
         pdfUrl = await salvaPDFApi(data.pdf_base64, token)
-      } catch (e) { console.log('Salvataggio PDF fallito:', e) }
+      } catch {}
 
       const titoloAuto = clienteSelezionato
         ? `Preventivo ${clienteSelezionato.nome}`
@@ -184,93 +182,55 @@ export default function PreventivoPDF() {
       }
 
       mostraToast()
+      resetBuilderState()
+      eventBus.emit('reset-builder')
 
       // Crea abbonamento automaticamente se attivo
-if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) {
-    const importo = parseFloat(abImporto.replace(',', '.'))
-    const giorno = parseInt(abGiorno)
-    const mensilita = abMensilita ? parseInt(abMensilita) : null
-       if (importo > 0 && giorno >= 1 && giorno <= 31) {
-      // Controlla se esiste già un abbonamento attivo
-      const { data: abEsistente } = await supabase
-        .from('abbonamenti')
-        .select('id')
-        .eq('cliente_id', clienteSelezionato.id)
-        .eq('attivo', true)
-        .single()
-
-      if (abEsistente) {
+      if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
+        const abbonamento = await creaAbbonamentoDaPreventivo({
+          cliente: clienteSelezionato,
+          preventivoId: idSalvato,
+          importoRaw: abImporto,
+          giornoRaw: abGiorno,
+          mensilitaRaw: abMensilita,
+        })
+        if (abbonamento.esistente) {
         Alert.alert('Abbonamento esistente', `${clienteSelezionato.nome} ha già un abbonamento attivo. Gestiscilo dalla sua cartella cliente.`)
-      } else {
-      const { data: ab } = await supabase.from('abbonamenti').insert({
-        user_id: user.id,
-        cliente_id: clienteSelezionato.id,
-        importo_default: importo,
-        giorno_scadenza: giorno,
-        attivo: true,
-        preventivo_id: idSalvato,
-        numero_mensilita: mensilita,
-        tipo: mensilita ? 'rate' : 'canone'
-      }).select().single()
-            if (ab) {
-              const ora = new Date()
-              const inserimenti = mensilita
-                ? Array.from({ length: mensilita }, (_, i) => {
-                    const d = new Date(ora.getFullYear(), ora.getMonth() + i, 1)
-                    return { abbonamento_id: ab.id, mese: d.getMonth() + 1, anno: d.getFullYear(), importo, acconto: 0, stato: 'da_incassare' }
-                  })
-                : [{ abbonamento_id: ab.id, mese: ora.getMonth() + 1, anno: ora.getFullYear(), importo, acconto: 0, stato: 'da_incassare' }]
-              const { error: errRate } = await supabase.from('rate_abbonamento').insert(inserimenti)
-              console.log('Rate inserite:', inserimenti.length, 'Errore:', errRate)
-            }
-          }
-        }
         }
       }
 
       setTitolo(clienteSelezionato ? `Preventivo ${clienteSelezionato.nome}` : '')
       setTimeout(() => setMostraModalTitolo(true), 800)
 
-    } catch (err: any) {
-      Alert.alert('Errore', err.message)
+    } catch (err: unknown) {
+      Alert.alert('Errore', errorMessage(err))
     }
     setGenerando(false)
   }
 
   async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = ''): Promise<string | null> {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
     const match = testo.match(/TOTALE[:\s]*?€?\s*([\d.,]+)/i)
     const importo = match ? parseFloat(match[1].replace(',', '.')) : null
-    const { data } = await supabase.from('preventivi').insert({
-      user_id: user.id,
-      testo_preventivo: testo,
+    return salvaPreventivoPdf({
+      testo,
       template,
       versione: ver,
-      preventivo_padre_id: versione_padre_id || null,
-      is_ultimo: true,
-      stato: 'bozza',
-      cliente_id: clienteSelezionato?.id || null,
-      nome_cliente: clienteSelezionato?.nome || null,
+      versionePadreId: versione_padre_id || null,
+      cliente: clienteSelezionato,
       titolo: titoloScelto,
-      pdf_url: pdfUrl || null,
-      importo_totale: importo
-    }).select('id').single()
-    return data?.id || null
+      pdfUrl,
+      importoTotale: importo,
+    })
   }
 
   async function aggiornaTitolo(nuovoTitolo: string) {
     if (!preventivoSalvatoId || !nuovoTitolo.trim()) return
-    await supabase.from('preventivi').update({ titolo: nuovoTitolo }).eq('id', preventivoSalvatoId)
+    await aggiornaTitoloPreventivo(preventivoSalvatoId, nuovoTitolo)
   }
 
   async function salvaTemplate(tmpl: string) {
     setTemplate(tmpl)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('profiles').update({ template_preferito: tmpl }).eq('id', user.id)
+    await salvaTemplatePreferito(tmpl)
   }
 
   function mostraToast() {
@@ -615,7 +575,7 @@ if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
                 setMostraModalTitolo(false)
                 await aggiornaTitolo(titolo)
                 if (segnaInviato && preventivoSalvatoId) {
-                  await supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', preventivoSalvatoId)
+                  await segnaPreventivoInviato(preventivoSalvatoId)
                   eventBus.emit('aggiorna-home')
                 }
                 setSegnaInviato(false)
@@ -628,7 +588,7 @@ if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
               onPress={async () => {
                 setMostraModalTitolo(false)
                 if (segnaInviato && preventivoSalvatoId) {
-                  await supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', preventivoSalvatoId)
+                  await segnaPreventivoInviato(preventivoSalvatoId)
                   eventBus.emit('aggiorna-home')
                 }
                 setSegnaInviato(false)

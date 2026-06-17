@@ -1,13 +1,13 @@
 import { Audio } from 'expo-av'
 import Constants from 'expo-constants'
-import * as FileSystem from 'expo-file-system/legacy'
 import { router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator, Alert, Animated, StyleSheet,
   Text, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from "../../lib/supabase"
+import { sessionTokenRegistra, trascriviRegistrazione } from '../../lib/api/registra'
+import { errorMessage } from '../../lib/utils/errors'
 
 export default function RegistraVoce() {
   const [registrando, setRegistrando] = useState(false)
@@ -18,9 +18,7 @@ export default function RegistraVoce() {
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setToken(session.access_token)
-    })
+    sessionTokenRegistra().then(setToken)
   }, [])
 
   useEffect(() => {
@@ -70,33 +68,18 @@ export default function RegistraVoce() {
     try {
       await recordingRef.current.stopAndUnloadAsync()
       const uri = recordingRef.current.getURI()
-      console.log('URI:', uri)
       recordingRef.current = null
       if (!uri) throw new Error('File audio non trovato')
 
-      const audioBase64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any })
-      console.log('Base64 length:', audioBase64.length)
-
-      const res = await fetch(`${backendUrl}/api/trascrivi`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ audio: audioBase64, durata: 0 })
-      })
-
-      const text = await res.text()
-      console.log('Risposta raw:', text)
-      const data = JSON.parse(text)
-
-      if (data.error) throw new Error(data.error)
-        console.log('Trascrizione ricevuta:', data.trascrizione)
-      if (data.trascrizione) {
+      const trascrizione = await trascriviRegistrazione({ backendUrl, token, uri })
+      if (trascrizione) {
         router.push({
           pathname: '/(tabs)/nuovo',
-          params: { trascrizione: data.trascrizione.trim() }
+          params: { trascrizione }
         })
       }
-    } catch (err: any) {
-      Alert.alert('Errore trascrizione', err.message)
+    } catch (err: unknown) {
+      Alert.alert('Errore trascrizione', errorMessage(err))
     }
     setTrascrivendo(false)
   }

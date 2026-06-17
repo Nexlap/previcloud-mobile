@@ -7,8 +7,10 @@ import {
   ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from '../../lib/supabase'
 import { ServizioForm } from '../../lib/types'
+import { caricaSettingsData, inviaSegnalazioneSettings, salvaProfiloSettings, sessionToken, uploadLogoSettings } from '../../lib/api/settings'
+import { avviaRegistrazioneListinoSmart, elaboraListinoDaTestoSmart, fermaRegistrazioneListinoSmart, scattaFotoListinoSmart, scegliFotoListinoSmart } from '../../lib/features/listino/media'
+import { errorMessage } from '../../lib/utils/errors'
 
 export default function Settings() {
   const [form, setForm] = useState({
@@ -54,15 +56,8 @@ export default function Settings() {
       return
     }
     setInviandoSegnalazione(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { error, user } = await inviaSegnalazioneSettings(segnalazione)
     if (!user) return
-    const { error } = await supabase.from('segnalazioni').insert({
-      user_id: user.id,
-      tipo: segnalazione.tipo,
-      titolo: segnalazione.titolo.trim(),
-      descrizione: segnalazione.descrizione.trim(),
-      schermata: segnalazione.schermata.trim() || null,
-    })
     setInviandoSegnalazione(false)
     if (error) { Alert.alert('Errore', 'Impossibile inviare la segnalazione'); return }
     Alert.alert('Inviata', 'Grazie! Analizzeremo il problema il prima possibile.')
@@ -74,33 +69,60 @@ export default function Settings() {
     if (!testoListino.trim()) return
     setElaborandoListino(true)
     try {
-      const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ testo: testoListino })
-      })
-      const data = await res.json()
-      if (!data.servizi?.length) { Alert.alert('Nessun servizio trovato', 'Prova a essere più specifico.'); setElaborandoListino(false); return }
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const nuovi = data.servizi.map((s: any, i: number) => ({
-        user_id: user.id, nome: s.nome, descrizione: s.descrizione || null,
-        costo: s.costo ? parseFloat(s.costo) : null, unita: s.unita || 'cad', ordine: servizi.length + i
-      }))
-      const { data: inseriti, error } = await supabase.from('servizi').insert(nuovi).select()
-      if (error) { Alert.alert('Errore', error.message); return }
-      if (inseriti) setServizi(s => [...s, ...inseriti as any[]])
+      const inseriti = await elaboraListinoDaTestoSmart({ backendUrl, token, testo: testoListino, ordineBase: servizi.length })
+      if (!inseriti.length) { Alert.alert('Nessun servizio trovato', 'Prova a essere piu specifico.'); setElaborandoListino(false); return }
+      setServizi(s => [...s, ...inseriti])
       setTestoListino(''); setMostraModalListino(false)
       Alert.alert('Servizi aggiunti', `${inseriti.length} servizi aggiunti al tuo listino.`)
     } catch { Alert.alert('Errore', 'Impossibile elaborare i servizi') }
     setElaborandoListino(false)
   }
 
+  async function gestisciFotoListinoSmart(sorgente: 'galleria' | 'camera') {
+    setElaborandoListino(true)
+    try {
+      const result = sorgente === 'galleria'
+        ? await scegliFotoListinoSmart({ backendUrl, token, ordineBase: servizi.length })
+        : await scattaFotoListinoSmart({ backendUrl, token, ordineBase: servizi.length })
+
+      if (result.permissionDenied === 'gallery') { Alert.alert('Permesso negato', 'Serve accesso alla galleria.'); return }
+      if (result.permissionDenied === 'camera') { Alert.alert('Permesso negato', 'Serve accesso alla fotocamera.'); return }
+      if (result.canceled) return
+      if (result.empty) { Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.'); return }
+
+      setServizi(s => [...s, ...result.inseriti])
+      setMostraModalListino(false); setListinoTab('testo')
+      Alert.alert('Servizi aggiunti', `${result.inseriti.length} servizi aggiunti al tuo listino.`)
+    } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
+    setElaborandoListino(false)
+  }
+
+  async function toggleRegistrazioneListinoSmart() {
+    if (registrando) {
+      setRegistrando(false)
+      if (!recording) return
+      setRecording(null)
+      setElaborandoListino(true)
+      try {
+        const inseriti = await fermaRegistrazioneListinoSmart(recording, { backendUrl, token, ordineBase: servizi.length })
+        if (!inseriti.length) { Alert.alert('Nessun servizio trovato', 'Riprova descrivendo meglio i servizi.'); return }
+        setServizi(s => [...s, ...inseriti])
+        setMostraModalListino(false); setListinoTab('testo')
+        Alert.alert('Servizi aggiunti', `${inseriti.length} servizi aggiunti al tuo listino.`)
+      } catch { Alert.alert('Errore', 'Impossibile elaborare il vocale') }
+      setElaborandoListino(false)
+      return
+    }
+
+    const rec = await avviaRegistrazioneListinoSmart()
+    if (!rec) { Alert.alert('Permesso negato', 'Serve accesso al microfono.'); return }
+    setRecording(rec)
+    setRegistrando(true)
+  }
+
   useEffect(() => {
     carica()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setToken(session.access_token)
-    })
+    sessionToken().then(setToken)
   }, [])
 
   useEffect(() => {
@@ -111,8 +133,7 @@ export default function Settings() {
         { text: 'Abbandona', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
         { text: 'Continua', style: 'cancel' },
         { text: 'Salva', onPress: async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (user) await supabase.from('profiles').update(formRef.current).eq('id', user.id)
+  await salvaProfiloSettings(formRef.current)
   navigation.dispatch(e.data.action)
 }}
       ])
@@ -121,47 +142,22 @@ export default function Settings() {
   }, [modificheNonSalvate, navigation])
 
   async function carica() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.replace('/(auth)/login'); return }
-
-    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    if (data) {
-      const nuovoForm = {
-        nome_azienda: data.nome_azienda || '',
-        categoria: data.categoria || 'videomaker',
-        citta: data.citta || '',
-        piva: data.piva || '',
-        telefono: data.telefono || '',
-        tono: data.tono || 'professionale e diretto',
-        colore_brand: data.colore_brand || '0D1B2A',
-        note_pagamento: data.note_pagamento || '',
-        firma_nome: data.firma_nome || '',
-      }
-      setForm(nuovoForm)
-      formIniziale.current = nuovoForm
-      if (data.logo_url) setLogoUrl(data.logo_url)
+    const data = await caricaSettingsData()
+    if (!data) { router.replace('/(auth)/login'); return }
+    if (data.form) {
+      setForm(data.form)
+      formIniziale.current = data.form
     }
-
-    const { data: serviziData } = await supabase
-      .from('servizi')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('ordine', { ascending: true })
-
-    if (serviziData) setServizi(serviziData.map(s => ({
-      ...s,
-      costo: s.costo?.toString() || '',
-      descrizione: s.descrizione || '',
-    })))
+    if (data.logoUrl) setLogoUrl(data.logoUrl)
+    if (data.servizi) setServizi(data.servizi)
 
     setLoading(false)
   }
 
   async function salva() {
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { error, user } = await salvaProfiloSettings(form)
     if (!user) return
-    const { error } = await supabase.from('profiles').update(form).eq('id', user.id)
     setSaving(false)
     if (error) Alert.alert('Errore', error.message)
     else { Alert.alert('✓ Salvato', 'Profilo aggiornato.'); setModificheNonSalvate(false); if (formIniziale.current) formIniziale.current = form }
@@ -189,17 +185,16 @@ export default function Settings() {
       const sizeKB = (asset.base64.length * 0.75) / 1024
       if (sizeKB > 500) { Alert.alert('Immagine troppo grande', 'Max 500KB'); setUploadingLogo(false); return }
 
-      const res = await fetch(`${backendUrl}/api/upload-logo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ logo_base64: asset.base64, mime_type: asset.mimeType || 'image/jpeg' })
+      const logoUrl = await uploadLogoSettings({
+        backendUrl,
+        token,
+        logoBase64: asset.base64,
+        mimeType: asset.mimeType || 'image/jpeg',
       })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setLogoUrl(data.logo_url)
+      setLogoUrl(logoUrl)
       Alert.alert('✓ Logo caricato', 'Apparirà su tutti i tuoi preventivi PDF.')
-    } catch (err: any) {
-      Alert.alert('Errore', err.message)
+    } catch (err: unknown) {
+      Alert.alert('Errore', errorMessage(err))
     }
     setUploadingLogo(false)
   }
@@ -354,13 +349,9 @@ export default function Settings() {
   <Text style={styles.fiscaleBtnArrow}>›</Text>
 </TouchableOpacity>
 
-        <TouchableOpacity style={styles.segnalazioneBtn} onPress={() => setMostraModalSegnalazione(true)}>
-          <Text style={styles.segnalazioneBtnIcon}>🐛</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.segnalazioneBtnText}>Segnala un problema</Text>
-            <Text style={styles.segnalazioneBtnSub}>Bug, suggerimenti o richieste</Text>
-          </View>
-          <Text style={{ fontSize: 18, color: '#9CA3AF' }}>›</Text>
+        <TouchableOpacity style={styles.fiscaleBtn} onPress={() => setMostraModalSegnalazione(true)}>
+          <Text style={styles.fiscaleBtnText}>🐛 Segnala un problema</Text>
+          <Text style={styles.fiscaleBtnArrow}>›</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={salva} disabled={saving}>
@@ -480,37 +471,7 @@ export default function Settings() {
                 </Text>
                 <TouchableOpacity
                   style={{ backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', borderStyle: 'dashed', padding: 32, alignItems: 'center', gap: 8 }}
-                  onPress={async () => {
-                    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-                    if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla galleria.'); return }
-                    const result = await ImagePicker.launchImageLibraryAsync({
-                      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                      quality: 0.7, base64: true
-                    })
-                    if (!result.canceled && result.assets[0].base64) {
-                      setElaborandoListino(true)
-                      try {
-                        const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                          body: JSON.stringify({ immagine_base64: result.assets[0].base64, mime_type: result.assets[0].mimeType || 'image/jpeg' })
-                        })
-                        const data = await res.json()
-                        if (!data.servizi?.length) { Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.'); setElaborandoListino(false); return }
-                        const { data: { user } } = await supabase.auth.getUser()
-                        if (!user) return
-                        const nuovi = data.servizi.map((s: any, i: number) => ({
-                          user_id: user.id, nome: s.nome, descrizione: s.descrizione || null,
-                          costo: s.costo ? parseFloat(s.costo) : null, unita: s.unita || 'cad', ordine: servizi.length + i
-                        }))
-                        const { data: inseriti } = await supabase.from('servizi').insert(nuovi).select()
-                        if (inseriti) setServizi(s => [...s, ...inseriti as any[]])
-                        setMostraModalListino(false); setListinoTab('testo')
-                        Alert.alert('✓ Servizi aggiunti', `${inseriti?.length} servizi aggiunti al tuo listino.`)
-                      } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
-                      setElaborandoListino(false)
-                    }
-                  }}
+                  onPress={() => gestisciFotoListinoSmart('galleria')}
                 >
                   {elaborandoListino
                     ? <ActivityIndicator color="#0E9F8E" />
@@ -523,34 +484,7 @@ export default function Settings() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={{ backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 16, alignItems: 'center', gap: 6 }}
-                  onPress={async () => {
-                    const { status } = await ImagePicker.requestCameraPermissionsAsync()
-                    if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla fotocamera.'); return }
-                    const result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true })
-                    if (!result.canceled && result.assets[0].base64) {
-                      setElaborandoListino(true)
-                      try {
-                        const res = await fetch(`${backendUrl}/api/elabora-servizi`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                          body: JSON.stringify({ immagine_base64: result.assets[0].base64, mime_type: 'image/jpeg' })
-                        })
-                        const data = await res.json()
-                        if (!data.servizi?.length) { Alert.alert('Nessun servizio trovato', 'Prova con un\'altra foto.'); setElaborandoListino(false); return }
-                        const { data: { user } } = await supabase.auth.getUser()
-                        if (!user) return
-                        const nuovi = data.servizi.map((s: any, i: number) => ({
-                          user_id: user.id, nome: s.nome, descrizione: s.descrizione || null,
-                          costo: s.costo ? parseFloat(s.costo) : null, unita: s.unita || 'cad', ordine: servizi.length + i
-                        }))
-                        const { data: inseriti } = await supabase.from('servizi').insert(nuovi).select()
-                        if (inseriti) setServizi(s => [...s, ...inseriti as any[]])
-                        setMostraModalListino(false); setListinoTab('testo')
-                        Alert.alert('✓ Servizi aggiunti', `${inseriti?.length} servizi aggiunti al tuo listino.`)
-                      } catch { Alert.alert('Errore', 'Impossibile elaborare la foto') }
-                      setElaborandoListino(false)
-                    }
-                  }}
+                  onPress={() => gestisciFotoListinoSmart('camera')}
                 >
                   <Text style={{ fontSize: 36 }}>📸</Text>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#0D1B2A' }}>Scatta una foto</Text>
@@ -566,62 +500,7 @@ export default function Settings() {
                 </Text>
                 <TouchableOpacity
                   style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: registrando ? '#EF4444' : '#0D1B2A', justifyContent: 'center', alignItems: 'center', marginVertical: 8 }}
-                  onPress={async () => {
-                    if (registrando) {
-                      // Stop registrazione
-                      setRegistrando(false)
-                      if (!recording) return
-                      await recording.stopAndUnloadAsync()
-                      const uri = recording.getURI()
-                      setRecording(null)
-                      if (!uri) return
-                      setElaborandoListino(true)
-                      try {
-                        const audioData = await fetch(uri)
-                        const blob = await audioData.blob()
-                        const reader = new FileReader()
-                        reader.onloadend = async () => {
-                          const base64 = (reader.result as string).split(',')[1]
-                          // Prima trascrivi
-                          const trRes = await fetch(`${backendUrl}/api/trascrivi`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                            body: JSON.stringify({ audio: base64 })
-                          })
-                          const trData = await trRes.json()
-                          if (!trData.trascrizione) { Alert.alert('Errore', 'Trascrizione fallita'); setElaborandoListino(false); return }
-                          // Poi elabora
-                          const elRes = await fetch(`${backendUrl}/api/elabora-servizi`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                            body: JSON.stringify({ testo: trData.trascrizione })
-                          })
-                          const elData = await elRes.json()
-                          if (!elData.servizi?.length) { Alert.alert('Nessun servizio trovato', 'Riprova descrivendo meglio i servizi.'); setElaborandoListino(false); return }
-                          const { data: { user } } = await supabase.auth.getUser()
-                          if (!user) return
-                          const nuovi = elData.servizi.map((s: any, i: number) => ({
-                            user_id: user.id, nome: s.nome, descrizione: s.descrizione || null,
-                            costo: s.costo ? parseFloat(s.costo) : null, unita: s.unita || 'cad', ordine: servizi.length + i
-                          }))
-                          const { data: inseriti } = await supabase.from('servizi').insert(nuovi).select()
-                          if (inseriti) setServizi(s => [...s, ...inseriti as any[]])
-                          setMostraModalListino(false); setListinoTab('testo')
-                          Alert.alert('✓ Servizi aggiunti', `${inseriti?.length} servizi aggiunti al tuo listino.`)
-                          setElaborandoListino(false)
-                        }
-                        reader.readAsDataURL(blob)
-                      } catch { Alert.alert('Errore', 'Impossibile elaborare il vocale'); setElaborandoListino(false) }
-                    } else {
-                      // Avvia registrazione
-                      const { status } = await Audio.requestPermissionsAsync()
-                      if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso al microfono.'); return }
-                      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true })
-                      const { recording: rec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
-                      setRecording(rec)
-                      setRegistrando(true)
-                    }
-                  }}
+                  onPress={toggleRegistrazioneListinoSmart}
                 >
                   {elaborandoListino
                     ? <ActivityIndicator color="#fff" size="large" />

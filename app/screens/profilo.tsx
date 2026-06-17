@@ -1,12 +1,11 @@
-import * as LocalAuthentication from 'expo-local-authentication'
 import Constants from 'expo-constants'
 import { router } from 'expo-router'
-import * as SecureStore from 'expo-secure-store'
 import { useEffect, useState } from 'react'
 import {
-  ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View
+  ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { supabase } from "../../lib/supabase"
+import { attivaBiometrico, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, logoutAccount, sessioneCorrente, verificaPasswordAccount } from '../../lib/api/profilo'
+import { errorMessage } from '../../lib/utils/errors'
 
 const NAVY = '#0D1B2A'
 const TEAL = '#0E9F8E'
@@ -22,34 +21,29 @@ export default function Profilo() {
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
   const [notifiche, setNotifiche] = useState(true)
   const [eliminandoAccount, setEliminandoAccount] = useState(false)
+  const [modalPasswordElimina, setModalPasswordElimina] = useState(false)
+  const [passwordElimina, setPasswordElimina] = useState('')
+  const [verificandoPassword, setVerificandoPassword] = useState(false)
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   useEffect(() => { carica() }, [])
 
   async function carica() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    setEmail(user.email || '')
-    const { data } = await supabase.from('profiles').select('nome_azienda').eq('id', user.id).single()
-    if (data?.nome_azienda) setNomeAzienda(data.nome_azienda)
-    const disponibile = await LocalAuthentication.hasHardwareAsync()
-    const enrollato = await LocalAuthentication.isEnrolledAsync()
-    setBiometricoDisponibile(disponibile && enrollato)
-    const attivato = await SecureStore.getItemAsync('biometrico_attivato')
-    setBiometricoAttivato(attivato === 'true')
+    const profilo = await caricaProfiloUtente()
+    if (!profilo) return
+    setEmail(profilo.email)
+    if (profilo.nomeAzienda) setNomeAzienda(profilo.nomeAzienda)
+    const biometrico = await caricaStatoBiometrico()
+    setBiometricoDisponibile(biometrico.disponibile)
+    setBiometricoAttivato(biometrico.attivato)
   }
 
   async function toggleBiometrico(val: boolean) {
     if (val) {
-      const result = await LocalAuthentication.authenticateAsync({ promptMessage: 'Conferma per attivare' })
-      if (result.success) {
-        await SecureStore.setItemAsync('biometrico_attivato', 'true')
-        setBiometricoAttivato(true)
-      }
+      const success = await attivaBiometrico('Conferma per attivare')
+      if (success) setBiometricoAttivato(true)
     } else {
-      await SecureStore.deleteItemAsync('biometrico_attivato')
-      await SecureStore.deleteItemAsync('saved_email')
-      await SecureStore.deleteItemAsync('saved_password')
+      await disattivaBiometrico()
       setBiometricoAttivato(false)
     }
   }
@@ -58,7 +52,7 @@ export default function Profilo() {
     Alert.alert('Logout', "Vuoi uscire dall'account?", [
       { text: 'Annulla', style: 'cancel' },
       { text: 'Esci', style: 'destructive', onPress: async () => {
-        await supabase.auth.signOut()
+        await logoutAccount()
         router.replace('/(auth)/login')
       }}
     ])
@@ -73,7 +67,7 @@ export default function Profilo() {
         return
       }
 
-      const { data: { session } } = await supabase.auth.getSession()
+      const session = await sessioneCorrente()
       if (!session) {
         Alert.alert('Errore', 'Sessione non valida. Effettua di nuovo il login.')
         setEliminandoAccount(false)
@@ -87,12 +81,49 @@ export default function Profilo() {
       const data = await res.json()
       if (!res.ok || !data.success) throw new Error(data.error || 'Impossibile eliminare account')
 
-      await supabase.auth.signOut()
+      await logoutAccount()
       router.replace('/(auth)/login')
-    } catch (err: any) {
-      Alert.alert('Errore', err.message || 'Impossibile eliminare account')
+    } catch (err: unknown) {
+      Alert.alert('Errore', errorMessage(err, 'Impossibile eliminare account'))
       setEliminandoAccount(false)
     }
+  }
+
+  async function richiediAutenticazioneEliminazione() {
+    if (await biometriaConfigurata()) {
+      const result = await confermaConBiometria({
+        promptMessage: 'Conferma eliminazione account',
+        cancelLabel: 'Annulla',
+        disableDeviceFallback: true,
+      })
+
+      if (result.success) eliminaAccountConfermato()
+      return
+    }
+
+    setPasswordElimina('')
+    setModalPasswordElimina(true)
+  }
+
+  async function confermaPasswordEliminazione() {
+    const passwordPulita = passwordElimina.trim()
+    if (!passwordPulita) {
+      Alert.alert('Password richiesta', 'Inserisci la password attuale.')
+      return
+    }
+
+    setVerificandoPassword(true)
+    const { error } = await verificaPasswordAccount(email, passwordPulita)
+    setVerificandoPassword(false)
+
+    if (error) {
+      Alert.alert('Errore', 'Password non corretta.')
+      return
+    }
+
+    setModalPasswordElimina(false)
+    setPasswordElimina('')
+    eliminaAccountConfermato()
   }
 
   function eliminaAccount() {
@@ -109,7 +140,7 @@ export default function Profilo() {
             'Sei assolutamente sicuro? Non potrai recuperare i dati.',
             [
               { text: 'Annulla', style: 'cancel' },
-              { text: 'Elimina account', style: 'destructive', onPress: eliminaAccountConfermato },
+              { text: 'Elimina account', style: 'destructive', onPress: richiediAutenticazioneEliminazione },
             ]
           ),
         },
@@ -119,6 +150,52 @@ export default function Profilo() {
 
   return (
     <View style={styles.container}>
+      <Modal
+        visible={modalPasswordElimina}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalPasswordElimina(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.passwordModal}>
+            <Text style={styles.passwordModalTitle}>Conferma identita</Text>
+            <Text style={styles.passwordModalDesc}>
+              Inserisci la password attuale per eliminare definitivamente l'account.
+            </Text>
+            <TextInput
+              style={styles.passwordModalInput}
+              value={passwordElimina}
+              onChangeText={setPasswordElimina}
+              placeholder="Password attuale"
+              placeholderTextColor={MUTED}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <View style={styles.passwordModalActions}>
+              <TouchableOpacity
+                style={styles.passwordCancelBtn}
+                onPress={() => {
+                  setModalPasswordElimina(false)
+                  setPasswordElimina('')
+                }}
+                disabled={verificandoPassword}
+              >
+                <Text style={styles.passwordCancelText}>Annulla</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.passwordConfirmBtn, verificandoPassword && styles.deleteAccountBtnDisabled]}
+                onPress={confermaPasswordEliminazione}
+                disabled={verificandoPassword}
+              >
+                {verificandoPassword
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.passwordConfirmText}>Conferma</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backText}>←</Text>
@@ -273,4 +350,14 @@ const styles = StyleSheet.create({
   deleteAccountBtn: { backgroundColor: '#DC2626', borderRadius: 14, padding: 16, alignItems: 'center' as const },
   deleteAccountBtnDisabled: { opacity: 0.6 },
   deleteAccountText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(13, 27, 42, 0.45)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  passwordModal: { width: '100%', backgroundColor: '#fff', borderRadius: 18, padding: 20, borderWidth: 1, borderColor: BORDER },
+  passwordModalTitle: { fontSize: 17, fontWeight: '700', color: TEXT },
+  passwordModalDesc: { fontSize: 13, color: MUTED, lineHeight: 19, marginTop: 6, marginBottom: 16 },
+  passwordModalInput: { backgroundColor: GRAY, borderRadius: 12, borderWidth: 1.5, borderColor: BORDER, padding: 12, fontSize: 14, color: TEXT },
+  passwordModalActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  passwordCancelBtn: { flex: 1, borderRadius: 12, padding: 13, alignItems: 'center' as const, backgroundColor: GRAY, borderWidth: 1, borderColor: BORDER },
+  passwordCancelText: { color: TEXT, fontSize: 14, fontWeight: '600' },
+  passwordConfirmBtn: { flex: 1, borderRadius: 12, padding: 13, alignItems: 'center' as const, backgroundColor: '#DC2626' },
+  passwordConfirmText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 })

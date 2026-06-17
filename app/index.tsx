@@ -1,12 +1,12 @@
 import { useEffect } from 'react'
 import { View, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
-import { supabase } from "../lib/supabase"
+import { hasSession } from '../lib/api/auth'
 
 export default function Index() {
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+    hasSession().then((sessioneAttiva) => {
+      if (sessioneAttiva) {
         router.replace('/(tabs)')
       } else {
         router.replace('/(auth)/login')
