@@ -1,5 +1,4 @@
 import { supabase } from '../supabase'
-import { ServizioForm } from '../types'
 
 type SettingsProfile = {
   nome_azienda?: string | null
@@ -23,14 +22,6 @@ type SegnalazioneSettings = {
   schermata: string
 }
 
-type ServizioSettingsRow = {
-  id: string
-  nome: string
-  descrizione: string | null
-  costo: number | string | null
-  unita: string
-}
-
 export function normalizzaFormProfilo(data: SettingsProfile) {
   return {
     nome_azienda: data.nome_azienda || '',
@@ -50,22 +41,12 @@ export async function caricaSettingsData() {
   if (!user) return null
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  const { data: serviziData } = await supabase
-    .from('servizi')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('ordine', { ascending: true })
 
   return {
     user,
     profile,
     form: profile ? normalizzaFormProfilo(profile) : null,
     logoUrl: profile?.logo_url || '',
-    servizi: serviziData ? (serviziData as ServizioSettingsRow[]).map((servizio) => ({
-      ...servizio,
-      costo: servizio.costo?.toString() || '',
-      descrizione: servizio.descrizione || '',
-    })) as ServizioForm[] : null,
   }
 }
 

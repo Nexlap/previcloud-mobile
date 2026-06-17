@@ -1,4 +1,4 @@
-import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+﻿import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { COLORS, MESI_BREVI } from '../../constants'
 import { RataAbbonamento } from '../../types'
 
@@ -138,7 +138,7 @@ export function ClienteAbbonamentoModals({
                 <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>NOTA (opzionale)</Text>
                 <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={pagamentoNota} onChangeText={onChangePagamentoNota} placeholder="es. Bonifico 10 giugno" placeholderTextColor={COLORS.textMuted} />
                 <TouchableOpacity style={[styles.modalSaveBtn, { backgroundColor: COLORS.accent }]} onPress={onConfermaPagamento}>
-                  <Text style={styles.modalSaveBtnText}>âœ“ Registra pagamento</Text>
+                  <Text style={styles.modalSaveBtnText}>{'\u2713'} Registra pagamento</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.modalCancel} onPress={onCloseRata}>
                   <Text style={styles.modalCancelText}>Annulla</Text>

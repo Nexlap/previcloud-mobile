@@ -1,5 +1,20 @@
 import { supabase } from '../supabase'
 
+type DemoProfile = {
+  nome_azienda: string
+  citta: string
+  piva: string
+  telefono: string
+  firma_nome: string
+}
+
+type DemoCliente = {
+  nome: string
+  email: string
+  telefono: string
+  indirizzo: string
+}
+
 export async function tokenOnboarding() {
   const { data: { session } } = await supabase.auth.getSession()
   return session?.access_token || ''
@@ -17,8 +32,8 @@ export async function generaPreviewOnboarding({
   token: string
   testo: string
   template: string
-  demoProfile: any
-  demoCliente: any
+  demoProfile: DemoProfile
+  demoCliente: DemoCliente
 }) {
   const res = await fetch(`${backendUrl}/api/genera-pdf`, {
     method: 'POST',

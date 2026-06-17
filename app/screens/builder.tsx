@@ -4,7 +4,7 @@ import {
   Alert, ScrollView, StyleSheet, View
 } from 'react-native';
 import { creaServizioListino } from '../../lib/api/servizi';
-import { Cliente, Servizio, VocePreventivo } from '../../lib/types';
+import { Cliente, ProfiloFiscale, Servizio, VocePreventivo } from '../../lib/types';
 import { eventBus } from '../../lib/eventBus';
 import { trackEvento } from '../../lib/utils/analytics';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
@@ -33,7 +33,7 @@ export default function Builder() {
   const [nomeCliente, setNomeCliente] = useState(builderState.nomeCliente)
   const [noteExtra, setNoteExtra] = useState(builderState.noteExtra)
   const [includiIva, setIncludiIva] = useState(builderState.includiIva)
-  const [profiloFiscale, setProfiloFiscale] = useState<any>(null)
+  const [profiloFiscale, setProfiloFiscale] = useState<ProfiloFiscale | null>(null)
   const [mostraFiscale, setMostraFiscale] = useState(true)
   const [clienti, setClienti] = useState<Cliente[]>([])
   const [clienteSelezionato, setClienteSelezionato] = useState<Cliente | null>(null)
@@ -235,7 +235,7 @@ export default function Builder() {
         <ServiziListinoCard
           servizi={servizi}
           voci={voci}
-          onConfiguraServizi={() => router.push('/(tabs)/settings')}
+          onConfiguraServizi={() => router.push('/screens/listino')}
           onAggiungiVoce={aggiungiVoce}
           onAggiungiVoceCustom={apriVoceCustom}
         />

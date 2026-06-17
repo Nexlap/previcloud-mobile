@@ -1,3 +1,4 @@
+import type { PostgrestError } from '@supabase/supabase-js'
 import { Cliente, Preventivo } from '../types'
 import { supabase } from '../supabase'
 
@@ -9,7 +10,7 @@ export async function cambiaStatoPreventivi(ids: string[], stato: string) {
   return supabase.from('preventivi').update({ stato }).in('id', ids)
 }
 
-export async function caricaClientiPerSposta(): Promise<{ data: Cliente[] | null, error: any }> {
+export async function caricaClientiPerSposta(): Promise<{ data: Cliente[] | null, error: PostgrestError | null }> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: null }
 

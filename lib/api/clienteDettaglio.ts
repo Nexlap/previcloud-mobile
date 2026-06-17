@@ -17,7 +17,9 @@ export async function eliminaClienteDettaglio(clienteId: string) {
   return supabase.from('clienti').delete().eq('id', clienteId)
 }
 
-export async function aggiornaClienteDettaglio(clienteId: string, aggiornamento: any) {
+type ClienteAggiornamento = Partial<Pick<Cliente, 'nome' | 'telefono' | 'email' | 'indirizzo' | 'note'>>
+
+export async function aggiornaClienteDettaglio(clienteId: string, aggiornamento: ClienteAggiornamento) {
   return supabase.from('clienti').update(aggiornamento).eq('id', clienteId)
 }
 
