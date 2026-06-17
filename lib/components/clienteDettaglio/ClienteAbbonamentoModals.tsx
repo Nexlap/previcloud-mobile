@@ -32,6 +32,16 @@ type Props = {
   nomeAbTemp: string
   onChangeNomeAbTemp: (v: string) => void
   onSalvaRinomina: () => void
+
+  mostraAggiungiRata: boolean
+  onCloseAggiungiRata: () => void
+  nuovaRataMese: string
+  onChangeNuovaRataMese: (v: string) => void
+  nuovaRataAnno: string
+  onChangeNuovaRataAnno: (v: string) => void
+  nuovaRataImporto: string
+  onChangeNuovaRataImporto: (v: string) => void
+  onConfermaAggiungiRata: () => void
 }
 
 export function ClienteAbbonamentoModals({
@@ -61,6 +71,15 @@ export function ClienteAbbonamentoModals({
   nomeAbTemp,
   onChangeNomeAbTemp,
   onSalvaRinomina,
+  mostraAggiungiRata,
+  onCloseAggiungiRata,
+  nuovaRataMese,
+  onChangeNuovaRataMese,
+  nuovaRataAnno,
+  onChangeNuovaRataAnno,
+  nuovaRataImporto,
+  onChangeNuovaRataImporto,
+  onConfermaAggiungiRata,
 }: Props) {
   return (
     <>
@@ -145,6 +164,48 @@ export function ClienteAbbonamentoModals({
                 </TouchableOpacity>
               </>
             )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={mostraAggiungiRata} transparent animationType="fade" onRequestClose={onCloseAggiungiRata}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onCloseAggiungiRata}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Aggiungi rata</Text>
+            <Text style={styles.modalFieldLabel}>MESE (1-12)</Text>
+            <TextInput
+              style={[styles.modalInput, { marginTop: 6 }]}
+              value={nuovaRataMese}
+              onChangeText={onChangeNuovaRataMese}
+              placeholder="es. 6"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="number-pad"
+              autoFocus
+            />
+            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>ANNO</Text>
+            <TextInput
+              style={[styles.modalInput, { marginTop: 6 }]}
+              value={nuovaRataAnno}
+              onChangeText={onChangeNuovaRataAnno}
+              placeholder="es. 2026"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="number-pad"
+            />
+            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>IMPORTO ({'\u20AC'})</Text>
+            <TextInput
+              style={[styles.modalInput, { marginTop: 6 }]}
+              value={nuovaRataImporto}
+              onChangeText={onChangeNuovaRataImporto}
+              placeholder="es. 500"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="decimal-pad"
+            />
+            <TouchableOpacity style={styles.modalSaveBtn} onPress={onConfermaAggiungiRata}>
+              <Text style={styles.modalSaveBtnText}>Aggiungi rata</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancel} onPress={onCloseAggiungiRata}>
+              <Text style={styles.modalCancelText}>Annulla</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>

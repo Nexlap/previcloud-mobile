@@ -7,7 +7,9 @@ import {
 } from 'react-native'
 import { eventBus } from '../../lib/eventBus'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
-import { cambiaStatoPreventivi, caricaClientiPerSposta, caricaCronologiaPreventivo, eliminaPreventivi, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
+import { caricaClientiPerSposta, caricaCronologiaPreventivo, eliminaPreventivi, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
+import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
+import { useModificaPreventivoScelta } from '../../lib/features/modificaPreventivo/useModificaPreventivoScelta'
 import { StoricoEmpty } from '../../lib/components/storico/StoricoEmpty'
 import { StoricoHeader } from '../../lib/components/storico/StoricoHeader'
 import { StoricoModals } from '../../lib/components/storico/StoricoModals'
@@ -19,13 +21,14 @@ import { trackEvento } from '../../lib/utils/analytics'
 
 export default function Storico() {
   const { preventivi, loading, refreshing, onRefresh, cambiaStato, eliminaPreventivo } = usePreventivi()
+  const { modificaInput, apriDaPreventivo, chiudiSceltaModifica } = useModificaPreventivoScelta()
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
-  const [modalStatoMultiplo, setModalStatoMultiplo] = useState(false)
   const [modalClienti, setModalClienti] = useState(false)
   const [clienti, setClienti] = useState<Cliente[]>([])
   const [caricandoClienti, setCaricandoClienti] = useState(false)
   const [cronologiaAperta, setCronologiaAperta] = useState<string | null>(null)
+  const [cronologiaVersioneAperta, setCronologiaVersioneAperta] = useState<string | null>(null)
   const [cronologia, setCronologia] = useState<{ [key: string]: Preventivo[] }>({})
   const [selezioneAttiva, setSelezioneAttiva] = useState(false)
   const [preventiviSelezionati, setPreventiviSelezionati] = useState<string[]>([])
@@ -100,17 +103,6 @@ export default function Storico() {
     ])
   }
 
-  async function cambiaStatoSelezionati(stato: string) {
-    const ids = [...preventiviSelezionati]
-    if (ids.length === 0) return
-    const { error } = await cambiaStatoPreventivi(ids, stato)
-    if (error) { Alert.alert('Errore', error.message); return }
-    setModalStatoMultiplo(false)
-    annullaSelezione()
-    eventBus.emit('aggiorna-home')
-    await onRefresh()
-  }
-
   async function condividiSelezionati() {
     const conPdf = selezionati.filter(p => p.pdf_url)
     if (conPdf.length === 0) {
@@ -152,12 +144,17 @@ export default function Storico() {
   }
 
   async function caricaCronologia(preventivoId: string, padreId: string | null) {
-    if (cronologiaAperta === preventivoId) { setCronologiaAperta(null); return }
+    if (cronologiaAperta === preventivoId) {
+      setCronologiaAperta(null)
+      setCronologiaVersioneAperta(null)
+      return
+    }
     if (!padreId) return
     const versioni = await caricaCronologiaPreventivo(padreId)
     if (versioni.length > 0) {
       setCronologia(c => ({ ...c, [preventivoId]: versioni }))
       setCronologiaAperta(preventivoId)
+      setCronologiaVersioneAperta(null)
     }
   }
 
@@ -169,12 +166,17 @@ export default function Storico() {
     if (p.cliente_id) {
       router.push({ pathname: '/screens/cliente-dettaglio', params: { id: p.cliente_id, nome: p.nome_cliente || 'Cliente' } })
     } else {
-      setAperto(aperto === p.id ? null : p.id)
+      const chiudi = aperto === p.id
+      setAperto(chiudi ? null : p.id)
+      if (chiudi) {
+        setCronologiaAperta(null)
+        setCronologiaVersioneAperta(null)
+      }
     }
   }
 
-  function onToggleVersioneAperta(preventivoId: string, versioneId: string) {
-    setAperto(aperto === versioneId ? preventivoId : versioneId)
+  function onToggleVersione(versioneId: string) {
+    setCronologiaVersioneAperta(cronologiaVersioneAperta === versioneId ? null : versioneId)
   }
 
   async function onRipristinaVersione(preventivoCorrenteId: string, versione: Preventivo) {
@@ -182,6 +184,9 @@ export default function Storico() {
     Alert.alert('\u2713 Ripristinato')
     setAperto(null)
     setCronologiaAperta(null)
+    setCronologiaVersioneAperta(null)
+    await onRefresh()
+    eventBus.emit('aggiorna-home')
   }
 
   if (loading) return (
@@ -193,6 +198,16 @@ export default function Storico() {
   return (
     <View style={styles.container}>
       <StoricoHeader />
+
+      {selezioneAttiva ? (
+        <StoricoSelectionBar
+          count={preventiviSelezionati.length}
+          onCancel={annullaSelezione}
+          onDelete={eliminaSelezionati}
+          onShare={condividiSelezionati}
+          onMove={apriSpostaCliente}
+        />
+      ) : null}
 
       <ScrollView
         style={styles.scroll}
@@ -208,6 +223,7 @@ export default function Storico() {
             preventiviSelezionati={preventiviSelezionati}
             aperto={aperto}
             cronologiaAperta={cronologiaAperta}
+            cronologiaVersioneAperta={cronologiaVersioneAperta}
             cronologia={cronologia}
             onCardPress={onCardPress}
             onLongPress={avviaSelezione}
@@ -216,41 +232,29 @@ export default function Storico() {
             onScaricaPdf={scaricaPDF}
             onElimina={elimina}
             onCaricaCronologia={caricaCronologia}
-            onToggleVersioneAperta={onToggleVersioneAperta}
+            onToggleVersione={onToggleVersione}
             onRipristinaVersione={onRipristinaVersione}
-            onRiprendiBozza={(preventivoId) => router.push({ pathname: '/(tabs)/nuovo', params: { preventivo_id: preventivoId } })}
-            onModificaVersione={(preventivo) => router.push({
-              pathname: '/(tabs)/nuovo',
-              params: { testo_modifica: preventivo.testo_preventivo || '', versione_padre_id: preventivo.id, versione_numero: String((preventivo.versione || 1) + 1) },
-            })}
+            onModificaVersione={(preventivo) => apriDaPreventivo(preventivo)}
           />
         )}
-        <View style={{ height: selezioneAttiva ? 120 : 40 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
-
-      {selezioneAttiva ? (
-        <StoricoSelectionBar
-          count={preventiviSelezionati.length}
-          onCancel={annullaSelezione}
-          onDelete={eliminaSelezionati}
-          onChangeStato={() => setModalStatoMultiplo(true)}
-          onShare={condividiSelezionati}
-          onMove={apriSpostaCliente}
-        />
-      ) : null}
 
       <StoricoModals
         modalStato={modalStato}
         onCloseStato={() => setModalStato(null)}
         onChangeStato={(preventivoId, stato) => { cambiaStato(preventivoId, stato); eventBus.emit('aggiorna-home') }}
-        modalStatoMultiplo={modalStatoMultiplo}
-        onCloseStatoMultiplo={() => setModalStatoMultiplo(false)}
-        onChangeStatoMultiplo={cambiaStatoSelezionati}
         modalClienti={modalClienti}
         onCloseClienti={() => setModalClienti(false)}
         clienti={clienti}
         caricandoClienti={caricandoClienti}
         onSpostaCliente={spostaSelezionati}
+      />
+
+      <ModificaPreventivoModal
+        visible={!!modificaInput}
+        input={modificaInput}
+        onClose={chiudiSceltaModifica}
       />
     </View>
   )

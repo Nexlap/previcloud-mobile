@@ -19,6 +19,7 @@ type Props = {
   calcolaLordoDaNetto: (netto: number) => number | null
   calcolaTotale: () => number
   fmt: (value: number) => string
+  onInputFocus?: () => void
 }
 
 export function AnalisiFiscaleCard({
@@ -37,6 +38,7 @@ export function AnalisiFiscaleCard({
   calcolaLordoDaNetto,
   calcolaTotale,
   fmt,
+  onInputFocus,
 }: Props) {
   if (!profiloFiscale) return null
 
@@ -149,6 +151,7 @@ export function AnalisiFiscaleCard({
               style={[styles.voceCostoInput, { flex: 1, fontSize: 14 }]}
               value={nettoDesiderato}
               onChangeText={v => { setNettoDesiderato(v); setLordoCalcolato(null) }}
+              onFocus={onInputFocus}
               placeholder="es. 2000"
               placeholderTextColor="#9CA3AF"
               keyboardType="decimal-pad"

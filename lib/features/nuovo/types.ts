@@ -2,6 +2,7 @@ export type NuovoParams = {
   trascrizione: string
   trascrizioneId: string
   preventivo_id: string
+  modifica: string
   testo_modifica: string
   versione_padre_id: string
   versione_numero: string

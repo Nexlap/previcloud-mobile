@@ -7,9 +7,6 @@ type Props = {
   modalStato: string | null
   onCloseStato: () => void
   onChangeStato: (preventivoId: string, stato: string) => void
-  modalStatoMultiplo: boolean
-  onCloseStatoMultiplo: () => void
-  onChangeStatoMultiplo: (stato: string) => void
   modalClienti: boolean
   onCloseClienti: () => void
   clienti: Cliente[]
@@ -21,9 +18,6 @@ export function StoricoModals({
   modalStato,
   onCloseStato,
   onChangeStato,
-  modalStatoMultiplo,
-  onCloseStatoMultiplo,
-  onChangeStatoMultiplo,
   modalClienti,
   onCloseClienti,
   clienti,
@@ -46,23 +40,6 @@ export function StoricoModals({
               </TouchableOpacity>
             ))}
             <TouchableOpacity style={styles.modalCancel} onPress={onCloseStato}>
-              <Text style={styles.modalCancelText}>Annulla</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      <Modal visible={modalStatoMultiplo} transparent animationType="fade" onRequestClose={onCloseStatoMultiplo}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onCloseStatoMultiplo}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Cambia stato</Text>
-            {STATI_PREVENTIVO.map(s => (
-              <TouchableOpacity key={s} style={styles.modalOption} onPress={() => onChangeStatoMultiplo(s)}>
-                <Text style={styles.modalOptionIcon}>{statoPreventivoIcon(s)}</Text>
-                <Text style={styles.modalOptionText}>{s}</Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.modalCancel} onPress={onCloseStatoMultiplo}>
               <Text style={styles.modalCancelText}>Annulla</Text>
             </TouchableOpacity>
           </View>

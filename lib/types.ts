@@ -126,6 +126,16 @@ export interface Abbonamento {
   note: string | null
   tipo: 'canone' | 'rate'
   nome: string | null
+  created_at?: string | null
+}
+
+export type PreventivoMadre = {
+  id: string
+  titolo: string | null
+  created_at: string
+  versione: number | null
+  importo_totale: number | null
+  stato: string
 }
 
 export interface RataAbbonamento {

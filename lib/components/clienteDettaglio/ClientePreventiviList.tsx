@@ -1,4 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPreventivo/constants'
+import { PreventivoStatoBadge } from '../preventivo/PreventivoStatoBadge'
+import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { Preventivo } from '../../types'
 
 type Props = {
@@ -9,6 +12,7 @@ type Props = {
   cronologiaAperta: string | null
   cronologia: { [key: string]: Preventivo[] }
   cronologiaVersioneAperta: string | null
+  collegamentiPiano?: Record<string, 'canone' | 'rate'>
   onToggleCard: (preventivoId: string) => void
   onLongPress: (preventivoId: string) => void
   onStatoPress: (preventivoId: string) => void
@@ -16,7 +20,7 @@ type Props = {
   onElimina: (preventivoId: string) => void
   onCaricaCronologia: (preventivoId: string, padreId: string | null) => void
   onToggleVersione: (versioneId: string) => void
-  onModificaVersione: (versione: Preventivo, preventivoCorrente: Preventivo) => void
+  onRipristinaVersione: (preventivoCorrenteId: string, versione: Preventivo) => void
   onModificaUltimo: (preventivo: Preventivo) => void
   onSposta: (preventivoId: string) => void
   onRinomina: (preventivo: Preventivo) => void
@@ -37,10 +41,11 @@ export function ClientePreventiviList({
   onElimina,
   onCaricaCronologia,
   onToggleVersione,
-  onModificaVersione,
+  onRipristinaVersione,
   onModificaUltimo,
   onSposta,
   onRinomina,
+  collegamentiPiano = {},
 }: Props) {
   if (preventivi.length === 0) {
     return (
@@ -66,20 +71,20 @@ export function ClientePreventiviList({
               </View>
             )}
             <View style={styles.prevLeft}>
-              <Text style={styles.prevVersione}>{p.titolo || `v${p.versione || 1}`}</Text>
+              <Text style={styles.prevVersione}>{p.titolo || 'Preventivo'}</Text>
               <Text style={styles.prevData}>
                 {`${new Date(p.created_at).toLocaleDateString('it-IT')}${p.is_ultimo ? ' · attivo' : ''}`}
               </Text>
+              {collegamentiPiano[p.id] ? (
+                <Text style={styles.prevPianoBadge}>
+                  {collegamentiPiano[p.id] === 'rate' ? '\uD83D\uDCC5 Piano a rate collegato' : '\uD83D\uDCB0 Abbonamento collegato'}
+                </Text>
+              ) : null}
             </View>
             <View style={[styles.prevRightRow, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
               <TouchableOpacity style={styles.prevRight} onPress={() => onStatoPress(p.id)}>
                 <Text style={styles.prevImporto}>{p.importo_totale ? `\u20AC${p.importo_totale}` : '—'}</Text>
-                <Text style={[
-                  styles.prevStato,
-                  p.stato === 'accettato' ? { color: '#0E9F8E' } :
-                  p.stato === 'rifiutato' ? { color: '#EF4444' } :
-                  p.stato === 'inviato' ? { color: '#1D4ED8' } : {}
-                ]}>{`${p.stato || 'bozza'} ▼`}</Text>
+                <PreventivoStatoBadge stato={p.stato} showArrow />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => onScaricaPdf(p)}>
                 <Text style={{ fontSize: 16 }}>{p.pdf_url ? '\uD83D\uDCC4' : '\uD83D\uDD04'}</Text>
@@ -110,16 +115,17 @@ export function ClientePreventiviList({
                   {cronologiaVersioneAperta === v.id && (
                     <View style={styles.cronologiaDetail}>
                       <Text style={styles.prevTesto}>{v.testo_preventivo}</Text>
-                      <TouchableOpacity style={styles.ripristinaBtn} onPress={() => onModificaVersione(v, p)}>
-                        <Text style={styles.ripristinaBtnText}>{'\u270F\uFE0F'} Modifica e genera nuova versione</Text>
-                      </TouchableOpacity>
+                      <RipristinaVersioneLink
+                        versione={v}
+                        onRipristina={() => onRipristinaVersione(p.id, v)}
+                      />
                     </View>
                   )}
                 </View>
               ))}
               {p.is_ultimo && (
                 <TouchableOpacity style={styles.editBtn} onPress={() => onModificaUltimo(p)}>
-                  <Text style={styles.editBtnText}>{`\u270F\uFE0F Modifica e genera v${(p.versione || 1) + 1}`}</Text>
+                  <Text style={styles.editBtnText}>{`\u270F\uFE0F ${MODIFICA_VERSIONE_ALTERNATIVA_LABEL}`}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={styles.spostaBtn} onPress={() => onSposta(p.id)}>
@@ -146,10 +152,10 @@ const styles = StyleSheet.create({
   prevLeft: { flex: 1 },
   prevVersione: { fontSize: 13, fontWeight: '700', color: '#0D1B2A' },
   prevData: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  prevPianoBadge: { fontSize: 11, color: '#0E9F8E', fontWeight: '600', marginTop: 4 },
   prevRightRow: { alignItems: 'flex-end', gap: 6 },
-  prevRight: { alignItems: 'flex-end' },
+  prevRight: { alignItems: 'flex-end', gap: 4 },
   prevImporto: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
-  prevStato: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   prevDetail: { padding: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
   prevTesto: { fontSize: 12, color: '#6B7280', lineHeight: 18, fontFamily: 'monospace' },
   editBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' },
@@ -163,8 +169,6 @@ const styles = StyleSheet.create({
   cronologiaData: { fontSize: 12, color: '#9CA3AF' },
   cronologiaImporto: { fontSize: 12, color: '#9CA3AF' },
   cronologiaDetail: { backgroundColor: '#F7F8FA', borderRadius: 10, padding: 12, gap: 10 },
-  ripristinaBtn: { backgroundColor: '#0E9F8E', borderRadius: 10, padding: 10, alignItems: 'center' },
-  ripristinaBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   checkCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#D1D5DB', marginRight: 8, justifyContent: 'center', alignItems: 'center' },
   checkCircleActive: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
   checkMark: { color: '#fff', fontSize: 14, fontWeight: '700' },

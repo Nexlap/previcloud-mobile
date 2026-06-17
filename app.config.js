@@ -13,7 +13,8 @@ export default {
       bundleIdentifier: "com.preventivoai.app"
     },
     android: {
-      package: "com.preventivoai.app"
+      package: "com.preventivoai.app",
+      softwareKeyboardLayoutMode: "resize",
     },
     plugins: [
   "expo-router",

@@ -1,5 +1,6 @@
 import { Cliente, Preventivo, Trascrizione } from '../types'
 import { supabase } from '../supabase'
+import { eliminaClienti } from './clienti'
 
 export async function caricaClienteDettaglio(clienteId: string) {
   const [{ data: cliente }, { data: trascrizioni }] = await Promise.all([
@@ -14,7 +15,7 @@ export async function caricaClienteDettaglio(clienteId: string) {
 }
 
 export async function eliminaClienteDettaglio(clienteId: string) {
-  return supabase.from('clienti').delete().eq('id', clienteId)
+  return eliminaClienti([clienteId])
 }
 
 type ClienteAggiornamento = Partial<Pick<Cliente, 'nome' | 'telefono' | 'email' | 'indirizzo' | 'note'>>
@@ -61,6 +62,23 @@ export async function spostaPreventiviCliente(ids: string[], nuovoClienteId: str
   await Promise.all(ids.map(id =>
     supabase.from('preventivi').update({ cliente_id: nuovoClienteId, nome_cliente: nuovoClienteNome }).eq('id', id)
   ))
+}
+
+export async function caricaCollegamentiPianoPreventivo(clienteId: string) {
+  const { data } = await supabase
+    .from('abbonamenti')
+    .select('preventivo_id, tipo, attivo, created_at')
+    .eq('cliente_id', clienteId)
+    .not('preventivo_id', 'is', null)
+    .order('created_at', { ascending: false })
+
+  const map: Record<string, 'canone' | 'rate'> = {}
+  for (const row of data || []) {
+    if (row.preventivo_id && !map[row.preventivo_id]) {
+      map[row.preventivo_id] = row.tipo as 'canone' | 'rate'
+    }
+  }
+  return map
 }
 
 export async function sessioneClienteDettaglio() {

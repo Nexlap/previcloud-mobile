@@ -1,7 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Cliente } from '../../types'
 
-export type ClienteDettaglioTab = 'preventivi' | 'chiamate' | 'abbonamento'
+export type ClienteDettaglioTab = 'preventivi' | 'pagamento_rate' | 'abbonamento'
 
 type HeaderProps = {
   title: string
@@ -32,8 +32,8 @@ export function ClienteDettaglioHeader({ title, onBack, onEdit, onDelete }: Head
 type SelectionBarProps = {
   count: number
   onCancel: () => void
-  onMove: () => void
   onDelete: () => void
+  onMove?: () => void
 }
 
 export function ClienteSelectionBar({ count, onCancel, onMove, onDelete }: SelectionBarProps) {
@@ -44,9 +44,11 @@ export function ClienteSelectionBar({ count, onCancel, onMove, onDelete }: Selec
       </TouchableOpacity>
       <Text style={styles.selectionCount}>{count} selezionati</Text>
       <View style={styles.selectionActions}>
-        <TouchableOpacity style={styles.selectionAction} onPress={onMove}>
-          <Text style={styles.selectionActionText}>{'\u2197'} Sposta</Text>
-        </TouchableOpacity>
+        {onMove ? (
+          <TouchableOpacity style={styles.selectionAction} onPress={onMove}>
+            <Text style={styles.selectionActionText}>{'\u2197'} Sposta</Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity style={[styles.selectionAction, styles.selectionActionDelete]} onPress={onDelete}>
           <Text style={[styles.selectionActionText, { color: '#EF4444' }]}>{'\uD83D\uDDD1'} Elimina</Text>
         </TouchableOpacity>
@@ -118,8 +120,8 @@ export function ClienteTabs({ active, onChange }: TabsProps) {
       <TouchableOpacity style={[styles.tabBtn, active === 'preventivi' && styles.tabBtnActive]} onPress={() => onChange('preventivi')}>
         <Text style={[styles.tabText, active === 'preventivi' && styles.tabTextActive]}>Preventivi</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={[styles.tabBtn, active === 'chiamate' && styles.tabBtnActive]} onPress={() => onChange('chiamate')}>
-        <Text style={[styles.tabText, active === 'chiamate' && styles.tabTextActive]}>Chiamate</Text>
+      <TouchableOpacity style={[styles.tabBtn, active === 'pagamento_rate' && styles.tabBtnActive]} onPress={() => onChange('pagamento_rate')}>
+        <Text style={[styles.tabText, active === 'pagamento_rate' && styles.tabTextActive]}>Pagamento a rate</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.tabBtn, active === 'abbonamento' && styles.tabBtnActive]} onPress={() => onChange('abbonamento')}>
         <Text style={[styles.tabText, active === 'abbonamento' && styles.tabTextActive]}>{'\uD83D\uDCB0'} Abbonamento</Text>

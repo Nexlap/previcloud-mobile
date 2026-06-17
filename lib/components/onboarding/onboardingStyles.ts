@@ -1,9 +1,10 @@
 import { Dimensions, StyleSheet } from 'react-native'
 
-const A4_RATIO = 297 / 210
+const TEMPLATE_WIDTH_PX = 800
+const PAGE_HEIGHT_LAYOUT = 1123
 
 export const PREVIEW_WIDTH = Dimensions.get('window').width - 24 * 2 - 14 * 2 - 2
-export const PREVIEW_HEIGHT = PREVIEW_WIDTH * A4_RATIO
+export const PREVIEW_HEIGHT = Math.round(PAGE_HEIGHT_LAYOUT * (PREVIEW_WIDTH / TEMPLATE_WIDTH_PX))
 
 export const onboardingStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D1B2A' },

@@ -1,4 +1,5 @@
 import { BuilderMemoryState } from './types'
+import { meseCorrenteString } from '../utils/giornoScadenza'
 
 export const builderState: BuilderMemoryState = {
   voci: [],
@@ -10,6 +11,17 @@ export const builderState: BuilderMemoryState = {
   nuovaSpesaNome: '',
   nuovaSpesaImporto: '',
   nuoviKm: '',
+  abbonamentoAttivo: false,
+  abImporto: '',
+  abGiorno: '1',
+  abMeseInizio: meseCorrenteString(),
+  abMensilita: '',
+  abVisibileNelPDF: true,
+  pagamentoRateAttivo: false,
+  rateNumero: '',
+  rateGiornoScadenza: '1',
+  rateMeseInizio: meseCorrenteString(),
+  rateVisibileNelPDF: true,
 }
 
 export function resetBuilderState() {
@@ -22,4 +34,15 @@ export function resetBuilderState() {
   builderState.nuovaSpesaNome = ''
   builderState.nuovaSpesaImporto = ''
   builderState.nuoviKm = ''
+  builderState.abbonamentoAttivo = false
+  builderState.abImporto = ''
+  builderState.abGiorno = '1'
+  builderState.abMeseInizio = meseCorrenteString()
+  builderState.abMensilita = ''
+  builderState.abVisibileNelPDF = true
+  builderState.pagamentoRateAttivo = false
+  builderState.rateNumero = ''
+  builderState.rateGiornoScadenza = '1'
+  builderState.rateMeseInizio = meseCorrenteString()
+  builderState.rateVisibileNelPDF = true
 }

@@ -16,6 +16,8 @@ import { NuovoSceltaModalita } from '../../lib/components/nuovo/NuovoSceltaModal
 import { nuovoStyles as styles } from '../../lib/components/nuovo/nuovoStyles'
 import { applicaRispostaChat, estraiNomeCliente, importoDaPreventivo } from '../../lib/features/nuovo/chat'
 import { parametriPDF } from '../../lib/features/nuovo/pdf'
+import { parsePreventivoTesto, trovaMetodoPagamentoDaNome } from '../../lib/builder/parsePreventivoText'
+import { risolviModifica } from '../../lib/features/modificaPreventivo/modificaSession'
 import { ClienteRilevato, ClienteSuggerito, DatiClienteNuovo, NuovoParams } from '../../lib/features/nuovo/types'
 import { Messaggio } from '../../lib/types'
 import { trackEvento } from '../../lib/utils/analytics'
@@ -23,6 +25,10 @@ import { errorMessage } from '../../lib/utils/errors'
 
 export default function Nuovo() {
   const params = useLocalSearchParams<NuovoParams>()
+  const modifica = risolviModifica(params)
+  const testoModifica = modifica?.testoPreventivo || ''
+  const versionePrecedente = (modifica?.versioneNumero || parseInt(params.versione_numero || '2', 10)) - 1
+  const inModifica = Boolean(testoModifica)
   const navigation = useNavigation()
 
   const [input, setInput] = useState('')
@@ -46,6 +52,8 @@ export default function Nuovo() {
   const [mostraFormDatiCliente, setMostraFormDatiCliente] = useState(false)
 
   const scrollRef = useRef<ScrollView>(null)
+  const modificaInizializzata = useRef(false)
+  const trascrizioneModificaInviata = useRef(false)
 
   useEffect(() => {
     trackEvento('chat_aperta', 'chat')
@@ -58,41 +66,62 @@ export default function Nuovo() {
     const metodi = data as MetodoPagamento[]
     setMetodiPagamento(metodi)
     const predefinito = metodi.find(m => m.predefinito)
-    if (predefinito) setMetodoPagamentoSelezionato(predefinito)
+    if (predefinito && !inModifica) setMetodoPagamentoSelezionato(predefinito)
   }
 
   function pdfParams(testo: string) {
     return parametriPDF({
       testo,
-      versionePadreId: params.versione_padre_id || '',
-      clienteId: clienteIdAttivo || params.cliente_id || '',
+      versionePadreId: modifica?.versionePadreId || params.versione_padre_id || '',
+      clienteId: clienteIdAttivo || modifica?.clienteId || params.cliente_id || '',
       metodoPagamento: metodoPagamentoSelezionato,
     })
   }
 
   useEffect(() => {
-    if (params.cliente_id) {
-      setClienteIdAttivo(params.cliente_id)
-      if (params.cliente_nome) setClienteRilevato({ id: params.cliente_id, nome: params.cliente_nome })
+    const clienteId = modifica?.clienteId || params.cliente_id
+    const clienteNome = modifica?.clienteNome || params.cliente_nome
+    if (clienteId) {
+      setClienteIdAttivo(clienteId)
+      if (clienteNome) setClienteRilevato({ id: clienteId, nome: clienteNome })
     }
-  }, [params.cliente_id])
+  }, [params.cliente_id, params.cliente_nome, modifica?.clienteId, modifica?.clienteNome])
 
   useEffect(() => {
-    if (params.trascrizione && messaggi.length === 0) {
+    if (params.trascrizione && !inModifica && messaggi.length === 0) {
       setModalitaScelta(false)
       setInput(params.trascrizione)
     }
-  }, [params.trascrizione])
+  }, [params.trascrizione, inModifica, messaggi.length])
 
   useEffect(() => {
-    if (params.testo_modifica && messaggi.length === 0) {
-      setModalitaScelta(false)
-      setMessaggi([{
-        role: 'assistant',
-        content: `Ho caricato il tuo preventivo v${parseInt(params.versione_numero || '2') - 1}. Cosa vuoi modificare?\n\n${params.testo_modifica}`
-      }])
-    }
-  }, [params.testo_modifica])
+    modificaInizializzata.current = false
+    trascrizioneModificaInviata.current = false
+  }, [params.modifica, params.trascrizione, testoModifica])
+
+  useEffect(() => {
+    if (!testoModifica || modificaInizializzata.current) return
+    modificaInizializzata.current = true
+    setModalitaScelta(false)
+    setMessaggi([{
+      role: 'assistant',
+      content: `Ho caricato il tuo preventivo v${versionePrecedente}. Cosa vuoi modificare?\n\n${testoModifica}`
+    }])
+  }, [testoModifica, versionePrecedente])
+
+  useEffect(() => {
+    if (!testoModifica || metodiPagamento.length === 0) return
+    const parsed = parsePreventivoTesto(testoModifica)
+    const trovato = trovaMetodoPagamentoDaNome(metodiPagamento, parsed.pagamentoNome)
+    if (trovato) setMetodoPagamentoSelezionato(trovato)
+  }, [testoModifica, metodiPagamento])
+
+  useEffect(() => {
+    if (!params.trascrizione || !inModifica || trascrizioneModificaInviata.current) return
+    if (!token || messaggi.length === 0) return
+    trascrizioneModificaInviata.current = true
+    invia(params.trascrizione)
+  }, [params.trascrizione, inModifica, token, messaggi.length])
 
   useEffect(() => {
     if (params.preventivo_id) {
@@ -173,6 +202,20 @@ export default function Nuovo() {
 
       const risultato = applicaRispostaChat(reply, nuovi)
       setMessaggi(risultato.messaggi)
+
+      if (inModifica) {
+        if (risultato.recap) {
+          trackEvento('preventivo_convertito', 'chat')
+          const testoPreventivo = await convertiRecap(risultato.recap, token)
+          await vaiAnteprimaPdf(testoPreventivo)
+          return
+        }
+        if (risultato.preventivo) {
+          await vaiAnteprimaPdf(risultato.preventivo)
+          return
+        }
+      }
+
       setPreventivo(risultato.preventivo)
       setRecap(risultato.recap)
     } catch (e: unknown) {
@@ -190,16 +233,20 @@ export default function Nuovo() {
     Alert.alert('Salvato!', 'Preventivo salvato nello storico.')
   }
 
+  async function vaiAnteprimaPdf(testo: string) {
+    router.push({
+      pathname: '/screens/preventivo-pdf',
+      params: pdfParams(testo),
+    })
+  }
+
   async function generaDaRecap() {
     setLoading(true)
     try {
       trackEvento('preventivo_convertito', 'chat')
       const testoPreventivo = await convertiRecap(recap, token)
       setRecap('')
-      router.push({
-        pathname: '/screens/preventivo-pdf',
-        params: pdfParams(testoPreventivo)
-      })
+      await vaiAnteprimaPdf(testoPreventivo)
     } catch (e: unknown) {
       Alert.alert('Errore', errorMessage(e))
     } finally {
@@ -224,11 +271,11 @@ export default function Nuovo() {
     }
   }
 
-  const headerTitle = params.testo_modifica
-    ? `Modifica v${parseInt(params.versione_numero || '2') - 1}`
+  const headerTitle = inModifica
+    ? `Modifica v${versionePrecedente}`
     : 'Nuovo preventivo'
 
-  const mostraScelta = modalitaScelta && !recap && !preventivo && messaggi.length === 0 && !params.testo_modifica
+  const mostraScelta = modalitaScelta && !recap && !preventivo && messaggi.length === 0 && !inModifica
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -261,7 +308,7 @@ export default function Nuovo() {
           metodoPagamento={metodoPagamentoSelezionato}
           onSalva={salva}
           onApriPagamento={() => setMostraModalPagamento(true)}
-          onGeneraPdf={() => router.push({ pathname: '/screens/preventivo-pdf', params: pdfParams(preventivo) })}
+          onGeneraPdf={() => vaiAnteprimaPdf(preventivo)}
         />
       ) : (
         <NuovoChatView

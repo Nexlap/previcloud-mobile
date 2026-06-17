@@ -5,6 +5,8 @@ import {
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { eliminaClienti } from '../../lib/api/clienti'
+import { ClienteNuovoModal } from '../../lib/components/clienti/ClienteNuovoModal'
+import { ClienteSelectionBar } from '../../lib/components/clienteDettaglio/ClienteOverview'
 import { useClienti } from "../../lib/hooks/useClienti"
 import { trackEvento } from "../../lib/utils/analytics"
 
@@ -22,13 +24,24 @@ export default function Clienti() {
     trackEvento('clienti_aperti', 'clienti')
   }, []))
 
+  function chiudiModalNuovoCliente() {
+    setMostraForm(false)
+    setNuovoCliente({ nome: '', telefono: '', email: '', note: '' })
+  }
+
+  function apriModalNuovoCliente() {
+    if (selezioneAttiva) annullaSelezione()
+    setMostraForm(true)
+  }
+
+  function handleFocusRicerca() {
+    if (selezioneAttiva) annullaSelezione()
+  }
+
   async function handleAggiungi() {
     setSalvando(true)
     const ok = await aggiungiCliente(nuovoCliente)
-    if (ok) {
-      setNuovoCliente({ nome: '', telefono: '', email: '', note: '' })
-      setMostraForm(false)
-    }
+    if (ok) chiudiModalNuovoCliente()
     setSalvando(false)
   }
 
@@ -60,7 +73,7 @@ export default function Clienti() {
   async function eliminaClientiSelezionati() {
     const ids = [...clientiSelezionati]
     if (ids.length === 0) return
-    Alert.alert('Elimina', `Eliminare ${ids.length} clienti?`, [
+    Alert.alert('Elimina', `Eliminare ${ids.length} clienti? Verranno eliminati anche preventivi, abbonamenti e rate collegati.`, [
       { text: 'Annulla', style: 'cancel' },
       { text: 'Elimina', style: 'destructive', onPress: async () => {
         const { error } = await eliminaClienti(ids)
@@ -81,10 +94,18 @@ export default function Clienti() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Clienti</Text>
-        <TouchableOpacity onPress={() => setMostraForm(!mostraForm)} style={styles.addBtn}>
-          <Text style={styles.addBtnText}>{mostraForm ? '✕' : '+'}</Text>
+        <TouchableOpacity onPress={apriModalNuovoCliente} style={styles.addBtn}>
+          <Text style={styles.addBtnText}>+</Text>
         </TouchableOpacity>
       </View>
+
+      {selezioneAttiva && (
+        <ClienteSelectionBar
+          count={clientiSelezionati.length}
+          onCancel={annullaSelezione}
+          onDelete={eliminaClientiSelezionati}
+        />
+      )}
 
       <ScrollView
         style={styles.scroll}
@@ -98,33 +119,11 @@ export default function Clienti() {
             style={styles.searchInput}
             value={cerca}
             onChangeText={setCerca}
+            onFocus={handleFocusRicerca}
             placeholder="Cerca per nome o telefono..."
             placeholderTextColor="#9CA3AF"
           />
         </View>
-
-        {/* Form nuovo cliente */}
-        {mostraForm && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Nuovo cliente</Text>
-            <TextInput style={styles.input} value={nuovoCliente.nome}
-              onChangeText={v => setNuovoCliente(c => ({ ...c, nome: v }))}
-              placeholder="Nome e cognome *" placeholderTextColor="#9CA3AF" />
-            <TextInput style={styles.input} value={nuovoCliente.telefono}
-              onChangeText={v => setNuovoCliente(c => ({ ...c, telefono: v }))}
-              placeholder="Telefono" placeholderTextColor="#9CA3AF" keyboardType="phone-pad" />
-            <TextInput style={styles.input} value={nuovoCliente.email}
-              onChangeText={v => setNuovoCliente(c => ({ ...c, email: v }))}
-              placeholder="Email" placeholderTextColor="#9CA3AF" keyboardType="email-address" autoCapitalize="none" />
-            <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
-              value={nuovoCliente.note}
-              onChangeText={v => setNuovoCliente(c => ({ ...c, note: v }))}
-              placeholder="Note..." placeholderTextColor="#9CA3AF" multiline />
-            <TouchableOpacity style={[styles.saveBtn, salvando && styles.saveBtnDisabled]} onPress={handleAggiungi} disabled={salvando}>
-              {salvando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>Salva cliente</Text>}
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Lista clienti */}
         {clientiFiltrati.length === 0 ? (
@@ -165,24 +164,17 @@ export default function Clienti() {
           })
         )}
 
-        <View style={{ height: selezioneAttiva ? 120 : 40 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {selezioneAttiva && (
-        <View style={styles.selectionBar}>
-          <View style={styles.selectionTopRow}>
-            <Text style={styles.selectionCount}>{clientiSelezionati.length} selezionati</Text>
-            <TouchableOpacity onPress={annullaSelezione}>
-              <Text style={styles.selectionCancel}>✕ Annulla</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.selectionActions}>
-            <TouchableOpacity style={styles.selectionActionBtn} onPress={eliminaClientiSelezionati}>
-              <Text style={styles.selectionActionText}>🗑 Elimina</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      <ClienteNuovoModal
+        visible={mostraForm}
+        dati={nuovoCliente}
+        salvando={salvando}
+        onClose={chiudiModalNuovoCliente}
+        onChange={setNuovoCliente}
+        onSalva={handleAggiungi}
+      />
     </View>
   )
 }
@@ -198,12 +190,6 @@ const styles = StyleSheet.create({
   searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   searchIcon: { fontSize: 16 },
   searchInput: { flex: 1, fontSize: 14, color: '#0D1B2A' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
-  input: { backgroundColor: '#F7F8FA', borderRadius: 10, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 10, fontSize: 14, color: '#0D1B2A' },
-  saveBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, alignItems: 'center' as const },
-  saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyText: { fontSize: 15, color: '#6B7280', fontWeight: '500' },
@@ -219,11 +205,4 @@ const styles = StyleSheet.create({
   clienteStatLabel: { fontSize: 10, color: '#9CA3AF' },
   clienteStatImporto: { fontSize: 12, color: '#0E9F8E', fontWeight: '600', marginTop: 2 },
   clienteCardSelected: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
-  selectionBar: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: '#0D1B2A', borderRadius: 16, padding: 12, gap: 10 },
-  selectionTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  selectionCount: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  selectionCancel: { color: '#9EC5C0', fontSize: 13, fontWeight: '600' },
-  selectionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  selectionActionBtn: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 9 },
-  selectionActionText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 })

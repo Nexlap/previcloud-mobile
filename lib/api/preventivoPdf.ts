@@ -1,5 +1,16 @@
 import { router } from 'expo-router'
 import { supabase } from '../supabase'
+import { calcolaImportiRate, calcolaScadenzeRate } from '../utils/importo'
+import { nomePianoDaPreventivo } from '../utils/preventivoMadre'
+
+async function nomePianoPerPreventivo(preventivoId: string, tipo: 'canone' | 'rate') {
+  const { data } = await supabase
+    .from('preventivi')
+    .select('titolo, created_at, versione')
+    .eq('id', preventivoId)
+    .single()
+  return data ? nomePianoDaPreventivo(data, tipo) : null
+}
 
 export type ClientePreventivo = { id: string, nome: string }
 export type MetodoPagamento = {
@@ -111,12 +122,14 @@ export async function creaAbbonamentoDaPreventivo({
   preventivoId,
   importoRaw,
   giornoRaw,
+  meseInizioRaw,
   mensilitaRaw,
 }: {
   cliente: ClientePreventivo
   preventivoId: string
   importoRaw: string
   giornoRaw: string
+  meseInizioRaw: string
   mensilitaRaw: string
 }) {
   const { data: { user } } = await supabase.auth.getUser()
@@ -124,18 +137,23 @@ export async function creaAbbonamentoDaPreventivo({
 
   const importo = parseFloat(importoRaw.replace(',', '.'))
   const giorno = parseInt(giornoRaw)
+  const meseInizio = parseInt(meseInizioRaw, 10)
   const mensilita = mensilitaRaw ? parseInt(mensilitaRaw) : null
-  if (!(importo > 0 && giorno >= 1 && giorno <= 31)) return { esistente: false }
+  if (!(importo > 0 && giorno >= 1 && giorno <= 31 && meseInizio >= 1 && meseInizio <= 12)) {
+    return { esistente: false }
+  }
 
   const { data: abEsistente } = await supabase
     .from('abbonamenti')
     .select('id')
     .eq('cliente_id', cliente.id)
     .eq('attivo', true)
-    .single()
+    .eq('tipo', 'canone')
+    .maybeSingle()
 
   if (abEsistente) return { esistente: true }
 
+  const nome = await nomePianoPerPreventivo(preventivoId, 'canone')
   const { data: ab } = await supabase.from('abbonamenti').insert({
     user_id: user.id,
     cliente_id: cliente.id,
@@ -144,18 +162,88 @@ export async function creaAbbonamentoDaPreventivo({
     attivo: true,
     preventivo_id: preventivoId,
     numero_mensilita: mensilita,
-    tipo: mensilita ? 'rate' : 'canone',
+    tipo: 'canone',
+    nome,
   }).select().single()
 
   if (!ab) return { esistente: false }
 
-  const ora = new Date()
-  const inserimenti = mensilita
-    ? Array.from({ length: mensilita }, (_, i) => {
-        const d = new Date(ora.getFullYear(), ora.getMonth() + i, 1)
-        return { abbonamento_id: ab.id, mese: d.getMonth() + 1, anno: d.getFullYear(), importo, acconto: 0, stato: 'da_incassare' }
-      })
-    : [{ abbonamento_id: ab.id, mese: ora.getMonth() + 1, anno: ora.getFullYear(), importo, acconto: 0, stato: 'da_incassare' }]
+  const numRate = mensilita && mensilita > 0 ? mensilita : 1
+  const scadenze = calcolaScadenzeRate(numRate, giorno, meseInizio)
+  const inserimenti = scadenze.map(s => ({
+    abbonamento_id: ab.id,
+    mese: s.mese,
+    anno: s.anno,
+    importo,
+    acconto: 0,
+    stato: 'da_incassare' as const,
+  }))
   const { error } = await supabase.from('rate_abbonamento').insert(inserimenti)
+  return { esistente: false }
+}
+
+export async function creaPianoRateDaPreventivo({
+  cliente,
+  preventivoId,
+  importoTotale,
+  numeroRateRaw,
+  giornoScadenzaRaw,
+  meseInizioRaw,
+}: {
+  cliente: ClientePreventivo
+  preventivoId: string
+  importoTotale: number
+  numeroRateRaw: string
+  giornoScadenzaRaw: string
+  meseInizioRaw: string
+}) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { esistente: false }
+
+  const numeroRate = parseInt(numeroRateRaw, 10)
+  const giornoScadenza = parseInt(giornoScadenzaRaw, 10)
+  const meseInizio = parseInt(meseInizioRaw, 10)
+  if (!(importoTotale > 0 && numeroRate >= 2 && giornoScadenza >= 1 && giornoScadenza <= 31 && meseInizio >= 1 && meseInizio <= 12)) {
+    return { esistente: false }
+  }
+
+  const { data: pianoEsistente } = await supabase
+    .from('abbonamenti')
+    .select('id')
+    .eq('cliente_id', cliente.id)
+    .eq('attivo', true)
+    .eq('tipo', 'rate')
+    .maybeSingle()
+
+  if (pianoEsistente) return { esistente: true }
+
+  const importi = calcolaImportiRate(importoTotale, numeroRate)
+  const scadenze = calcolaScadenzeRate(numeroRate, giornoScadenza, meseInizio)
+
+  const nome = await nomePianoPerPreventivo(preventivoId, 'rate')
+  const { data: ab } = await supabase.from('abbonamenti').insert({
+    user_id: user.id,
+    cliente_id: cliente.id,
+    importo_default: importoTotale,
+    giorno_scadenza: giornoScadenza,
+    attivo: true,
+    preventivo_id: preventivoId,
+    numero_mensilita: numeroRate,
+    note: null,
+    tipo: 'rate',
+    nome,
+  }).select().single()
+
+  if (!ab) return { esistente: false }
+
+  const inserimenti = importi.map((importo, i) => ({
+    abbonamento_id: ab.id,
+    mese: scadenze[i].mese,
+    anno: scadenze[i].anno,
+    importo,
+    acconto: 0,
+    stato: 'da_incassare' as const,
+  }))
+  await supabase.from('rate_abbonamento').insert(inserimenti)
   return { esistente: false }
 }

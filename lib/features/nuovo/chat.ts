@@ -34,9 +34,10 @@ export function applicaRispostaChat(reply: string, nuovi: Messaggio[]) {
   }
 }
 
+import { importoDaTesto } from '../preventivoPdf/text'
+
 export function importoDaPreventivo(testo: string) {
-  const match = testo.match(/TOTALE[:\s]*€?\s*([\d.,]+)/i)
-  return match ? parseFloat(match[1].replace(',', '.')) : null
+  return importoDaTesto(testo)
 }
 
 export function iconaMetodoPagamento(tipo?: string) {

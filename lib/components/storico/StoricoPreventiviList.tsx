@@ -1,4 +1,7 @@
-import { Alert, Text, TouchableOpacity, View } from 'react-native'
+import { Text, TouchableOpacity, View } from 'react-native'
+import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPreventivo/constants'
+import { PreventivoStatoBadge } from '../preventivo/PreventivoStatoBadge'
+import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { Preventivo } from '../../types'
 import { storicoStyles as styles } from './storicoStyles'
 
@@ -8,6 +11,7 @@ type Props = {
   preventiviSelezionati: string[]
   aperto: string | null
   cronologiaAperta: string | null
+  cronologiaVersioneAperta: string | null
   cronologia: { [key: string]: Preventivo[] }
   onCardPress: (preventivo: Preventivo) => void
   onLongPress: (preventivoId: string) => void
@@ -16,17 +20,9 @@ type Props = {
   onScaricaPdf: (preventivo: Preventivo) => void
   onElimina: (preventivoId: string) => void
   onCaricaCronologia: (preventivoId: string, padreId: string | null) => void
-  onToggleVersioneAperta: (preventivoId: string, versioneId: string) => void
+  onToggleVersione: (versioneId: string) => void
   onRipristinaVersione: (preventivoCorrenteId: string, versione: Preventivo) => void
-  onRiprendiBozza: (preventivoId: string) => void
   onModificaVersione: (preventivo: Preventivo) => void
-}
-
-function statoColore(stato: string | null | undefined) {
-  if (stato === 'accettato') return { color: '#0E9F8E' }
-  if (stato === 'rifiutato') return { color: '#EF4444' }
-  if (stato === 'inviato') return { color: '#1D4ED8' }
-  return {}
 }
 
 export function StoricoPreventiviList({
@@ -35,6 +31,7 @@ export function StoricoPreventiviList({
   preventiviSelezionati,
   aperto,
   cronologiaAperta,
+  cronologiaVersioneAperta,
   cronologia,
   onCardPress,
   onLongPress,
@@ -43,9 +40,8 @@ export function StoricoPreventiviList({
   onScaricaPdf,
   onElimina,
   onCaricaCronologia,
-  onToggleVersioneAperta,
+  onToggleVersione,
   onRipristinaVersione,
-  onRiprendiBozza,
   onModificaVersione,
 }: Props) {
   return (
@@ -74,11 +70,11 @@ export function StoricoPreventiviList({
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 12 }}>
                 <TouchableOpacity
-                  style={{ alignItems: 'flex-end' }}
+                  style={{ alignItems: 'flex-end', gap: 4 }}
                   onPress={() => selezioneAttiva ? onToggleSelezione(p.id) : onStatoPress(p.id)}
                 >
                   <Text style={styles.cardImporto}>{p.importo_totale ? `\u20AC${p.importo_totale}` : '\u2014'}</Text>
-                  <Text style={[styles.cardStato, statoColore(p.stato)]}>{`${p.stato || 'bozza'} \u25BC`}</Text>
+                  <PreventivoStatoBadge stato={p.stato} showArrow />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => selezioneAttiva ? onToggleSelezione(p.id) : onScaricaPdf(p)}>
                   <Text style={{ fontSize: 16 }}>{p.pdf_url ? '\uD83D\uDCC4' : '\uD83D\uDD04'}</Text>
@@ -102,7 +98,7 @@ export function StoricoPreventiviList({
                 ) : null}
 
                 {cronologiaAperta === p.id && cronologia[p.id]?.map(v => (
-                  <TouchableOpacity key={v.id} style={styles.cronologiaItem} onPress={() => onToggleVersioneAperta(p.id, v.id)}>
+                  <TouchableOpacity key={v.id} style={styles.cronologiaItem} onPress={() => onToggleVersione(v.id)}>
                     <Text style={styles.cronologiaVer}>{`v${v.versione || 1}`}</Text>
                     <Text style={styles.cronologiaData}>{new Date(v.created_at).toLocaleDateString('it-IT')}</Text>
                     <Text style={styles.cronologiaImporto}>{v.importo_totale ? `\u20AC${v.importo_totale}` : '\u2014'}</Text>
@@ -110,30 +106,19 @@ export function StoricoPreventiviList({
                 ))}
 
                 {cronologiaAperta === p.id && cronologia[p.id]?.map(v =>
-                  aperto === v.id ? (
+                  cronologiaVersioneAperta === v.id ? (
                     <View key={`detail-${v.id}`} style={styles.cronologiaDetail}>
                       <Text style={styles.prevTesto}>{v.testo_preventivo}</Text>
-                      <TouchableOpacity
-                        style={styles.ripristinaBtn}
-                        onPress={() => Alert.alert('Ripristina versione', `Vuoi ripristinare la v${v.versione || 1}?`, [
-                          { text: 'Annulla', style: 'cancel' },
-                          { text: 'Ripristina', onPress: () => onRipristinaVersione(p.id, v) },
-                        ])}
-                      >
-                        <Text style={styles.ripristinaBtnText}>{'\u21A9'} Ripristina questa versione</Text>
-                      </TouchableOpacity>
+                      <RipristinaVersioneLink
+                        versione={v}
+                        onRipristina={() => onRipristinaVersione(p.id, v)}
+                      />
                     </View>
                   ) : null
                 )}
 
-                {p.stato === 'bozza' ? (
-                  <TouchableOpacity style={styles.riprendiBtn} onPress={() => onRiprendiBozza(p.id)}>
-                    <Text style={styles.riprendiBtnText}>{'\uD83D\uDCAC'} Riprendi bozza</Text>
-                  </TouchableOpacity>
-                ) : null}
-
                 <TouchableOpacity style={styles.editBtn} onPress={() => onModificaVersione(p)}>
-                  <Text style={styles.editBtnText}>{`\u270F\uFE0F Modifica e genera v${(p.versione || 1) + 1}`}</Text>
+                  <Text style={styles.editBtnText}>{`\u270F\uFE0F ${MODIFICA_VERSIONE_ALTERNATIVA_LABEL}`}</Text>
                 </TouchableOpacity>
               </View>
             )}

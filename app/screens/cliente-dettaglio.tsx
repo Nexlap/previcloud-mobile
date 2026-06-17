@@ -12,14 +12,18 @@ import {
 } from 'react-native'
 import { MESI_BREVI } from '../../lib/constants'
 import { creaLinkPagamentoRata } from '../../lib/api/pdf'
-import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCronologiaCliente, eliminaClienteDettaglio, eliminaPreventiviCliente, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
+import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, caricaCronologiaCliente, eliminaClienteDettaglio, eliminaPreventiviCliente, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
+import { ripristinaVersionePreventivo } from '../../lib/api/storico'
 import { eventBus } from '../../lib/eventBus'
 import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
+import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
+import { useModificaPreventivoScelta } from '../../lib/features/modificaPreventivo/useModificaPreventivoScelta'
 import { ClienteAbbonamentoTab } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoTab'
+import { AbbonamentoRateSelectionBar } from '../../lib/components/clienteDettaglio/AbbonamentoRateSelectionBar'
 import { ClienteAbbonamentoModals } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoModals'
 import {
   ClienteDettaglioHeader,
@@ -30,19 +34,20 @@ import {
 } from '../../lib/components/clienteDettaglio/ClienteOverview'
 import { ClientePreventivoModals } from '../../lib/components/clienteDettaglio/ClientePreventivoModals'
 import { ClientePreventiviList } from '../../lib/components/clienteDettaglio/ClientePreventiviList'
-import { ClienteTrascrizioniList } from '../../lib/components/clienteDettaglio/ClienteTrascrizioniList'
+import { ClientePagamentoRateTab } from '../../lib/components/clienteDettaglio/ClientePagamentoRateTab'
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 
 export default function ClienteDettaglio() {
-  const { id, nome } = useLocalSearchParams<{ id: string, nome: string }>()
+  const { id, nome, tab: tabIniziale } = useLocalSearchParams<{ id: string, nome: string, tab?: string }>()
   const navigation = useNavigation()
+  const { modificaInput, apriDaPreventivo, chiudiSceltaModifica } = useModificaPreventivoScelta()
 
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [trascrizioni, setTrascrizioni] = useState<Trascrizione[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [tab, setTab] = useState<'preventivi' | 'chiamate' | 'abbonamento'>('preventivi')
+  const [tab, setTab] = useState<'preventivi' | 'pagamento_rate' | 'abbonamento'>('preventivi')
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
   const [cronologiaAperta, setCronologiaAperta] = useState<string | null>(null)
@@ -77,6 +82,13 @@ export default function ClienteDettaglio() {
   const [nomeAbTemp, setNomeAbTemp] = useState('')
   const [mostraModalRinominaAb, setMostraModalRinominaAb] = useState(false)
   const [rataImporto, setRataImporto] = useState('')
+  const [mostraModalAggiungiRata, setMostraModalAggiungiRata] = useState(false)
+  const [nuovaRataMese, setNuovaRataMese] = useState('')
+  const [nuovaRataAnno, setNuovaRataAnno] = useState('')
+  const [nuovaRataImporto, setNuovaRataImporto] = useState('')
+  const [rateSelezioneAttiva, setRateSelezioneAttiva] = useState(false)
+  const [rateSelezionate, setRateSelezionate] = useState<string[]>([])
+  const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
 
   const {
     preventivi, totaleValore,
@@ -85,17 +97,23 @@ export default function ClienteDettaglio() {
   } = usePreventivi({ clienteId: id })
 
   const {
-    abbonamento, rate, loading: loadingAb,
+    abbonamento, abbonamentiStorico, preventivoMadre, preventiviMadreStorico, rate, loading: loadingAb,
     creaAbbonamento, aggiornaAbbonamento, eliminaAbbonamento,
     registraPagamento, azzeraPagamento,
-    aggiungiRataMese, rinominaAbbonamento, modificaImportoRata,
+    aggiungiRataMese, eliminaRate, rinominaAbbonamento, modificaImportoRata,
     totaleIncassato, totaleParziale, carica: caricaAb
-  } = useAbbonamento(id)
+  } = useAbbonamento(id, { soloTipo: 'canone' })
 
   useEffect(() => {
     trackEvento('cliente_dettaglio_aperto', 'cliente-dettaglio')
     carica()
   }, [])
+
+  useEffect(() => {
+    if (tabIniziale === 'preventivi' || tabIniziale === 'pagamento_rate' || tabIniziale === 'abbonamento') {
+      setTab(tabIniziale)
+    }
+  }, [tabIniziale])
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e: BeforeRemoveEvent) => {
@@ -127,9 +145,13 @@ export default function ClienteDettaglio() {
   }, [mostraModalRinominaCliente, modificheNonSalvate])
 
   async function carica() {
-    const { cliente, trascrizioni } = await caricaClienteDettaglio(id)
+    const [{ cliente, trascrizioni }, collegamenti] = await Promise.all([
+      caricaClienteDettaglio(id),
+      caricaCollegamentiPianoPreventivo(id),
+    ])
     if (cliente) setCliente(cliente)
     setTrascrizioni(trascrizioni)
+    setCollegamentiPiano(collegamenti)
     setLoading(false)
   }
 
@@ -137,6 +159,22 @@ export default function ClienteDettaglio() {
     setRefreshing(true)
     await Promise.all([carica(), onRefreshPreventivi(), caricaAb()])
     setRefreshing(false)
+  }
+
+  function apriPreventivoMadre(preventivoId: string) {
+    setTab('preventivi')
+    setAperto(preventivoId)
+    setCronologiaAperta(null)
+    setCronologiaVersioneAperta(null)
+  }
+
+  async function aggiornaCollegamentiPiano() {
+    setCollegamentiPiano(await caricaCollegamentiPianoPreventivo(id))
+  }
+
+  async function eliminaAbbonamentoCliente() {
+    await eliminaAbbonamento()
+    await aggiornaCollegamentiPiano()
   }
 
   async function eliminaPreventivo(prevId: string) {
@@ -147,10 +185,11 @@ export default function ClienteDettaglio() {
   }
 
   async function eliminaCliente() {
-    Alert.alert('Elimina cliente', 'Vuoi eliminare questo cliente?', [
+    Alert.alert('Elimina cliente', 'Verranno eliminati anche preventivi, abbonamenti e rate collegati. Continuare?', [
       { text: 'Annulla', style: 'cancel' },
       { text: 'Elimina', style: 'destructive', onPress: async () => {
-        await eliminaClienteDettaglio(id)
+        const { error } = await eliminaClienteDettaglio(id)
+        if (error) { Alert.alert('Errore', error.message); return }
         router.back()
       }}
     ])
@@ -177,13 +216,28 @@ export default function ClienteDettaglio() {
   }
 
   async function caricaCronologia(preventivoId: string, padreId: string | null) {
-    if (cronologiaAperta === preventivoId) { setCronologiaAperta(null); return }
+    if (cronologiaAperta === preventivoId) {
+      setCronologiaAperta(null)
+      setCronologiaVersioneAperta(null)
+      return
+    }
     if (!padreId) return
     const versioni = await caricaCronologiaCliente(padreId)
     if (versioni.length > 0) {
       setCronologia(c => ({ ...c, [preventivoId]: versioni }))
       setCronologiaAperta(preventivoId)
+      setCronologiaVersioneAperta(null)
     }
+  }
+
+  async function onRipristinaVersione(preventivoCorrenteId: string, versione: Preventivo) {
+    await ripristinaVersionePreventivo(preventivoCorrenteId, versione.id)
+    Alert.alert('\u2713 Ripristinato')
+    setAperto(null)
+    setCronologiaAperta(null)
+    setCronologiaVersioneAperta(null)
+    await onRefresh()
+    eventBus.emit('aggiorna-home')
   }
 
   function toggleSelezione(prevId: string) {
@@ -316,6 +370,75 @@ export default function ClienteDettaglio() {
     setMostraModalRinominaAb(false)
   }
 
+  function apriModalAggiungiRata() {
+    if (!abbonamento) return
+    setNuovaRataMese(String(meseCorrente))
+    setNuovaRataAnno(String(annoCorrente))
+    setNuovaRataImporto(abbonamento.importo_default.toString())
+    setMostraModalAggiungiRata(true)
+  }
+
+  async function confermaAggiungiRata() {
+    const mese = parseInt(nuovaRataMese, 10)
+    const anno = parseInt(nuovaRataAnno, 10)
+    const importo = parseFloat(nuovaRataImporto.replace(',', '.'))
+    if (!mese || mese < 1 || mese > 12) {
+      Alert.alert('Mese non valido', 'Inserisci un mese tra 1 e 12')
+      return
+    }
+    if (!anno || anno < 2000 || anno > 2100) {
+      Alert.alert('Anno non valido', 'Inserisci un anno valido')
+      return
+    }
+    if (!importo || importo <= 0) {
+      Alert.alert('Importo non valido', 'Inserisci un importo maggiore di zero')
+      return
+    }
+    const ok = await aggiungiRataMese(mese, anno, importo)
+    if (ok) setMostraModalAggiungiRata(false)
+  }
+
+  async function eliminaRateSelezionate(ids: string[]) {
+    const ok = await eliminaRate(ids)
+    if (!ok) return
+    if (rataSelezionata && ids.includes(rataSelezionata.id)) setRataSelezionata(null)
+    if (rataMiniAperta && ids.includes(rataMiniAperta)) setRataMiniAperta(null)
+  }
+
+  function annullaSelezioneRate() {
+    setRateSelezioneAttiva(false)
+    setRateSelezionate([])
+  }
+
+  function avviaSelezioneRata(rataId: string) {
+    setRateSelezioneAttiva(true)
+    setRateSelezionate(ids => ids.includes(rataId) ? ids : [...ids, rataId])
+  }
+
+  function toggleSelezioneRata(rataId: string) {
+    setRateSelezionate(ids => {
+      const prossimi = ids.includes(rataId) ? ids.filter(x => x !== rataId) : [...ids, rataId]
+      if (prossimi.length === 0) setRateSelezioneAttiva(false)
+      return prossimi
+    })
+  }
+
+  function confermaEliminaRateSelezionate() {
+    const ids = [...rateSelezionate]
+    if (!ids.length) return
+    Alert.alert('Elimina rate', `Eliminare ${ids.length} rate selezionate?`, [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Elimina',
+        style: 'destructive',
+        onPress: async () => {
+          await eliminaRateSelezionate(ids)
+          annullaSelezioneRate()
+        },
+      },
+    ])
+  }
+
   function apriModificaCliente() {
     setNuovoNomeCliente(cliente?.nome || '')
     setNuovoTelefono(cliente?.telefono || '')
@@ -382,6 +505,7 @@ const rateStoriche = rate.filter(r =>
             cronologiaAperta={cronologiaAperta}
             cronologia={cronologia}
             cronologiaVersioneAperta={cronologiaVersioneAperta}
+            collegamentiPiano={collegamentiPiano}
             onToggleCard={(preventivoId) => { if (modalitaSelezione) toggleSelezione(preventivoId); else setAperto(aperto === preventivoId ? null : preventivoId) }}
             onLongPress={iniziaSelezione}
             onStatoPress={setModalStato}
@@ -389,27 +513,18 @@ const rateStoriche = rate.filter(r =>
             onElimina={eliminaPreventivo}
             onCaricaCronologia={caricaCronologia}
             onToggleVersione={(versioneId) => setCronologiaVersioneAperta(cronologiaVersioneAperta === versioneId ? null : versioneId)}
-            onModificaVersione={(versione, preventivoCorrente) => router.push({
-              pathname: '/(tabs)/nuovo',
-              params: { testo_modifica: versione.testo_preventivo || '', versione_padre_id: preventivoCorrente.id, versione_numero: String((preventivoCorrente.versione || 1) + 1) }
-            })}
-            onModificaUltimo={(preventivo) => router.push({
-              pathname: '/(tabs)/nuovo',
-              params: { testo_modifica: preventivo.testo_preventivo || '', versione_padre_id: preventivo.id, versione_numero: String((preventivo.versione || 1) + 1) }
-            })}
+            onRipristinaVersione={onRipristinaVersione}
+            onModificaUltimo={(preventivo) => apriDaPreventivo(preventivo)}
             onSposta={async (preventivoId) => { await caricaClientiDisponibili(); setMostraModalSposta(preventivoId) }}
             onRinomina={(preventivo) => { setNuovoTitolo(preventivo.titolo || ''); setMostraModalRinomina(preventivo.id) }}
           />
         )}
 
-        {/* Tab Chiamate */}
-        {tab === 'chiamate' && (
-          <ClienteTrascrizioniList
-            trascrizioni={trascrizioni}
-            aperto={aperto}
-            onToggle={(trascrizioneId) => setAperto(aperto === trascrizioneId ? null : trascrizioneId)}
-            onGeneraPreventivo={(testo) => router.push({ pathname: '/(tabs)/nuovo', params: { trascrizione: testo } })}
-            formatDurata={formatDurata}
+        {/* Tab Pagamento a rate */}
+        {tab === 'pagamento_rate' && (
+          <ClientePagamentoRateTab
+            onApriPreventivoMadre={apriPreventivoMadre}
+            onPianoAggiornato={aggiornaCollegamentiPiano}
           />
         )}
 
@@ -418,6 +533,11 @@ const rateStoriche = rate.filter(r =>
           <ClienteAbbonamentoTab
             loading={loadingAb}
             abbonamento={abbonamento}
+            preventivoMadre={preventivoMadre}
+            abbonamentiStorico={abbonamentiStorico}
+            preventiviMadreStorico={preventiviMadreStorico}
+            onApriPreventivoMadre={apriPreventivoMadre}
+            totaleIncassato={totaleIncassato}
             meseCorrente={meseCorrente}
             annoCorrente={annoCorrente}
             rataMeseCorrente={rataMeseCorrente}
@@ -425,29 +545,43 @@ const rateStoriche = rate.filter(r =>
             abEspanso={abEspanso}
             rataMiniAperta={rataMiniAperta}
             invioReminderLoading={invioReminderLoading}
+            selezioneAttiva={rateSelezioneAttiva}
+            rateSelezionate={rateSelezionate}
+            onAvviaSelezione={avviaSelezioneRata}
+            onToggleSelezione={toggleSelezioneRata}
             onCreate={() => { setAbImporto(''); setAbGiorno('1'); setAbMensilita(''); setMostraModalNuovoAb(true) }}
             onToggleEspanso={() => setAbEspanso(v => !v)}
             onRename={() => { setNomeAbTemp(abbonamento?.nome || 'Abbonamento N.1'); setMostraModalRinominaAb(true) }}
-            onAddRata={aggiungiRataMese}
+            onOpenAddRata={apriModalAggiungiRata}
             onOpenPagamento={apriModalPagamento}
             onSendReminder={inviaReminder}
             onAzzeraPagamento={azzeraPagamento}
             onToggleRataMini={(rataId) => setRataMiniAperta(rataMiniAperta === rataId ? null : rataId)}
             onEditCanone={() => { if (!abbonamento) return; setAbImporto(abbonamento.importo_default.toString()); setAbGiorno(abbonamento.giorno_scadenza.toString()); setMostraModalModificaAb(true) }}
-            onDeleteAbbonamento={eliminaAbbonamento}
+            onDeleteAbbonamento={eliminaAbbonamentoCliente}
           />
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: rateSelezioneAttiva && tab === 'abbonamento' ? 120 : 40 }} />
       </ScrollView>
 
+      {tab === 'abbonamento' && rateSelezioneAttiva && (
+        <AbbonamentoRateSelectionBar
+          count={rateSelezionate.length}
+          onCancel={annullaSelezioneRate}
+          onDelete={confermaEliminaRateSelezionate}
+        />
+      )}
+
       {/* Bottone nuovo preventivo */}
+      {!(tab === 'abbonamento' && rateSelezioneAttiva) && (
       <TouchableOpacity
         style={styles.nuovoBtn}
         onPress={() => router.push({ pathname: '/(tabs)/nuovo', params: { cliente_id: id, cliente_nome: cliente.nome || nome } })}
       >
         <Text style={styles.nuovoBtnText}>+ Nuovo preventivo</Text>
       </TouchableOpacity>
+      )}
 
       <ClientePreventivoModals
         modalStato={modalStato}
@@ -462,6 +596,12 @@ const rateStoriche = rate.filter(r =>
         onChangeTitolo={setNuovoTitolo}
         onCloseRinomina={() => setMostraModalRinomina(null)}
         onSaveRinomina={rinominaPreventivo}
+      />
+
+      <ModificaPreventivoModal
+        visible={!!modificaInput}
+        input={modificaInput}
+        onClose={chiudiSceltaModifica}
       />
 
       <ClienteAbbonamentoModals
@@ -491,6 +631,15 @@ const rateStoriche = rate.filter(r =>
         nomeAbTemp={nomeAbTemp}
         onChangeNomeAbTemp={setNomeAbTemp}
         onSalvaRinomina={salvaRinominaAbbonamento}
+        mostraAggiungiRata={mostraModalAggiungiRata}
+        onCloseAggiungiRata={() => setMostraModalAggiungiRata(false)}
+        nuovaRataMese={nuovaRataMese}
+        onChangeNuovaRataMese={setNuovaRataMese}
+        nuovaRataAnno={nuovaRataAnno}
+        onChangeNuovaRataAnno={setNuovaRataAnno}
+        nuovaRataImporto={nuovaRataImporto}
+        onChangeNuovaRataImporto={setNuovaRataImporto}
+        onConfermaAggiungiRata={confermaAggiungiRata}
       />
 
       {/* Modal modifica cliente */}

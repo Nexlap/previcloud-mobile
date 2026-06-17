@@ -8,6 +8,8 @@ import { eventBus } from "../../lib/eventBus"
 import { caricaHomeData } from '../../lib/api/home'
 import { Preventivo, Profile } from "../../lib/types"
 import { trackEvento } from "../../lib/utils/analytics"
+import { formatImportoEuro } from '../../lib/utils/importo'
+import { PreventivoStatoBadge } from '../../lib/components/preventivo/PreventivoStatoBadge'
 
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -83,7 +85,14 @@ useEffect(() => {
             <Text style={styles.statLabel}>Preventivi</Text>
           </View>
           <View style={[styles.statCard, styles.statCardAccent]}>
-            <Text style={[styles.statVal, { color: '#fff' }]}>€{pagamentiIncassati.toFixed(0)}</Text>
+            <Text
+              style={[styles.statVal, styles.statValCompact, { color: '#fff' }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {`€${formatImportoEuro(pagamentiIncassati)}`}
+            </Text>
             <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.7)' }]}>Pagamenti incassati</Text>
           </View>
           <View style={styles.statCard}>
@@ -130,14 +139,7 @@ useEffect(() => {
                 </View>
                 <View style={styles.prevRight}>
                   <Text style={styles.prevImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
-                  <View style={[
-                    styles.prevStatoBadge,
-                    p.stato === 'accettato' ? styles.prevStatoAccettato :
-                    p.stato === 'rifiutato' ? styles.prevStatoRifiutato :
-                    p.stato === 'inviato' ? styles.prevStatoInviato : {}
-                  ]}>
-                    <Text style={styles.prevStatoText}>{p.stato}</Text>
-                  </View>
+                  <PreventivoStatoBadge stato={p.stato} />
                 </View>
               </TouchableOpacity>
             ))
@@ -174,9 +176,10 @@ const styles = StyleSheet.create({
   profileBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   scroll: { flex: 1 },
   statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', minWidth: 0 },
   statCardAccent: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A' },
   statVal: { fontSize: 20, fontWeight: '700', color: '#0D1B2A' },
+  statValCompact: { width: '100%', textAlign: 'center' },
   statLabel: { fontSize: 10, color: '#9CA3AF', marginTop: 3, textAlign: 'center' },
   section: { backgroundColor: '#fff', borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
@@ -194,11 +197,6 @@ const styles = StyleSheet.create({
   prevData: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   prevRight: { alignItems: 'flex-end', gap: 4 },
   prevImporto: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
-  prevStatoBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  prevStatoAccettato: { backgroundColor: '#D1FAE5' },
-  prevStatoRifiutato: { backgroundColor: '#FEE2E2' },
-  prevStatoInviato: { backgroundColor: '#DBEAFE' },
-  prevStatoText: { fontSize: 10, color: '#6B7280', fontWeight: '500' },
   quickTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   quickGrid: { flexDirection: 'row', gap: 10 },
   quickCard: { flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 16, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#E5E7EB' },

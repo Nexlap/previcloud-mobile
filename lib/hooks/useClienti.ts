@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import { Alert } from 'react-native'
 import { supabase } from '../supabase'
 import { Cliente } from '../types'
+import { eliminaClienti } from '../api/clienti'
 
 // ── Hook riutilizzabile per la gestione clienti ───────────────────
 export function useClienti() {
@@ -68,7 +69,7 @@ export function useClienti() {
   }
 
   async function eliminaCliente(id: string) {
-    const { error } = await supabase.from('clienti').delete().eq('id', id)
+    const { error } = await eliminaClienti([id])
     if (error) { Alert.alert('Errore', error.message); return false }
     setClienti(c => c.filter(x => x.id !== id))
     return true

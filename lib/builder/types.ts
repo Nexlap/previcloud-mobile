@@ -33,4 +33,15 @@ export type BuilderMemoryState = {
   nuovaSpesaNome: string
   nuovaSpesaImporto: string
   nuoviKm: string
+  abbonamentoAttivo: boolean
+  abImporto: string
+  abGiorno: string
+  abMeseInizio: string
+  abMensilita: string
+  abVisibileNelPDF: boolean
+  pagamentoRateAttivo: boolean
+  rateNumero: string
+  rateGiornoScadenza: string
+  rateMeseInizio: string
+  rateVisibileNelPDF: boolean
 }

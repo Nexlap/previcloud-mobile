@@ -15,6 +15,7 @@ import {
   PreventivoPdfPagamentoModal,
   PreventivoPdfTitoloModal,
 } from '../../lib/components/preventivoPdf/PreventivoPdfModals'
+import { BuilderPagamentoRateCard } from '../../lib/components/builder/BuilderPagamentoRateCard'
 import {
   PreventivoPdfAbbonamentoCard,
   PreventivoPdfTariffaToggle,
@@ -23,6 +24,7 @@ import { PreventivoPdfPreviewCard, PreventivoPdfToast } from '../../lib/componen
 import { PreventivoPdfTemplatePicker } from '../../lib/components/preventivoPdf/PreventivoPdfTemplatePicker'
 import { eventBus } from '../../lib/eventBus'
 import { importoDaTesto, scalaHtmlPreview, testoConPagamento } from '../../lib/features/preventivoPdf/text'
+import { parseImportoEuro } from '../../lib/utils/importo'
 import {
   aggiornaTitoloPreventivo,
   caricaClientePreventivo,
@@ -30,6 +32,7 @@ import {
   caricaMetodiPagamentoPreventivo,
   caricaTemplatePreferito,
   creaAbbonamentoDaPreventivo,
+  creaPianoRateDaPreventivo,
   creaClientePreventivo,
   ClientePreventivo,
   MetodoPagamento,
@@ -38,7 +41,9 @@ import {
   segnaPreventivoInviato,
   tokenPreventivoPdf,
 } from '../../lib/api/preventivoPdf'
-import { trackEvento } from "../../lib/utils/analytics"
+import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo'
+import { meseCorrenteString } from '../../lib/utils/giornoScadenza'
+import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
 import { resetBuilderState } from './builder'
 
@@ -48,10 +53,38 @@ type Params = {
   cliente_id: string
   metodo_pagamento_id: string
   importo_totale: string
+  ab_attivo?: string
+  ab_importo?: string
+  ab_giorno?: string
+  ab_mensilita?: string
+  ab_mese_inizio?: string
+  ab_visibile?: string
+  rate_attivo?: string
+  rate_numero?: string
+  rate_giorno?: string
+  rate_mese_inizio?: string
+  rate_visibile?: string
 }
 
 export default function PreventivoPDF() {
-  const { testo: testoParam, versione_padre_id, cliente_id, metodo_pagamento_id, importo_totale } = useLocalSearchParams<Params>()
+  const {
+    testo: testoParam,
+    versione_padre_id,
+    cliente_id,
+    metodo_pagamento_id,
+    importo_totale,
+    ab_attivo,
+    ab_importo,
+    ab_giorno,
+    ab_mensilita,
+    ab_mese_inizio,
+    ab_visibile,
+    rate_attivo,
+    rate_numero,
+    rate_giorno,
+    rate_mese_inizio,
+    rate_visibile,
+  } = useLocalSearchParams<Params>()
 
   const [testo] = useState(testoParam || '')
   const [template, setTemplate] = useState('pulito')
@@ -75,8 +108,14 @@ export default function PreventivoPDF() {
   const [abbonamentoAttivo, setAbbonamentoAttivo] = useState(false)
   const [abImporto, setAbImporto] = useState('')
   const [abGiorno, setAbGiorno] = useState('1')
+  const [abMeseInizio, setAbMeseInizio] = useState(meseCorrenteString())
   const [abMensilita, setAbMensilita] = useState('')
   const [abVisibileNelPDF, setAbVisibileNelPDF] = useState(true)
+  const [pagamentoRateAttivo, setPagamentoRateAttivo] = useState(false)
+  const [rateNumero, setRateNumero] = useState('')
+  const [rateGiornoScadenza, setRateGiornoScadenza] = useState('1')
+  const [rateMeseInizio, setRateMeseInizio] = useState(meseCorrenteString())
+  const [rateVisibileNelPDF, setRateVisibileNelPDF] = useState(true)
   const toastOpacity = useRef(new Animated.Value(0)).current
   const previewTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [segnaInviato, setSegnaInviato] = useState(false)
@@ -96,17 +135,69 @@ export default function PreventivoPDF() {
   }, [cliente_id])
 
   useEffect(() => {
+    if (ab_attivo === '1') setAbbonamentoAttivo(true)
+    if (ab_importo) setAbImporto(ab_importo)
+    if (ab_giorno) setAbGiorno(ab_giorno)
+    if (ab_mese_inizio) setAbMeseInizio(ab_mese_inizio)
+    if (ab_mensilita) setAbMensilita(ab_mensilita)
+    if (ab_visibile === '0') setAbVisibileNelPDF(false)
+  }, [ab_attivo, ab_importo, ab_giorno, ab_mese_inizio, ab_mensilita, ab_visibile])
+
+  useEffect(() => {
+    if (rate_attivo === '1') setPagamentoRateAttivo(true)
+    if (rate_numero) setRateNumero(rate_numero)
+    if (rate_giorno) setRateGiornoScadenza(rate_giorno)
+    if (rate_mese_inizio) setRateMeseInizio(rate_mese_inizio)
+    if (rate_visibile === '0') setRateVisibileNelPDF(false)
+  }, [rate_attivo, rate_numero, rate_giorno, rate_mese_inizio, rate_visibile])
+
+  const importoTotaleNum = importo_totale
+    ? (parseImportoEuro(String(importo_totale)) ?? 0)
+    : 0
+
+  useEffect(() => {
     if (!token || !testo) return
     if (previewTimeout.current) clearTimeout(previewTimeout.current)
     previewTimeout.current = setTimeout(() => aggiornaPreview(), 300)
-  }, [template, token, testo, clienteSelezionato, nascondiPrezzi, metodoPagamentoSelezionato, abbonamentoAttivo, abImporto, abVisibileNelPDF])
+  }, [template, token, testo, clienteSelezionato, nascondiPrezzi, metodoPagamentoSelezionato, abbonamentoAttivo, abImporto, abGiorno, abMeseInizio, abVisibileNelPDF, pagamentoRateAttivo, rateNumero, rateGiornoScadenza, rateMeseInizio, rateVisibileNelPDF, importo_totale])
+
+  function onChangeAbbonamentoAttivo(v: boolean) {
+    if (!v) {
+      setAbbonamentoAttivo(false)
+      return
+    }
+    confermaPagamentoEsclusivo('canone', pagamentoRateAttivo, () => {
+      setPagamentoRateAttivo(false)
+      setAbbonamentoAttivo(true)
+    })
+  }
+
+  function onChangePagamentoRateAttivo(v: boolean) {
+    if (!v) {
+      setPagamentoRateAttivo(false)
+      return
+    }
+    confermaPagamentoEsclusivo('rate', abbonamentoAttivo, () => {
+      setAbbonamentoAttivo(false)
+      setPagamentoRateAttivo(true)
+    })
+  }
 
   async function buildTestoConPagamento() {
+    const importoRate = importoTotaleNum > 0 ? importoTotaleNum : (importoDaTesto(testo) ?? 0)
     return testoConPagamento({
       testo,
       abbonamentoAttivo,
       abVisibileNelPDF,
       abImporto,
+      abGiorno,
+      abMeseInizio: parseInt(abMeseInizio, 10) || 0,
+      pagamentoRateAttivo,
+      rateVisibileNelPDF,
+      rateImportoTotale: importoRate,
+      rateNumero: parseInt(rateNumero, 10) || 0,
+      rateGiornoScadenza: parseInt(rateGiornoScadenza, 10) || 0,
+      rateMeseInizio: parseInt(rateMeseInizio, 10) || 0,
       metodoPagamento: metodoPagamentoSelezionato,
       token,
     })
@@ -199,10 +290,26 @@ export default function PreventivoPDF() {
           preventivoId: idSalvato,
           importoRaw: abImporto,
           giornoRaw: abGiorno,
+          meseInizioRaw: abMeseInizio,
           mensilitaRaw: abMensilita,
         })
         if (abbonamento.esistente) {
           Alert.alert('Abbonamento esistente', `${clienteSelezionato.nome} ha già un abbonamento attivo. Gestiscilo dalla sua cartella cliente.`)
+        }
+      }
+
+      if (pagamentoRateAttivo && clienteSelezionato && idSalvato) {
+        const importoRate = importoTotaleNum > 0 ? importoTotaleNum : (importoDaTesto(testo) ?? 0)
+        const piano = await creaPianoRateDaPreventivo({
+          cliente: clienteSelezionato,
+          preventivoId: idSalvato,
+          importoTotale: importoRate,
+          numeroRateRaw: rateNumero,
+          giornoScadenzaRaw: rateGiornoScadenza,
+          meseInizioRaw: rateMeseInizio,
+        })
+        if (piano.esistente) {
+          Alert.alert('Piano a rate esistente', `${clienteSelezionato.nome} ha già un piano a rate attivo. Gestiscilo dalla sua cartella cliente.`)
         }
       }
 
@@ -215,7 +322,9 @@ export default function PreventivoPDF() {
   }
 
   async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = ''): Promise<string | null> {
+    const importoParam = importo_totale ? parseImportoEuro(String(importo_totale)) : null
     const importo = importoDaTesto(testo)
+      ?? (importoParam != null && !Number.isNaN(importoParam) ? importoParam : null)
     return salvaPreventivoPdf({
       testo,
       template,
@@ -269,14 +378,29 @@ export default function PreventivoPDF() {
           attivo={abbonamentoAttivo}
           importo={abImporto}
           giorno={abGiorno}
+          meseInizio={abMeseInizio}
           mensilita={abMensilita}
           visibileNelPDF={abVisibileNelPDF}
           importoTotale={importo_totale}
-          onChangeAttivo={setAbbonamentoAttivo}
+          onChangeAttivo={onChangeAbbonamentoAttivo}
           onChangeImporto={setAbImporto}
           onChangeGiorno={setAbGiorno}
+          onChangeMeseInizio={setAbMeseInizio}
           onChangeMensilita={setAbMensilita}
           onChangeVisibileNelPDF={setAbVisibileNelPDF}
+        />
+        <BuilderPagamentoRateCard
+          attivo={pagamentoRateAttivo}
+          numeroRate={rateNumero}
+          giornoScadenza={rateGiornoScadenza}
+          meseInizio={rateMeseInizio}
+          visibileNelPDF={rateVisibileNelPDF}
+          importoTotale={importoTotaleNum}
+          onChangeAttivo={onChangePagamentoRateAttivo}
+          onChangeNumeroRate={setRateNumero}
+          onChangeGiornoScadenza={setRateGiornoScadenza}
+          onChangeMeseInizio={setRateMeseInizio}
+          onChangeVisibileNelPDF={setRateVisibileNelPDF}
         />
         <PreventivoPdfClienteButton
           cliente={clienteSelezionato}

@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  Alert, ScrollView, StyleSheet, View
+  Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { creaServizioListino } from '../../lib/api/servizi';
 import { Cliente, ProfiloFiscale, Servizio, VocePreventivo } from '../../lib/types';
 import { eventBus } from '../../lib/eventBus';
@@ -10,6 +11,8 @@ import { trackEvento } from '../../lib/utils/analytics';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
 import { caricaClientiBuilder, caricaMetodiPagamentoBuilder, caricaProfiloFiscaleBuilder, caricaServiziBuilder, creaClienteBuilder, metodoContantiDefault } from '../../lib/builder/data';
 import { calcolaFiscalePreventivo, calcolaLordoDaNetto as calcolaLordoDaNettoBuilder, calcolaTotaleTrasferte, calcolaTotaleVoci } from '../../lib/builder/fiscale';
+import { parsePreventivoTesto, collegaVociAlListino, trovaMetodoPagamentoDaNome } from '../../lib/builder/parsePreventivoText';
+import { risolviModifica } from '../../lib/features/modificaPreventivo/modificaSession';
 import { generaTestoPreventivoBuilder } from '../../lib/builder/preventivoText';
 import { TrasfertaBuilder } from '../../lib/builder/types';
 import { VoceCustomModal } from '../../lib/components/builder/VoceCustomModal';
@@ -23,7 +26,11 @@ import { VociPreventivoCard } from '../../lib/components/builder/VociPreventivoC
 import { BuilderHeader } from '../../lib/components/builder/BuilderHeader';
 import { GeneraPdfButton } from '../../lib/components/builder/GeneraPdfButton';
 import { ClienteModal } from '../../lib/components/builder/ClienteModal';
+import { BuilderPagamentoRateCard } from '../../lib/components/builder/BuilderPagamentoRateCard';
 import { AnalisiFiscaleCard } from '../../lib/components/builder/AnalisiFiscaleCard';
+import { PreventivoPdfAbbonamentoCard } from '../../lib/components/preventivoPdf/PreventivoPdfOptionsCards';
+import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo';
+import { giornoScadenzaValido, meseCorrenteString, meseInizioValido } from '../../lib/utils/giornoScadenza';
 
 export { resetBuilderState };
 
@@ -52,11 +59,52 @@ export default function Builder() {
   const [nuovaSpesaNome, setNuovaSpesaNome] = useState(builderState.nuovaSpesaNome)
   const [nuovaSpesaImporto, setNuovaSpesaImporto] = useState(builderState.nuovaSpesaImporto)
   const [nuoviKm, setNuoviKm] = useState(builderState.nuoviKm)
+  const [abbonamentoAttivo, setAbbonamentoAttivo] = useState(builderState.abbonamentoAttivo)
+  const [abImporto, setAbImporto] = useState(builderState.abImporto)
+  const [abGiorno, setAbGiorno] = useState(builderState.abGiorno)
+  const [abMeseInizio, setAbMeseInizio] = useState(builderState.abMeseInizio)
+  const [abMensilita, setAbMensilita] = useState(builderState.abMensilita)
+  const [abVisibileNelPDF, setAbVisibileNelPDF] = useState(builderState.abVisibileNelPDF)
+  const [pagamentoRateAttivo, setPagamentoRateAttivo] = useState(builderState.pagamentoRateAttivo)
+  const [rateNumero, setRateNumero] = useState(builderState.rateNumero)
+  const [rateGiornoScadenza, setRateGiornoScadenza] = useState(builderState.rateGiornoScadenza)
+  const [rateMeseInizio, setRateMeseInizio] = useState(builderState.rateMeseInizio)
+  const [rateVisibileNelPDF, setRateVisibileNelPDF] = useState(builderState.rateVisibileNelPDF)
   const [storicoVoci, setStoricoVoci] = useState<VocePreventivo[][]>([])
   const [mostraModalVoceCustom, setMostraModalVoceCustom] = useState(false)
   const [voceCustom, setVoceCustom] = useState({ nome: '', descrizione: '', costo: '', quantita: '1', unita: 'cad', salvaNelListino: false })
   const [salvandoVoceCustom, setSalvandoVoceCustom] = useState(false)
-  const params = useLocalSearchParams<{ cliente_id?: string, cliente_nome?: string }>()
+  const params = useLocalSearchParams<{
+    cliente_id?: string
+    cliente_nome?: string
+    modifica?: string
+    testo_modifica?: string
+    versione_padre_id?: string
+    versione_numero?: string
+  }>()
+  const modifica = risolviModifica(params)
+  const testoModifica = modifica?.testoPreventivo || ''
+  const inModifica = Boolean(testoModifica)
+  const insets = useSafeAreaInsets()
+  const modificaCaricata = useRef(false)
+  const scrollRef = useRef<ScrollView>(null)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+  const [pagamentoImportato, setPagamentoImportato] = useState('')
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const showSub = Keyboard.addListener(showEvent, e => setKeyboardHeight(e.endCoordinates.height))
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0))
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
+
+  function scrollCampoInVista() {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), Platform.OS === 'ios' ? 100 : 250)
+  }
 
   useEffect(() => {
     trackEvento('builder_aperto', 'builder')
@@ -70,6 +118,36 @@ export default function Builder() {
   }, [])
 
   useEffect(() => {
+    if (!testoModifica) return
+
+    const parsed = parsePreventivoTesto(testoModifica)
+    setVoci(collegaVociAlListino(parsed.voci, servizi))
+
+    if (modificaCaricata.current) return
+    modificaCaricata.current = true
+
+    setNoteExtra(parsed.noteExtra)
+    setIncludiIva(parsed.includiIva)
+    setTrasferte(parsed.trasferte)
+    setMostraTrasferte(parsed.trasferte.length > 0)
+    setPagamentoImportato(parsed.pagamentoNome)
+
+    const clienteId = modifica?.clienteId || params.cliente_id
+    const clienteNome = modifica?.clienteNome || params.cliente_nome
+    if (clienteId && clienteNome) {
+      setClienteSelezionato({ id: clienteId, nome: clienteNome, telefono: null, email: null, indirizzo: null })
+    } else if (parsed.nomeCliente) {
+      setNomeCliente(parsed.nomeCliente)
+    }
+  }, [testoModifica, servizi, modifica?.clienteId, modifica?.clienteNome, params.cliente_id, params.cliente_nome])
+
+  useEffect(() => {
+    if (!pagamentoImportato || metodiPagamento.length <= 1) return
+    const trovato = trovaMetodoPagamentoDaNome(metodiPagamento, pagamentoImportato)
+    if (trovato) setMetodoPagamentoSelezionato(trovato)
+  }, [pagamentoImportato, metodiPagamento])
+
+  useEffect(() => {
     builderState.voci = voci
     builderState.nomeCliente = nomeCliente
     builderState.noteExtra = noteExtra
@@ -79,7 +157,18 @@ export default function Builder() {
     builderState.nuovaSpesaNome = nuovaSpesaNome
     builderState.nuovaSpesaImporto = nuovaSpesaImporto
     builderState.nuoviKm = nuoviKm
-  }, [voci, nomeCliente, noteExtra, includiIva, trasferte, mostraTrasferte, nuovaSpesaNome, nuovaSpesaImporto, nuoviKm])
+    builderState.abbonamentoAttivo = abbonamentoAttivo
+    builderState.abImporto = abImporto
+    builderState.abGiorno = abGiorno
+    builderState.abMeseInizio = abMeseInizio
+    builderState.abMensilita = abMensilita
+    builderState.abVisibileNelPDF = abVisibileNelPDF
+    builderState.pagamentoRateAttivo = pagamentoRateAttivo
+    builderState.rateNumero = rateNumero
+    builderState.rateGiornoScadenza = rateGiornoScadenza
+    builderState.rateMeseInizio = rateMeseInizio
+    builderState.rateVisibileNelPDF = rateVisibileNelPDF
+  }, [voci, nomeCliente, noteExtra, includiIva, trasferte, mostraTrasferte, nuovaSpesaNome, nuovaSpesaImporto, nuoviKm, abbonamentoAttivo, abImporto, abGiorno, abMeseInizio, abMensilita, abVisibileNelPDF, pagamentoRateAttivo, rateNumero, rateGiornoScadenza, rateMeseInizio, rateVisibileNelPDF])
 
   useEffect(() => {
     const reset = () => ripristina()
@@ -90,7 +179,7 @@ export default function Builder() {
   async function caricaMetodiPagamento() {
     const { metodiPagamento, predefinito } = await caricaMetodiPagamentoBuilder()
     if (metodiPagamento) setMetodiPagamento(metodiPagamento)
-    if (predefinito) setMetodoPagamentoSelezionato(predefinito)
+    if (predefinito && !inModifica) setMetodoPagamentoSelezionato(predefinito)
   }
 
   async function caricaServizi() {
@@ -133,6 +222,54 @@ export default function Builder() {
     setNuovaSpesaNome('')
     setNuovaSpesaImporto('')
     setNuoviKm('')
+    setAbbonamentoAttivo(false)
+    setAbImporto('')
+    setAbGiorno('1')
+    setAbMeseInizio(meseCorrenteString())
+    setAbMensilita('')
+    setAbVisibileNelPDF(true)
+    setPagamentoRateAttivo(false)
+    setRateNumero('')
+    setRateGiornoScadenza('1')
+    setRateMeseInizio(meseCorrenteString())
+    setRateVisibileNelPDF(true)
+  }
+
+  function clienteBuilderCollegato() {
+    return Boolean(clienteSelezionato?.id)
+  }
+
+  function richiediClientePerPagamentoRicorrente(): boolean {
+    if (clienteBuilderCollegato()) return true
+    Alert.alert(
+      'Seleziona un cliente',
+      'Associa un cliente al preventivo per attivare abbonamento mensile o pagamento a rate.',
+    )
+    return false
+  }
+
+  function onChangeAbbonamentoAttivo(v: boolean) {
+    if (!v) {
+      setAbbonamentoAttivo(false)
+      return
+    }
+    if (!richiediClientePerPagamentoRicorrente()) return
+    confermaPagamentoEsclusivo('canone', pagamentoRateAttivo, () => {
+      setPagamentoRateAttivo(false)
+      setAbbonamentoAttivo(true)
+    })
+  }
+
+  function onChangePagamentoRateAttivo(v: boolean) {
+    if (!v) {
+      setPagamentoRateAttivo(false)
+      return
+    }
+    if (!richiediClientePerPagamentoRicorrente()) return
+    confermaPagamentoEsclusivo('rate', abbonamentoAttivo, () => {
+      setAbbonamentoAttivo(false)
+      setPagamentoRateAttivo(true)
+    })
   }
 
   function calcolaTotale() {
@@ -192,6 +329,25 @@ export default function Builder() {
 
   function generaPDF() {
     if (voci.length === 0) { Alert.alert('Preventivo vuoto', 'Aggiungi almeno un servizio.'); return }
+    if (pagamentoRateAttivo && !clienteBuilderCollegato()) {
+      Alert.alert('Seleziona un cliente', 'Associa un cliente al preventivo per il pagamento a rate.')
+      return
+    }
+    if (abbonamentoAttivo && !clienteBuilderCollegato()) {
+      Alert.alert('Seleziona un cliente', 'Associa un cliente al preventivo per l\'abbonamento mensile.')
+      return
+    }
+    if (pagamentoRateAttivo) {
+      const num = parseInt(rateNumero, 10)
+      if (!(num >= 2 && giornoScadenzaValido(rateGiornoScadenza) && meseInizioValido(rateMeseInizio))) {
+        Alert.alert('Pagamento a rate', 'Inserisci numero di rate (minimo 2), giorno scadenza (1-31) e mese inizio (1-12).')
+        return
+      }
+    }
+    if (abbonamentoAttivo && !(giornoScadenzaValido(abGiorno) && meseInizioValido(abMeseInizio))) {
+      Alert.alert('Abbonamento mensile', 'Inserisci giorno scadenza (1-31) e mese inizio (1-12).')
+      return
+    }
     const testo = generaTestoPreventivo()
     const mpId = metodoPagamentoSelezionato?.id || ''
     trackEvento('builder_pdf_generato', 'builder', { num_voci: voci.length, ha_trasferte: trasferte.length > 0 })
@@ -199,9 +355,21 @@ export default function Builder() {
       pathname: '/screens/preventivo-pdf',
       params: {
         testo,
-        cliente_id: clienteSelezionato?.id || '',
+        cliente_id: clienteSelezionato?.id || params.cliente_id || '',
         metodo_pagamento_id: mpId,
         importo_totale: totaleConIva.toFixed(0),
+        versione_padre_id: modifica?.versionePadreId || params.versione_padre_id || '',
+        ab_attivo: abbonamentoAttivo ? '1' : '0',
+        ab_importo: abImporto,
+        ab_giorno: abGiorno,
+        ab_mese_inizio: abMeseInizio,
+        ab_mensilita: abMensilita,
+        ab_visibile: abVisibileNelPDF ? '1' : '0',
+        rate_attivo: pagamentoRateAttivo ? '1' : '0',
+        rate_numero: rateNumero,
+        rate_giorno: rateGiornoScadenza,
+        rate_mese_inizio: rateMeseInizio,
+        rate_visibile: rateVisibileNelPDF ? '1' : '0',
       }
     })
   }
@@ -213,7 +381,10 @@ export default function Builder() {
   const fmt = (n: number) => n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <BuilderHeader
         onBack={() => router.back()}
         onRipristina={() => {
@@ -224,12 +395,27 @@ export default function Builder() {
         }}
       />
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          keyboardHeight > 0 && {
+            paddingBottom: Platform.OS === 'ios' ? keyboardHeight + 24 : 48,
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+      >
 
         <ClienteCard
           clienteSelezionato={clienteSelezionato}
           onOpenCliente={() => setMostraModalCliente(true)}
-          onClearCliente={() => setClienteSelezionato(null)}
+          onClearCliente={() => {
+            setClienteSelezionato(null)
+            setAbbonamentoAttivo(false)
+            setPagamentoRateAttivo(false)
+          }}
         />
 
         <ServiziListinoCard
@@ -237,6 +423,7 @@ export default function Builder() {
           voci={voci}
           onConfiguraServizi={() => router.push('/screens/listino')}
           onAggiungiVoce={aggiungiVoce}
+          onRimuoviVoce={rimuoviVoce}
           onAggiungiVoceCustom={apriVoceCustom}
         />
 
@@ -257,6 +444,36 @@ export default function Builder() {
           onConfigura={() => router.push('/screens/pagamenti')}
         />
 
+        <BuilderPagamentoRateCard
+          attivo={pagamentoRateAttivo}
+          numeroRate={rateNumero}
+          giornoScadenza={rateGiornoScadenza}
+          meseInizio={rateMeseInizio}
+          visibileNelPDF={rateVisibileNelPDF}
+          importoTotale={totaleConIva}
+          onChangeAttivo={onChangePagamentoRateAttivo}
+          onChangeNumeroRate={setRateNumero}
+          onChangeGiornoScadenza={setRateGiornoScadenza}
+          onChangeMeseInizio={setRateMeseInizio}
+          onChangeVisibileNelPDF={setRateVisibileNelPDF}
+        />
+
+        <PreventivoPdfAbbonamentoCard
+          attivo={abbonamentoAttivo}
+          importo={abImporto}
+          giorno={abGiorno}
+          meseInizio={abMeseInizio}
+          mensilita={abMensilita}
+          visibileNelPDF={abVisibileNelPDF}
+          importoTotale={totaleConIva.toFixed(0)}
+          onChangeAttivo={onChangeAbbonamentoAttivo}
+          onChangeImporto={setAbImporto}
+          onChangeGiorno={setAbGiorno}
+          onChangeMeseInizio={setAbMeseInizio}
+          onChangeMensilita={setAbMensilita}
+          onChangeVisibileNelPDF={setAbVisibileNelPDF}
+        />
+
         <TrasferteCard
           trasferte={trasferte}
           setTrasferte={setTrasferte}
@@ -270,12 +487,10 @@ export default function Builder() {
           setNuovaSpesaImporto={setNuovaSpesaImporto}
         />
 
-        <NoteAggiuntiveCard noteExtra={noteExtra} setNoteExtra={setNoteExtra} />
-
-        <GeneraPdfButton
-          disabled={voci.length === 0}
-          totaleConIva={totaleConIva}
-          onPress={generaPDF}
+        <NoteAggiuntiveCard
+          noteExtra={noteExtra}
+          setNoteExtra={setNoteExtra}
+          onInputFocus={scrollCampoInVista}
         />
 
         <AnalisiFiscaleCard
@@ -294,10 +509,19 @@ export default function Builder() {
           calcolaLordoDaNetto={calcolaLordoDaNetto}
           calcolaTotale={calcolaTotale}
           fmt={fmt}
+          onInputFocus={scrollCampoInVista}
         />
 
-        <View style={{ height: 40 }} />
       </ScrollView>
+
+      {keyboardHeight === 0 && (
+        <GeneraPdfButton
+          disabled={voci.length === 0}
+          totaleConIva={totaleConIva}
+          onPress={generaPDF}
+          bottomInset={insets.bottom}
+        />
+      )}
 
       <VoceCustomModal
         visible={mostraModalVoceCustom}
@@ -331,13 +555,12 @@ export default function Builder() {
         onSelectCliente={(cliente) => { setClienteSelezionato(cliente); setMostraModalCliente(false) }}
         onSalvaCliente={salvaESelezionaCliente}
       />
-
-
-
-    </View>
+    </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, gap: 14 },
 })

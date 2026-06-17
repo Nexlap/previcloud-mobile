@@ -3,14 +3,16 @@ import { StyleSheet, Text, TextInput, View } from 'react-native'
 type Props = {
   noteExtra: string
   setNoteExtra: (value: string) => void
+  onInputFocus?: () => void
 }
 
-export function NoteAggiuntiveCard({ noteExtra, setNoteExtra }: Props) {
+export function NoteAggiuntiveCard({ noteExtra, setNoteExtra, onInputFocus }: Props) {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Note aggiuntive</Text>
       <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
         value={noteExtra} onChangeText={setNoteExtra}
+        onFocus={onInputFocus}
         placeholder="es. Incluso trasferta, pagamento 50% anticipato..."
         placeholderTextColor="#9CA3AF" multiline />
     </View>
