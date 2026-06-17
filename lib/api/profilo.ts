@@ -54,6 +54,17 @@ export async function verificaPasswordAccount(email: string, password: string) {
   return supabase.auth.signInWithPassword({ email, password })
 }
 
+export async function aggiornaPasswordAccount(nuovaPassword: string) {
+  return supabase.auth.updateUser({ password: nuovaPassword })
+}
+
+export async function aggiornaPasswordBiometrico(nuovaPassword: string) {
+  const attivato = await SecureStore.getItemAsync('biometrico_attivato')
+  if (attivato === 'true') {
+    await SecureStore.setItemAsync('saved_password', nuovaPassword)
+  }
+}
+
 export async function logoutAccount() {
   return supabase.auth.signOut()
 }

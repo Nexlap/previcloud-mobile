@@ -36,4 +36,7 @@ export const profiloStyles = StyleSheet.create({
   passwordCancelText: { color: C.text, fontSize: 14, fontWeight: '600' },
   passwordConfirmBtn: { flex: 1, borderRadius: 12, padding: 13, alignItems: 'center' as const, backgroundColor: '#DC2626' },
   passwordConfirmText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  passwordFieldLabel: { fontSize: 11, fontWeight: '600' as const, color: C.muted, letterSpacing: 0.8, marginBottom: 6 },
+  passwordSaveBtn: { flex: 1, borderRadius: 12, padding: 13, alignItems: 'center' as const, backgroundColor: C.navy },
+  passwordSaveText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 })

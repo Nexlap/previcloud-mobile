@@ -12,6 +12,8 @@ import { errorMessage } from '../../lib/utils/errors'
 
 WebBrowser.maybeCompleteAuthSession()
 
+const WEB_HOMEPAGE_URL = 'https://preventivoai-web.vercel.app'
+
 export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
@@ -22,6 +24,7 @@ export default function Login() {
   const loadingGoogle = false
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
+  const [accettaTermini, setAccettaTermini] = useState(false)
 
   useEffect(() => {
     async function checkBiometrico() {
@@ -48,6 +51,10 @@ export default function Login() {
   async function handleSubmit() {
     if (!email || !password) {
       Alert.alert('Errore', 'Inserisci email e password')
+      return
+    }
+    if (mode === 'register' && !accettaTermini) {
+      Alert.alert('Termini richiesti', 'Accetta i termini e condizioni per continuare.')
       return
     }
     setLoading(true)
@@ -139,6 +146,10 @@ export default function Login() {
     Alert.alert('Email inviata', 'Controlla la tua email e segui il link per reimpostare la password.')
   }
 
+  async function apriHomepageWeb() {
+    await WebBrowser.openBrowserAsync(WEB_HOMEPAGE_URL)
+  }
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -148,7 +159,7 @@ export default function Login() {
         </View>
         <View style={styles.card}>
           <View style={styles.toggle}>
-            <TouchableOpacity style={[styles.toggleBtn, mode === 'login' && styles.toggleActive]} onPress={() => setMode('login')}>
+            <TouchableOpacity style={[styles.toggleBtn, mode === 'login' && styles.toggleActive]} onPress={() => { setMode('login'); setAccettaTermini(false) }}>
               <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>Accedi</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.toggleBtn, mode === 'register' && styles.toggleActive]} onPress={() => setMode('register')}>
@@ -184,6 +195,25 @@ export default function Login() {
               </TouchableOpacity>
             )}
           </View>
+
+          {mode === 'register' && (
+            <View style={styles.terminiRow}>
+              <TouchableOpacity
+                style={[styles.checkbox, accettaTermini && styles.checkboxChecked]}
+                onPress={() => setAccettaTermini(v => !v)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: accettaTermini }}
+              >
+                {accettaTermini && <Text style={styles.checkboxTick}>{'\u2713'}</Text>}
+              </TouchableOpacity>
+              <Text style={styles.terminiText}>
+                Accetto i{' '}
+                <Text style={styles.terminiLink} onPress={apriHomepageWeb}>termini e condizioni</Text>
+                .{' '}
+                <Text style={styles.terminiLink} onPress={apriHomepageWeb}>Scopri di più</Text>
+              </Text>
+            </View>
+          )}
 
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSubmit} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{mode === 'login' ? 'Accedi' : 'Crea account'}</Text>}
@@ -236,6 +266,12 @@ const styles = StyleSheet.create({
   passwordToggleText: { fontSize: 12, color: '#0E9F8E', fontWeight: '600' },
   forgotBtn: { alignSelf: 'flex-end', marginTop: 8, paddingVertical: 4 },
   forgotText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600' },
+  terminiRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
+  terminiText: { flex: 1, fontSize: 13, color: '#6B7280', lineHeight: 19 },
+  terminiLink: { color: '#0E9F8E', fontWeight: '600' },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center', marginTop: 1 },
+  checkboxChecked: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
+  checkboxTick: { color: '#fff', fontSize: 13, fontWeight: '700' },
   btn: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, alignItems: 'center' as const, marginTop: 8 },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: '#fff', fontSize: 15, fontWeight: '600' },

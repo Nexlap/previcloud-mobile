@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react'
 import {
   ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View
 } from 'react-native'
-import { attivaBiometrico, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, logoutAccount, sessioneCorrente, verificaPasswordAccount } from '../../lib/api/profilo'
+import { attivaBiometrico, aggiornaPasswordAccount, aggiornaPasswordBiometrico, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, logoutAccount, sessioneCorrente, verificaPasswordAccount } from '../../lib/api/profilo'
 import { ProfiloAppCard } from '../../lib/components/profilo/ProfiloAppCard'
 import { ProfiloAspettoCard } from '../../lib/components/profilo/ProfiloAspettoCard'
 import { ProfiloAvatarCard } from '../../lib/components/profilo/ProfiloAvatarCard'
+import { ProfiloCambiaPasswordModal } from '../../lib/components/profilo/ProfiloCambiaPasswordModal'
 import { ProfiloHeader } from '../../lib/components/profilo/ProfiloHeader'
 import { ProfiloNotificheCard } from '../../lib/components/profilo/ProfiloNotificheCard'
 import { ProfiloPasswordModal } from '../../lib/components/profilo/ProfiloPasswordModal'
@@ -25,6 +26,11 @@ export default function Profilo() {
   const [modalPasswordElimina, setModalPasswordElimina] = useState(false)
   const [passwordElimina, setPasswordElimina] = useState('')
   const [verificandoPassword, setVerificandoPassword] = useState(false)
+  const [modalCambiaPassword, setModalCambiaPassword] = useState(false)
+  const [passwordAttuale, setPasswordAttuale] = useState('')
+  const [passwordNuova, setPasswordNuova] = useState('')
+  const [passwordConferma, setPasswordConferma] = useState('')
+  const [salvandoPassword, setSalvandoPassword] = useState(false)
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   useEffect(() => { carica() }, [])
@@ -154,6 +160,63 @@ export default function Profilo() {
     setPasswordElimina('')
   }
 
+  function apriModalCambiaPassword() {
+    setPasswordAttuale('')
+    setPasswordNuova('')
+    setPasswordConferma('')
+    setModalCambiaPassword(true)
+  }
+
+  function chiudiModalCambiaPassword() {
+    setModalCambiaPassword(false)
+    setPasswordAttuale('')
+    setPasswordNuova('')
+    setPasswordConferma('')
+  }
+
+  async function confermaCambioPassword() {
+    const attuale = passwordAttuale.trim()
+    const nuova = passwordNuova.trim()
+    const conferma = passwordConferma.trim()
+
+    if (!attuale) {
+      Alert.alert('Password richiesta', 'Inserisci la password attuale.')
+      return
+    }
+    if (nuova.length < 6) {
+      Alert.alert('Password troppo corta', 'La nuova password deve avere almeno 6 caratteri.')
+      return
+    }
+    if (nuova !== conferma) {
+      Alert.alert('Password non coincidenti', 'La conferma non corrisponde alla nuova password.')
+      return
+    }
+    if (nuova === attuale) {
+      Alert.alert('Password uguale', 'La nuova password deve essere diversa da quella attuale.')
+      return
+    }
+
+    setSalvandoPassword(true)
+    const { error: erroreVerifica } = await verificaPasswordAccount(email, attuale)
+    if (erroreVerifica) {
+      setSalvandoPassword(false)
+      Alert.alert('Errore', 'Password attuale non corretta.')
+      return
+    }
+
+    const { error } = await aggiornaPasswordAccount(nuova)
+    setSalvandoPassword(false)
+
+    if (error) {
+      Alert.alert('Errore', error.message)
+      return
+    }
+
+    await aggiornaPasswordBiometrico(nuova)
+    chiudiModalCambiaPassword()
+    Alert.alert('Password aggiornata', 'La tua password è stata cambiata con successo.')
+  }
+
   return (
     <View style={styles.container}>
       <ProfiloPasswordModal
@@ -163,6 +226,19 @@ export default function Profilo() {
         onChangePassword={setPasswordElimina}
         onClose={chiudiModalPassword}
         onConfirm={confermaPasswordEliminazione}
+      />
+
+      <ProfiloCambiaPasswordModal
+        visible={modalCambiaPassword}
+        passwordAttuale={passwordAttuale}
+        passwordNuova={passwordNuova}
+        passwordConferma={passwordConferma}
+        salvando={salvandoPassword}
+        onChangePasswordAttuale={setPasswordAttuale}
+        onChangePasswordNuova={setPasswordNuova}
+        onChangePasswordConferma={setPasswordConferma}
+        onClose={chiudiModalCambiaPassword}
+        onConfirm={confermaCambioPassword}
       />
 
       <ProfiloHeader onBack={() => router.back()} />
@@ -178,6 +254,7 @@ export default function Profilo() {
           biometricoDisponibile={biometricoDisponibile}
           biometricoAttivato={biometricoAttivato}
           onToggleBiometrico={toggleBiometrico}
+          onCambiaPassword={apriModalCambiaPassword}
         />
 
         <ProfiloAspettoCard />
