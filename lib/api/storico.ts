@@ -35,6 +35,27 @@ export async function ripristinaVersionePreventivo(preventivoCorrenteId: string,
   return supabase.from('preventivi').update({ is_ultimo: true }).eq('id', versioneId)
 }
 
+export async function caricaCollegamentiPianoPreventivi(): Promise<Record<string, 'canone' | 'rate'>> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return {}
+
+  const { data } = await supabase
+    .from('abbonamenti')
+    .select('preventivo_id, tipo, created_at')
+    .eq('user_id', user.id)
+    .eq('attivo', true)
+    .not('preventivo_id', 'is', null)
+    .order('created_at', { ascending: false })
+
+  const map: Record<string, 'canone' | 'rate'> = {}
+  for (const row of data || []) {
+    if (row.preventivo_id && !map[row.preventivo_id]) {
+      map[row.preventivo_id] = row.tipo as 'canone' | 'rate'
+    }
+  }
+  return map
+}
+
 export async function caricaCronologiaPreventivo(padreId: string | null): Promise<Preventivo[]> {
   if (!padreId) return []
 

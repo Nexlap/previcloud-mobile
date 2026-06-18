@@ -70,21 +70,27 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
 
   async function cambiaStato(id: string, stato: string) {
     const prev = preventivi.find(x => x.id === id)
-    const resetPagato = prev?.stato === 'accettato' && stato !== 'accettato'
+    if (!prev) return false
 
+    const resetPagato = prev.stato === 'accettato' && stato !== 'accettato'
     const aggiornamento: { stato: string; pagato?: boolean; data_pagamento?: string | null } = { stato }
     if (resetPagato) {
       aggiornamento.pagato = false
       aggiornamento.data_pagamento = null
     }
 
-    const { error } = await supabase.from('preventivi').update(aggiornamento).eq('id', id)
-    if (error) { Alert.alert('Errore', error.message); return false }
     setPreventivi(p => p.map(x => x.id === id ? {
       ...x,
       stato,
       ...(resetPagato ? { pagato: false, data_pagamento: null } : {}),
     } : x))
+
+    const { error } = await supabase.from('preventivi').update(aggiornamento).eq('id', id)
+    if (error) {
+      Alert.alert('Errore', error.message)
+      setPreventivi(p => p.map(x => x.id === id ? prev : x))
+      return false
+    }
 
     if (opts?.clienteId && resetPagato) {
       const { data: { user } } = await supabase.auth.getUser()

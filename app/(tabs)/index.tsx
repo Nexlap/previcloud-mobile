@@ -14,6 +14,7 @@ import { PreventivoStatoBadge } from '../../lib/components/preventivo/Preventivo
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [preventivi, setPreventivi] = useState<Preventivo[]>([])
+  const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
   const [pagamentiIncassati, setPagamentiIncassati] = useState(0)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -46,6 +47,7 @@ useEffect(() => {
     if (!data) { router.replace('/(auth)/login'); return }
     if (data.profile) setProfile(data.profile)
     setPreventivi(data.preventivi)
+    setCollegamentiPiano(data.collegamentiPiano)
     setPagamentiIncassati(data.pagamentiIncassati)
     setLoading(false)
   }
@@ -133,13 +135,22 @@ useEffect(() => {
                 </View>
                 <View style={styles.prevLeft}>
                   <Text style={styles.prevCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
+                  {collegamentiPiano[p.id] ? (
+                    <Text style={styles.prevPianoBadge}>
+                      {collegamentiPiano[p.id] === 'rate' ? '\uD83D\uDCC5 Piano a rate collegato' : '\uD83D\uDCB0 Abbonamento collegato'}
+                    </Text>
+                  ) : null}
                   <Text style={styles.prevData}>
                     {new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short' })}
                   </Text>
                 </View>
                 <View style={styles.prevRight}>
                   <Text style={styles.prevImporto}>{p.importo_totale ? `€${formatImportoDb(p.importo_totale)}` : '—'}</Text>
-                  <PreventivoStatoBadge stato={p.stato} pagato={p.pagato} />
+                  <PreventivoStatoBadge
+                    stato={p.stato}
+                    pagato={p.pagato}
+                    pagamentoGestitoDalPiano={!!collegamentiPiano[p.id]}
+                  />
                 </View>
               </TouchableOpacity>
             ))
@@ -194,6 +205,7 @@ const styles = StyleSheet.create({
   prevAvatarText: { fontSize: 14, fontWeight: '700', color: '#0E9F8E' },
   prevLeft: { flex: 1 },
   prevCliente: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
+  prevPianoBadge: { fontSize: 10, color: '#0E9F8E', fontWeight: '600', marginTop: 2 },
   prevData: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   prevRight: { alignItems: 'flex-end', gap: 4 },
   prevImporto: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },

@@ -8,6 +8,7 @@ import { storicoStyles as styles } from './storicoStyles'
 
 type Props = {
   preventivi: Preventivo[]
+  collegamentiPiano?: Record<string, 'canone' | 'rate'>
   selezioneAttiva: boolean
   preventiviSelezionati: string[]
   aperto: string | null
@@ -28,6 +29,7 @@ type Props = {
 
 export function StoricoPreventiviList({
   preventivi,
+  collegamentiPiano = {},
   selezioneAttiva,
   preventiviSelezionati,
   aperto,
@@ -63,6 +65,11 @@ export function StoricoPreventiviList({
                 <View style={styles.cardBody}>
                   <Text style={styles.cardCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
                   {p.titolo ? <Text style={styles.cardTitolo}>{p.titolo}</Text> : null}
+                  {collegamentiPiano[p.id] ? (
+                    <Text style={styles.cardPianoBadge}>
+                      {collegamentiPiano[p.id] === 'rate' ? '\uD83D\uDCC5 Piano a rate collegato' : '\uD83D\uDCB0 Abbonamento collegato'}
+                    </Text>
+                  ) : null}
                   <Text style={styles.cardData}>
                     {new Date(p.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}
                   </Text>
@@ -75,7 +82,12 @@ export function StoricoPreventiviList({
                   onPress={() => selezioneAttiva ? onToggleSelezione(p.id) : onStatoPress(p.id)}
                 >
                   <Text style={styles.cardImporto}>{p.importo_totale ? `\u20AC${formatImportoDb(p.importo_totale)}` : '\u2014'}</Text>
-                  <PreventivoStatoBadge stato={p.stato} pagato={p.pagato} showArrow />
+                  <PreventivoStatoBadge
+                    stato={p.stato}
+                    pagato={p.pagato}
+                    pagamentoGestitoDalPiano={!!collegamentiPiano[p.id]}
+                    showArrow
+                  />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => selezioneAttiva ? onToggleSelezione(p.id) : onScaricaPdf(p)}>
                   <Text style={{ fontSize: 16 }}>{p.pdf_url ? '\uD83D\uDCC4' : '\uD83D\uDD04'}</Text>

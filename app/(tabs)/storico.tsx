@@ -8,7 +8,7 @@ import {
 import { eventBus } from '../../lib/eventBus'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
-import { caricaClientiPerSposta, caricaCronologiaPreventivo, eliminaPreventivi, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
+import { caricaClientiPerSposta, caricaCollegamentiPianoPreventivi, caricaCronologiaPreventivo, eliminaPreventivi, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
 import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
 import { useModificaPreventivoScelta } from '../../lib/features/modificaPreventivo/useModificaPreventivoScelta'
 import { StoricoEmpty } from '../../lib/components/storico/StoricoEmpty'
@@ -21,7 +21,7 @@ import { Cliente, Preventivo } from '../../lib/types'
 import { trackEvento } from '../../lib/utils/analytics'
 
 export default function Storico() {
-  const { preventivi, loading, refreshing, onRefresh, cambiaStato, eliminaPreventivo } = usePreventivi()
+  const { preventivi, loading, refreshing, onRefresh, cambiaStato, segnaPagato, eliminaPreventivo } = usePreventivi()
   const { modificaInput, apriDaPreventivo, chiudiSceltaModifica } = useModificaPreventivoScelta()
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
@@ -35,14 +35,17 @@ export default function Storico() {
   const [preventiviSelezionati, setPreventiviSelezionati] = useState<string[]>([])
   const [preventiviEliminati, setPreventiviEliminati] = useState<string[]>([])
   const [preventiviSpostati, setPreventiviSpostati] = useState<{ [id: string]: { cliente_id: string, nome_cliente: string } }>({})
+  const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
 
   const preventiviVisibili = preventivi
     .filter(p => !preventiviEliminati.includes(p.id))
     .map(p => preventiviSpostati[p.id] ? { ...p, ...preventiviSpostati[p.id] } : p)
   const selezionati = preventiviVisibili.filter(p => preventiviSelezionati.includes(p.id))
+  const preventivoModale = preventiviVisibili.find(p => p.id === modalStato)
 
   useFocusEffect(useCallback(() => {
     trackEvento('storico_aperto', 'storico')
+    caricaCollegamentiPianoPreventivi().then(setCollegamentiPiano)
   }, []))
 
   async function scaricaPDF(p: Preventivo) {
@@ -85,7 +88,10 @@ export default function Storico() {
     setPreventiviSelezionati([])
   }
 
-  useAnnullaSelezioneOnAndroidBack(selezioneAttiva, annullaSelezione)
+  async function handleRefresh() {
+    await onRefresh()
+    setCollegamentiPiano(await caricaCollegamentiPianoPreventivi())
+  }
 
   async function eliminaSelezionati() {
     const ids = [...preventiviSelezionati]
@@ -215,13 +221,14 @@ export default function Storico() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{ padding: 16, gap: 10 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={['#0E9F8E']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0E9F8E" colors={['#0E9F8E']} />}
       >
         {preventiviVisibili.length === 0 ? (
           <StoricoEmpty onGeneraPrimo={() => router.push('/(tabs)/nuovo')} />
         ) : (
           <StoricoPreventiviList
             preventivi={preventiviVisibili}
+            collegamentiPiano={collegamentiPiano}
             selezioneAttiva={selezioneAttiva}
             preventiviSelezionati={preventiviSelezionati}
             aperto={aperto}
@@ -247,6 +254,14 @@ export default function Storico() {
         modalStato={modalStato}
         onCloseStato={() => setModalStato(null)}
         onChangeStato={(preventivoId, stato) => { cambiaStato(preventivoId, stato); eventBus.emit('aggiorna-home') }}
+        preventivoStatoCorrente={preventivoModale?.stato}
+        preventivoPagato={preventivoModale?.pagato ?? false}
+        mostraTogglePagato={!!modalStato && !collegamentiPiano[modalStato]}
+        onTogglePagato={async (pagato) => {
+          if (!modalStato) return
+          await segnaPagato(modalStato, pagato)
+          eventBus.emit('aggiorna-home')
+        }}
         modalClienti={modalClienti}
         onCloseClienti={() => setModalClienti(false)}
         clienti={clienti}

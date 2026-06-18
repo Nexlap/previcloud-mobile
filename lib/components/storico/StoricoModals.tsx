@@ -1,4 +1,5 @@
-import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from 'react-native'
+import { useState } from 'react'
+import { ActivityIndicator, Modal, Switch, Text, TouchableOpacity, View } from 'react-native'
 import { STATI_PREVENTIVO, statoPreventivoIcon } from '../../features/storico/constants'
 import { Cliente } from '../../types'
 import { storicoStyles as styles } from './storicoStyles'
@@ -7,6 +8,10 @@ type Props = {
   modalStato: string | null
   onCloseStato: () => void
   onChangeStato: (preventivoId: string, stato: string) => void
+  preventivoStatoCorrente?: string | null
+  preventivoPagato?: boolean
+  mostraTogglePagato?: boolean
+  onTogglePagato?: (pagato: boolean) => Promise<void> | void
   modalClienti: boolean
   onCloseClienti: () => void
   clienti: Cliente[]
@@ -18,31 +23,71 @@ export function StoricoModals({
   modalStato,
   onCloseStato,
   onChangeStato,
+  preventivoStatoCorrente,
+  preventivoPagato = false,
+  mostraTogglePagato = false,
+  onTogglePagato,
   modalClienti,
   onCloseClienti,
   clienti,
   caricandoClienti,
   onSpostaCliente,
 }: Props) {
+  const [salvandoPagato, setSalvandoPagato] = useState(false)
+
+  async function handleTogglePagato(value: boolean) {
+    if (!onTogglePagato) return
+    setSalvandoPagato(true)
+    try {
+      await onTogglePagato(value)
+    } finally {
+      setSalvandoPagato(false)
+    }
+  }
+
   return (
     <>
       <Modal visible={modalStato !== null} transparent animationType="fade" onRequestClose={onCloseStato}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onCloseStato}>
-          <View style={styles.modalBox}>
+          <TouchableOpacity style={styles.modalBox} activeOpacity={1} onPress={() => {}}>
             <Text style={styles.modalTitle}>Cambia stato</Text>
             {STATI_PREVENTIVO.map(s => (
-              <TouchableOpacity key={s} style={styles.modalOption} onPress={() => {
-                if (modalStato) onChangeStato(modalStato, s)
-                onCloseStato()
-              }}>
+              <TouchableOpacity
+                key={s}
+                style={styles.modalOption}
+                onPress={() => {
+                  if (!modalStato) return
+                  onChangeStato(modalStato, s)
+                  const restaAperto = s === 'accettato' && mostraTogglePagato
+                  if (!restaAperto) onCloseStato()
+                }}
+              >
                 <Text style={styles.modalOptionIcon}>{statoPreventivoIcon(s)}</Text>
                 <Text style={styles.modalOptionText}>{s}</Text>
               </TouchableOpacity>
             ))}
+            {mostraTogglePagato && preventivoStatoCorrente === 'accettato' ? (
+              <>
+                <View style={styles.pagatoDivider} />
+                <View style={styles.pagatoRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pagatoLabel}>Segna come pagato</Text>
+                    <Text style={styles.pagatoSub}>Registra l&apos;incasso del preventivo accettato</Text>
+                  </View>
+                  <Switch
+                    value={preventivoPagato}
+                    onValueChange={handleTogglePagato}
+                    disabled={salvandoPagato}
+                    trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
+                    thumbColor="#fff"
+                  />
+                </View>
+              </>
+            ) : null}
             <TouchableOpacity style={styles.modalCancel} onPress={onCloseStato}>
               <Text style={styles.modalCancelText}>Annulla</Text>
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 
