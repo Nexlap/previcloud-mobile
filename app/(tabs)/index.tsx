@@ -168,7 +168,14 @@ useEffect(() => {
           ].map(item => (
             <TouchableOpacity key={item.path} style={styles.quickCard} onPress={() => router.push(item.path as any)}>
               <Text style={styles.quickIcon}>{item.icon}</Text>
-              <Text style={styles.quickLabel}>{item.label}</Text>
+              <Text
+                style={styles.quickLabel}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                {item.label}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -211,7 +218,7 @@ const styles = StyleSheet.create({
   prevImporto: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
   quickTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   quickGrid: { flexDirection: 'row', gap: 10 },
-  quickCard: { flex: 1, backgroundColor: '#fff', borderRadius: 16, padding: 16, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  quickCard: { flex: 1, backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 14, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#E5E7EB', minWidth: 0 },
   quickIcon: { fontSize: 24 },
-  quickLabel: { fontSize: 11, color: '#6B7280', fontWeight: '500' },
+  quickLabel: { fontSize: 11, color: '#6B7280', fontWeight: '500', textAlign: 'center', width: '100%' },
 })
