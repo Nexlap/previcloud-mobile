@@ -1,5 +1,6 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { VocePreventivo } from '../../types'
+import { formatImportoEuroVisuale } from '../../utils/importo'
 
 type Props = {
   voci: VocePreventivo[]
@@ -45,7 +46,7 @@ export function VociPreventivoCard({ voci, includiIva, totale, totaleConIva, onT
             <View style={styles.voceTotaleBox}>
               <Text style={styles.voceCostoLabel}>TOTALE</Text>
               <Text style={styles.voceTotale}>
-                €{((parseFloat(v.quantita) || 1) * (parseFloat(v.costo) || 0)).toFixed(0)}
+                €{formatImportoEuroVisuale((parseFloat(v.quantita) || 1) * (parseFloat(v.costo) || 0))}
               </Text>
             </View>
           </View>
@@ -74,17 +75,17 @@ export function VociPreventivoCard({ voci, includiIva, totale, totaleConIva, onT
           <>
             <View style={styles.riepilogoRow}>
               <Text style={styles.riepilogoLabel}>Imponibile</Text>
-              <Text style={styles.riepilogoVal}>€{totale.toFixed(0)}</Text>
+              <Text style={styles.riepilogoVal}>€{formatImportoEuroVisuale(totale)}</Text>
             </View>
             <View style={styles.riepilogoRow}>
               <Text style={styles.riepilogoLabel}>IVA 22%</Text>
-              <Text style={styles.riepilogoVal}>€{(totale * 0.22).toFixed(0)}</Text>
+              <Text style={styles.riepilogoVal}>€{formatImportoEuroVisuale(totale * 0.22)}</Text>
             </View>
           </>
         )}
         <View style={[styles.riepilogoRow, styles.riepilogoTotale]}>
           <Text style={styles.riepilogoTotaleLabel}>TOTALE</Text>
-          <Text style={styles.riepilogoTotaleVal}>€{totaleConIva.toFixed(0)}</Text>
+          <Text style={styles.riepilogoTotaleVal}>€{formatImportoEuroVisuale(totaleConIva)}</Text>
         </View>
         {!includiIva && <Text style={styles.forfettarioNote}>Operazione esente IVA — Regime Forfettario</Text>}
       </View>

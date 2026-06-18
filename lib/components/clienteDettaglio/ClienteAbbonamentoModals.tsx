@@ -1,6 +1,8 @@
-﻿import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+﻿import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { COLORS, MESI_BREVI } from '../../constants'
-import { RataAbbonamento } from '../../types'
+import { Preventivo, RataAbbonamento } from '../../types'
+import { formatImportoEuro } from '../../utils/importo'
+import { PreventivoPicker } from './PreventivoPicker'
 
 type Props = {
   mostraNuovo: boolean
@@ -11,7 +13,25 @@ type Props = {
   onChangeAbGiorno: (v: string) => void
   abMensilita: string
   onChangeAbMensilita: (v: string) => void
+  preventiviDisponibili: Preventivo[]
+  preventivoSelezionatoId: string | null
+  onSelectPreventivo: (id: string | null) => void
   onCreaAbbonamento: () => void
+
+  mostraNuovoRate: boolean
+  onCloseNuovoRate: () => void
+  rateImportoTotale: string
+  onChangeRateImportoTotale: (v: string) => void
+  rateNumero: string
+  onChangeRateNumero: (v: string) => void
+  rateGiorno: string
+  onChangeRateGiorno: (v: string) => void
+  rateMeseInizio: string
+  onChangeRateMeseInizio: (v: string) => void
+  preventiviDisponibiliRate: Preventivo[]
+  preventivoRateSelezionatoId: string | null
+  onSelectPreventivoRate: (id: string | null) => void
+  onCreaPianoRate: () => void
 
   mostraModifica: boolean
   onCloseModifica: () => void
@@ -53,7 +73,24 @@ export function ClienteAbbonamentoModals({
   onChangeAbGiorno,
   abMensilita,
   onChangeAbMensilita,
+  preventiviDisponibili,
+  preventivoSelezionatoId,
+  onSelectPreventivo,
   onCreaAbbonamento,
+  mostraNuovoRate,
+  onCloseNuovoRate,
+  rateImportoTotale,
+  onChangeRateImportoTotale,
+  rateNumero,
+  onChangeRateNumero,
+  rateGiorno,
+  onChangeRateGiorno,
+  rateMeseInizio,
+  onChangeRateMeseInizio,
+  preventiviDisponibiliRate,
+  preventivoRateSelezionatoId,
+  onSelectPreventivoRate,
+  onCreaPianoRate,
   mostraModifica,
   onCloseModifica,
   onAggiornaAbbonamento,
@@ -85,20 +122,56 @@ export function ClienteAbbonamentoModals({
     <>
       <Modal visible={mostraNuovo} transparent animationType="fade" onRequestClose={onCloseNuovo}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onCloseNuovo}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Nuovo abbonamento</Text>
-            <Text style={styles.modalFieldLabel}>IMPORTO MENSILE ({'\u20AC'})</Text>
-            <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abImporto} onChangeText={onChangeAbImporto} placeholder="es. 500" placeholderTextColor={COLORS.textMuted} keyboardType="decimal-pad" autoFocus />
-            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
-            <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abGiorno} onChangeText={onChangeAbGiorno} placeholder="es. 15" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
-            <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>N° MENSILITA (opzionale)</Text>
-            <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abMensilita} onChangeText={onChangeAbMensilita} placeholder="es. 12 - lascia vuoto per canone aperto" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
-            <TouchableOpacity style={styles.modalSaveBtn} onPress={onCreaAbbonamento}>
-              <Text style={styles.modalSaveBtnText}>Crea abbonamento</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancel} onPress={onCloseNuovo}>
-              <Text style={styles.modalCancelText}>Annulla</Text>
-            </TouchableOpacity>
+          <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>Nuovo abbonamento</Text>
+              <PreventivoPicker
+                preventivi={preventiviDisponibili}
+                selezionatoId={preventivoSelezionatoId}
+                onSelect={onSelectPreventivo}
+              />
+              <Text style={[styles.modalFieldLabel, { marginTop: 12 }]}>IMPORTO MENSILE ({'\u20AC'})</Text>
+              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abImporto} onChangeText={onChangeAbImporto} placeholder="es. 500" placeholderTextColor={COLORS.textMuted} keyboardType="decimal-pad" />
+              <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
+              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abGiorno} onChangeText={onChangeAbGiorno} placeholder="es. 15" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
+              <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>N° MENSILITA (opzionale)</Text>
+              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abMensilita} onChangeText={onChangeAbMensilita} placeholder="es. 12 - lascia vuoto per canone aperto" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={onCreaAbbonamento}>
+                <Text style={styles.modalSaveBtnText}>Crea abbonamento</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalCancel} onPress={onCloseNuovo}>
+                <Text style={styles.modalCancelText}>Annulla</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={mostraNuovoRate} transparent animationType="fade" onRequestClose={onCloseNuovoRate}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onCloseNuovoRate}>
+          <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>Nuovo piano a rate</Text>
+              <PreventivoPicker
+                preventivi={preventiviDisponibiliRate}
+                selezionatoId={preventivoRateSelezionatoId}
+                onSelect={onSelectPreventivoRate}
+              />
+              <Text style={[styles.modalFieldLabel, { marginTop: 12 }]}>IMPORTO TOTALE ({'\u20AC'})</Text>
+              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={rateImportoTotale} onChangeText={onChangeRateImportoTotale} placeholder="es. 3000" placeholderTextColor={COLORS.textMuted} keyboardType="decimal-pad" />
+              <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>N° RATE (min. 2)</Text>
+              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={rateNumero} onChangeText={onChangeRateNumero} placeholder="es. 6" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
+              <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
+              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={rateGiorno} onChangeText={onChangeRateGiorno} placeholder="es. 15" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
+              <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>MESE PRIMA RATA (1-12)</Text>
+              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={rateMeseInizio} onChangeText={onChangeRateMeseInizio} placeholder="es. 6" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
+              <TouchableOpacity style={styles.modalSaveBtn} onPress={onCreaPianoRate}>
+                <Text style={styles.modalSaveBtnText}>Crea piano a rate</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalCancel} onPress={onCloseNuovoRate}>
+                <Text style={styles.modalCancelText}>Annulla</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -130,17 +203,17 @@ export function ClienteAbbonamentoModals({
                 <View style={styles.modalRiepilogo}>
                   <View style={styles.modalRiepilogoRow}>
                     <Text style={styles.modalRiepilogoLabel}>Totale</Text>
-                    <Text style={styles.modalRiepilogoVal}>{'\u20AC'}{rataSelezionata.importo}</Text>
+                    <Text style={styles.modalRiepilogoVal}>{'\u20AC'}{formatImportoEuro(rataSelezionata.importo, 2)}</Text>
                   </View>
                   {(rataSelezionata.acconto || 0) > 0 && (
                     <View style={styles.modalRiepilogoRow}>
                       <Text style={styles.modalRiepilogoLabel}>Gia incassato</Text>
-                      <Text style={[styles.modalRiepilogoVal, { color: COLORS.accent }]}>{'\u20AC'}{rataSelezionata.acconto}</Text>
+                      <Text style={[styles.modalRiepilogoVal, { color: COLORS.accent }]}>{'\u20AC'}{formatImportoEuro(rataSelezionata.acconto || 0, 2)}</Text>
                     </View>
                   )}
                   <View style={styles.modalRiepilogoRow}>
                     <Text style={styles.modalRiepilogoLabel}>Residuo</Text>
-                    <Text style={[styles.modalRiepilogoVal, { color: COLORS.danger }]}>{'\u20AC'}{rataSelezionata.importo - (rataSelezionata.acconto || 0)}</Text>
+                    <Text style={[styles.modalRiepilogoVal, { color: COLORS.danger }]}>{'\u20AC'}{formatImportoEuro(rataSelezionata.importo - (rataSelezionata.acconto || 0), 2)}</Text>
                   </View>
                 </View>
                 <Text style={styles.modalFieldLabel}>IMPORTO RATA ({'\u20AC'})</Text>
@@ -229,8 +302,8 @@ export function ClienteAbbonamentoModals({
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 32 },
-  modalBox: { backgroundColor: COLORS.white, borderRadius: 20, padding: 20, width: '100%' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalBox: { backgroundColor: COLORS.white, borderRadius: 20, padding: 20, width: '100%', maxHeight: '85%' },
   modalTitle: { fontSize: 16, fontWeight: '600', color: COLORS.primary, marginBottom: 16, textAlign: 'center' },
   modalCancel: { paddingTop: 14, alignItems: 'center' },
   modalCancelText: { fontSize: 14, color: COLORS.textMuted },

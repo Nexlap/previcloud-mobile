@@ -3,6 +3,7 @@ import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPrev
 import { PreventivoStatoBadge } from '../preventivo/PreventivoStatoBadge'
 import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { Preventivo } from '../../types'
+import { formatImportoDb } from '../../utils/importo'
 
 type Props = {
   preventivi: Preventivo[]
@@ -83,8 +84,13 @@ export function ClientePreventiviList({
             </View>
             <View style={[styles.prevRightRow, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
               <TouchableOpacity style={styles.prevRight} onPress={() => onStatoPress(p.id)}>
-                <Text style={styles.prevImporto}>{p.importo_totale ? `\u20AC${p.importo_totale}` : '—'}</Text>
-                <PreventivoStatoBadge stato={p.stato} showArrow />
+                <Text style={styles.prevImporto}>{p.importo_totale ? `\u20AC${formatImportoDb(p.importo_totale)}` : '—'}</Text>
+                <PreventivoStatoBadge
+                  stato={p.stato}
+                  pagato={p.pagato}
+                  pagamentoGestitoDalPiano={!!collegamentiPiano[p.id]}
+                  showArrow
+                />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => onScaricaPdf(p)}>
                 <Text style={{ fontSize: 16 }}>{p.pdf_url ? '\uD83D\uDCC4' : '\uD83D\uDD04'}</Text>
@@ -110,7 +116,7 @@ export function ClientePreventiviList({
                   <TouchableOpacity style={styles.cronologiaItem} onPress={() => onToggleVersione(v.id)}>
                     <Text style={styles.cronologiaVer}>v{v.versione || 1}</Text>
                     <Text style={styles.cronologiaData}>{new Date(v.created_at).toLocaleDateString('it-IT')}</Text>
-                    <Text style={styles.cronologiaImporto}>{v.importo_totale ? `\u20AC${v.importo_totale}` : '—'}</Text>
+                    <Text style={styles.cronologiaImporto}>{v.importo_totale ? `\u20AC${formatImportoDb(v.importo_totale)}` : '—'}</Text>
                   </TouchableOpacity>
                   {cronologiaVersioneAperta === v.id && (
                     <View style={styles.cronologiaDetail}>

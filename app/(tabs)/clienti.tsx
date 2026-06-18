@@ -7,7 +7,9 @@ import {
 import { eliminaClienti } from '../../lib/api/clienti'
 import { ClienteNuovoModal } from '../../lib/components/clienti/ClienteNuovoModal'
 import { ClienteSelectionBar } from '../../lib/components/clienteDettaglio/ClienteOverview'
+import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { useClienti } from "../../lib/hooks/useClienti"
+import { formatImportoEuro } from '../../lib/utils/importo'
 import { trackEvento } from "../../lib/utils/analytics"
 
 export default function Clienti() {
@@ -69,6 +71,8 @@ export default function Clienti() {
     setSelezioneAttiva(false)
     setClientiSelezionati([])
   }
+
+  useAnnullaSelezioneOnAndroidBack(selezioneAttiva, annullaSelezione)
 
   async function eliminaClientiSelezionati() {
     const ids = [...clientiSelezionati]
@@ -156,7 +160,7 @@ export default function Clienti() {
                 <Text style={styles.clienteStatVal}>{c.num_preventivi || 0}</Text>
                 <Text style={styles.clienteStatLabel}>preventivi</Text>
                 {(c.totale_preventivi || 0) > 0 && (
-                  <Text style={styles.clienteStatImporto}>€{c.totale_preventivi?.toFixed(0)}</Text>
+                  <Text style={styles.clienteStatImporto}>€{formatImportoEuro(c.totale_preventivi ?? 0, 0)}</Text>
                 )}
               </View>
             </TouchableOpacity>

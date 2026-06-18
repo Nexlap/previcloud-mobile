@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { RisultatoFiscale } from '../../builder/types'
 import { ProfiloFiscale, VocePreventivo } from '../../types'
+import { formatImportoEuroVisuale } from '../../utils/importo'
 
 type Props = {
   profiloFiscale: ProfiloFiscale | null
@@ -171,7 +172,7 @@ export function AnalisiFiscaleCard({
           {lordomCalcolato !== null && voci.length > 0 && (
             <View style={{ backgroundColor: '#F0FDF4', borderRadius: 10, padding: 12, gap: 6, marginTop: 4 }}>
               <Text style={{ fontSize: 12, color: '#065F46', fontWeight: '600' }}>
-                Lordo da fatturare: €{lordomCalcolato.toFixed(0)}
+                Lordo da fatturare: €{formatImportoEuroVisuale(lordomCalcolato)}
               </Text>
               <TouchableOpacity
                 style={[styles.generateBtn, { backgroundColor: '#0E9F8E', paddingVertical: 10 }]}
@@ -212,7 +213,7 @@ export function AnalisiFiscaleCard({
           )}
           {lordomCalcolato !== null && voci.length === 0 && (
             <Text style={{ fontSize: 12, color: '#0E9F8E', marginTop: 4 }}>
-              Lordo da fatturare: €{lordomCalcolato.toFixed(0)} — aggiungi servizi per applicare
+              Lordo da fatturare: €{formatImportoEuroVisuale(lordomCalcolato)} — aggiungi servizi per applicare
             </Text>
           )}
         </View>

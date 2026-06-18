@@ -1,5 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Cliente } from '../../types'
+import { formatImportoEuro } from '../../utils/importo'
 
 export type ClienteDettaglioTab = 'preventivi' | 'pagamento_rate' | 'abbonamento'
 
@@ -91,12 +92,12 @@ export function ClienteStats({ preventiviCount, totaleValore, trascrizioniCount,
         <Text style={styles.statLabel}>Preventivi</Text>
       </View>
       <View style={styles.statCard}>
-        <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${totaleValore.toFixed(0)}`}</Text>
+        <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${formatImportoEuro(totaleValore, 0)}`}</Text>
         <Text style={styles.statLabel}>Fatturato</Text>
       </View>
       {abbonamentoTotale !== null && abbonamentoTotale !== undefined ? (
         <View style={styles.statCard}>
-          <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${abbonamentoTotale.toFixed(0)}`}</Text>
+          <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${formatImportoEuro(abbonamentoTotale, 0)}`}</Text>
           <Text style={styles.statLabel}>Abbonamento</Text>
         </View>
       ) : (
@@ -124,7 +125,7 @@ export function ClienteTabs({ active, onChange }: TabsProps) {
         <Text style={[styles.tabText, active === 'pagamento_rate' && styles.tabTextActive]}>Pagamento a rate</Text>
       </TouchableOpacity>
       <TouchableOpacity style={[styles.tabBtn, active === 'abbonamento' && styles.tabBtnActive]} onPress={() => onChange('abbonamento')}>
-        <Text style={[styles.tabText, active === 'abbonamento' && styles.tabTextActive]}>{'\uD83D\uDCB0'} Abbonamento</Text>
+        <Text style={[styles.tabText, active === 'abbonamento' && styles.tabTextActive]}>Abbonamento</Text>
       </TouchableOpacity>
     </View>
   )

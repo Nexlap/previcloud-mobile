@@ -45,6 +45,8 @@ export interface Preventivo {
   template: string | null
   titolo: string | null
   pdf_url: string | null
+  pagato: boolean
+  data_pagamento: string | null
   messaggi_chat?: Messaggio[] | null
   clienti?: { nome: string } | null
 }

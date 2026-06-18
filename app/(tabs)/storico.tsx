@@ -6,6 +6,7 @@ import {
   ActivityIndicator, Alert, RefreshControl, ScrollView, View,
 } from 'react-native'
 import { eventBus } from '../../lib/eventBus'
+import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { caricaClientiPerSposta, caricaCronologiaPreventivo, eliminaPreventivi, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
 import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
@@ -54,7 +55,7 @@ export default function Storico() {
         Alert.alert('Errore', 'Impossibile aprire il PDF')
       }
     } else {
-      router.push({ pathname: '/screens/preventivo-pdf', params: { testo: p.testo_preventivo || '', cliente_id: p.cliente_id || '' } })
+      router.push({ pathname: '/screens/preventivo-pdf', params: { testo: p.testo_preventivo || '', cliente_id: p.cliente_id || '', preventivo_id: p.id } })
     }
   }
 
@@ -83,6 +84,8 @@ export default function Storico() {
     setSelezioneAttiva(false)
     setPreventiviSelezionati([])
   }
+
+  useAnnullaSelezioneOnAndroidBack(selezioneAttiva, annullaSelezione)
 
   async function eliminaSelezionati() {
     const ids = [...preventiviSelezionati]

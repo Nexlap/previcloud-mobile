@@ -294,7 +294,7 @@ export default function PreventivoPDF() {
           mensilitaRaw: abMensilita,
         })
         if (abbonamento.esistente) {
-          Alert.alert('Abbonamento esistente', `${clienteSelezionato.nome} ha già un abbonamento attivo. Gestiscilo dalla sua cartella cliente.`)
+          Alert.alert('Abbonamento esistente', 'Questo preventivo ha già un piano collegato. Gestiscilo dalla cartella cliente.')
         }
       }
 

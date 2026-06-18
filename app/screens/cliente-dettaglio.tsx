@@ -1,12 +1,15 @@
 import * as FileSystem from 'expo-file-system/legacy'
 import { router, useLocalSearchParams, useNavigation } from 'expo-router'
 import * as Sharing from 'expo-sharing'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { EventArg, NavigationAction } from '@react-navigation/native'
 import {
   ActivityIndicator, Alert, BackHandler,
+  Keyboard,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
@@ -16,8 +19,10 @@ import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponib
 import { ripristinaVersionePreventivo } from '../../lib/api/storico'
 import { eventBus } from '../../lib/eventBus'
 import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
+import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
+import { formatImportoEuro } from '../../lib/utils/importo'
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
 import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
@@ -66,18 +71,43 @@ export default function ClienteDettaglio() {
   const [selezione, setSelezione] = useState<string[]>([])
   const [modalitaSelezione, setModalitaSelezione] = useState(false)
   const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
+  const scrollRef = useRef<ScrollView>(null)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const showSub = Keyboard.addListener(showEvent, e => setKeyboardHeight(e.endCoordinates.height))
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0))
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
+
+  function scrollCampoInVista() {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), Platform.OS === 'ios' ? 100 : 250)
+  }
 
   // Abbonamento
   const [mostraModalNuovoAb, setMostraModalNuovoAb] = useState(false)
+  const [mostraModalNuovoRate, setMostraModalNuovoRate] = useState(false)
   const [mostraModalModificaAb, setMostraModalModificaAb] = useState(false)
+  const [preventivoSelezionatoId, setPreventivoSelezionatoId] = useState<string | null>(null)
+  const [preventivoRateSelezionatoId, setPreventivoRateSelezionatoId] = useState<string | null>(null)
   const [abImporto, setAbImporto] = useState('')
   const [abGiorno, setAbGiorno] = useState('1')
   const [abMensilita, setAbMensilita] = useState('')
+  const [rateImportoTotale, setRateImportoTotale] = useState('')
+  const [rateNumero, setRateNumero] = useState('')
+  const [rateGiorno, setRateGiorno] = useState('')
+  const [rateMeseInizio, setRateMeseInizio] = useState('')
   const [rataSelezionata, setRataSelezionata] = useState<RataAbbonamento | null>(null)
   const [pagamentoImporto, setPagamentoImporto] = useState('')
   const [pagamentoNota, setPagamentoNota] = useState('')
   const [invioReminderLoading, setInvioReminderLoading] = useState<string | null>(null)
-  const [abEspanso, setAbEspanso] = useState(true)
+  const [pianoEspansoId, setPianoEspansoId] = useState<string | null>(null)
+  const [abbonamentoSelezionatoId, setAbbonamentoSelezionatoId] = useState<string | null>(null)
   const [rataMiniAperta, setRataMiniAperta] = useState<string | null>(null)
   const [nomeAbTemp, setNomeAbTemp] = useState('')
   const [mostraModalRinominaAb, setMostraModalRinominaAb] = useState(false)
@@ -88,21 +118,36 @@ export default function ClienteDettaglio() {
   const [nuovaRataImporto, setNuovaRataImporto] = useState('')
   const [rateSelezioneAttiva, setRateSelezioneAttiva] = useState(false)
   const [rateSelezionate, setRateSelezionate] = useState<string[]>([])
+  const [pianoSelezioneAttiva, setPianoSelezioneAttiva] = useState(false)
+  const [pianiSelezionati, setPianiSelezionati] = useState<string[]>([])
   const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
 
   const {
     preventivi, totaleValore,
-    cambiaStato, eliminaPreventivo: eliminaPrev, rinominaPreventivo, spostaPreventivo,
+    cambiaStato, segnaPagato, eliminaPreventivo: eliminaPrev, rinominaPreventivo, spostaPreventivo,
     onRefresh: onRefreshPreventivi
   } = usePreventivi({ clienteId: id })
 
+  const preventivoModale = modalStato ? preventivi.find(p => p.id === modalStato) : null
+
   const {
-    abbonamento, abbonamentiStorico, preventivoMadre, preventiviMadreStorico, rate, loading: loadingAb,
+    abbonamentiAttivi, preventiviMadreStorico, ratePerPiano, loading: loadingAb,
     creaAbbonamento, aggiornaAbbonamento, eliminaAbbonamento,
     registraPagamento, azzeraPagamento,
     aggiungiRataMese, eliminaRate, rinominaAbbonamento, modificaImportoRata,
     totaleIncassato, totaleParziale, carica: caricaAb
   } = useAbbonamento(id, { soloTipo: 'canone' })
+
+  const {
+    creaPianoRate,
+    eliminaAbbonamento: eliminaPianoRate,
+    carica: caricaAbRate,
+  } = useAbbonamento(id, { soloTipo: 'rate' })
+
+  const preventiviSenzaPiano = useMemo(
+    () => preventivi.filter(p => p.is_ultimo && !collegamentiPiano[p.id]),
+    [preventivi, collegamentiPiano],
+  )
 
   useEffect(() => {
     trackEvento('cliente_dettaglio_aperto', 'cliente-dettaglio')
@@ -114,6 +159,13 @@ export default function ClienteDettaglio() {
       setTab(tabIniziale)
     }
   }, [tabIniziale])
+
+  useEffect(() => {
+    setPianoSelezioneAttiva(false)
+    setPianiSelezionati([])
+    setRateSelezioneAttiva(false)
+    setRateSelezionate([])
+  }, [tab])
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e: BeforeRemoveEvent) => {
@@ -170,10 +222,12 @@ export default function ClienteDettaglio() {
 
   async function aggiornaCollegamentiPiano() {
     setCollegamentiPiano(await caricaCollegamentiPianoPreventivo(id))
+    await onRefreshPreventivi()
+    eventBus.emit('aggiorna-home')
   }
 
-  async function eliminaAbbonamentoCliente() {
-    await eliminaAbbonamento()
+  async function eliminaAbbonamentoCliente(abbonamentoId: string) {
+    await eliminaAbbonamento(abbonamentoId)
     await aggiornaCollegamentiPiano()
   }
 
@@ -289,7 +343,7 @@ export default function ClienteDettaglio() {
         Alert.alert('Errore', 'Impossibile aprire il PDF')
       }
     } else {
-      router.push({ pathname: '/screens/preventivo-pdf', params: { testo: p.testo_preventivo || '', cliente_id: p.cliente_id || '' } })
+      router.push({ pathname: '/screens/preventivo-pdf', params: { testo: p.testo_preventivo || '', cliente_id: p.cliente_id || '', preventivo_id: p.id } })
     }
   }
 
@@ -316,7 +370,7 @@ export default function ClienteDettaglio() {
       const residuo = rata.importo - (rata.acconto || 0)
       const link = await creaLinkPagamentoRata(rata.id, cliente?.nome || '', session.access_token)
       const MESI_FULL = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre']
-      const testo = `Ciao ${cliente?.nome || ''}, ti ricordo il pagamento di €${residuo} per il canone di ${MESI_FULL[rata.mese - 1]} ${rata.anno}. Puoi pagare qui: ${link}`
+      const testo = `Ciao ${cliente?.nome || ''}, ti ricordo il pagamento di €${formatImportoEuro(residuo, 2)} per il canone di ${MESI_FULL[rata.mese - 1]} ${rata.anno}. Puoi pagare qui: ${link}`
       const url = `whatsapp://send?text=${encodeURIComponent(testo)}${cliente?.telefono ? `&phone=${cliente.telefono.replace(/\s/g, '')}` : ''}`
       const supportato = await Linking.canOpenURL(url)
       if (supportato) {
@@ -340,16 +394,79 @@ export default function ClienteDettaglio() {
     if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
     if (!giorno || giorno < 1 || giorno > 31) { Alert.alert('Inserisci un giorno valido (1-31)'); return }
     const mensilita = abMensilita ? parseInt(abMensilita) : undefined
-    const tipo = mensilita ? 'rate' : 'canone'
-    await creaAbbonamento(importo, giorno, { numeroMensilita: mensilita, tipo })
+    await creaAbbonamento(importo, giorno, {
+      numeroMensilita: mensilita,
+      tipo: 'canone',
+      preventivoId: preventivoSelezionatoId || undefined,
+    })
     setMostraModalNuovoAb(false)
+    await aggiornaCollegamentiPiano()
+    await caricaAb()
+  }
+
+  function selezionaPreventivoAbbonamento(preventivoId: string | null) {
+    setPreventivoSelezionatoId(preventivoId)
+    if (!preventivoId) return
+    const preventivo = preventivi.find(p => p.id === preventivoId)
+    if (preventivo?.importo_totale != null) {
+      setAbImporto(String(preventivo.importo_totale).replace('.', ','))
+    }
+  }
+
+  function selezionaPreventivoRate(preventivoId: string | null) {
+    setPreventivoRateSelezionatoId(preventivoId)
+    if (!preventivoId) return
+    const preventivo = preventivi.find(p => p.id === preventivoId)
+    if (preventivo?.importo_totale != null) {
+      setRateImportoTotale(String(preventivo.importo_totale).replace('.', ','))
+    }
+  }
+
+  function apriModaleAbbonamento() {
+    setPreventivoSelezionatoId(null)
+    setAbImporto('')
+    setAbGiorno('1')
+    setAbMensilita('')
+    setMostraModalNuovoAb(true)
+  }
+
+  function apriModaleRate() {
+    const ora = new Date()
+    setPreventivoRateSelezionatoId(null)
+    setRateImportoTotale('')
+    setRateNumero('')
+    setRateGiorno(String(ora.getDate()))
+    setRateMeseInizio(String(ora.getMonth() + 1))
+    setMostraModalNuovoRate(true)
+  }
+
+  async function salvaNuovoPianoRate() {
+    const importo = parseFloat(rateImportoTotale.replace(',', '.'))
+    const numero = parseInt(rateNumero, 10)
+    const giorno = parseInt(rateGiorno, 10)
+    const mese = parseInt(rateMeseInizio, 10)
+    if (!(importo > 0)) { Alert.alert('Inserisci un importo valido'); return }
+    if (!(numero >= 2)) { Alert.alert('Numero rate non valido', 'Inserisci almeno 2 rate.'); return }
+    if (!(giorno >= 1 && giorno <= 31)) { Alert.alert('Inserisci un giorno valido (1-31)'); return }
+    if (!(mese >= 1 && mese <= 12)) { Alert.alert('Inserisci un mese valido (1-12)'); return }
+    const ok = await creaPianoRate(importo, numero, {
+      preventivoId: preventivoRateSelezionatoId || undefined,
+      giornoScadenza: giorno,
+      meseInizio: mese,
+    })
+    if (!ok) return
+    setMostraModalNuovoRate(false)
+    await aggiornaCollegamentiPiano()
+    eventBus.emit('aggiorna-piano-cliente')
+    await caricaAbRate()
   }
 
   async function salvaModificaAbbonamento() {
+    if (!abbonamentoSelezionatoId) return
     const importo = parseFloat(abImporto.replace(',', '.'))
     const giorno = parseInt(abGiorno)
     if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
-    await aggiornaAbbonamento(importo, giorno)
+    await aggiornaAbbonamento(abbonamentoSelezionatoId, importo, giorno)
     setMostraModalModificaAb(false)
   }
 
@@ -362,16 +479,21 @@ export default function ClienteDettaglio() {
       await modificaImportoRata(rataSelezionata.id, nuovoImportoRata)
     }
     await registraPagamento(rataSelezionata.id, importo, pagamentoNota || undefined)
+    await onRefreshPreventivi()
+    eventBus.emit('aggiorna-home')
     setRataSelezionata(null)
   }
 
   async function salvaRinominaAbbonamento() {
-    await rinominaAbbonamento(nomeAbTemp)
+    if (!abbonamentoSelezionatoId) return
+    await rinominaAbbonamento(abbonamentoSelezionatoId, nomeAbTemp)
     setMostraModalRinominaAb(false)
   }
 
-  function apriModalAggiungiRata() {
+  function apriModalAggiungiRata(abbonamentoId: string) {
+    const abbonamento = abbonamentiAttivi.find(a => a.id === abbonamentoId)
     if (!abbonamento) return
+    setAbbonamentoSelezionatoId(abbonamentoId)
     setNuovaRataMese(String(meseCorrente))
     setNuovaRataAnno(String(annoCorrente))
     setNuovaRataImporto(abbonamento.importo_default.toString())
@@ -379,6 +501,7 @@ export default function ClienteDettaglio() {
   }
 
   async function confermaAggiungiRata() {
+    if (!abbonamentoSelezionatoId) return
     const mese = parseInt(nuovaRataMese, 10)
     const anno = parseInt(nuovaRataAnno, 10)
     const importo = parseFloat(nuovaRataImporto.replace(',', '.'))
@@ -394,7 +517,7 @@ export default function ClienteDettaglio() {
       Alert.alert('Importo non valido', 'Inserisci un importo maggiore di zero')
       return
     }
-    const ok = await aggiungiRataMese(mese, anno, importo)
+    const ok = await aggiungiRataMese(abbonamentoSelezionatoId, mese, anno, importo)
     if (ok) setMostraModalAggiungiRata(false)
   }
 
@@ -410,7 +533,51 @@ export default function ClienteDettaglio() {
     setRateSelezionate([])
   }
 
+  function annullaSelezionePiani() {
+    setPianoSelezioneAttiva(false)
+    setPianiSelezionati([])
+  }
+
+  function avviaSelezionePiano(abbonamentoId: string) {
+    annullaSelezioneRate()
+    setPianoSelezioneAttiva(true)
+    setPianiSelezionati(ids => ids.includes(abbonamentoId) ? ids : [...ids, abbonamentoId])
+  }
+
+  function toggleSelezionePiano(abbonamentoId: string) {
+    setPianiSelezionati(ids => {
+      const prossimi = ids.includes(abbonamentoId) ? ids.filter(x => x !== abbonamentoId) : [...ids, abbonamentoId]
+      if (prossimi.length === 0) setPianoSelezioneAttiva(false)
+      return prossimi
+    })
+  }
+
+  function confermaEliminaPianiSelezionati() {
+    const ids = [...pianiSelezionati]
+    if (!ids.length) return
+    const etichetta = tab === 'pagamento_rate' ? 'piani a rate' : 'abbonamenti'
+    Alert.alert(`Elimina ${etichetta}`, `Eliminare ${ids.length} ${etichetta} selezionati?`, [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Elimina',
+        style: 'destructive',
+        onPress: async () => {
+          if (tab === 'pagamento_rate') {
+            for (const pianoId of ids) await eliminaPianoRate(pianoId)
+            eventBus.emit('aggiorna-piano-cliente')
+          } else {
+            for (const pianoId of ids) await eliminaAbbonamento(pianoId)
+            await caricaAb()
+          }
+          await aggiornaCollegamentiPiano()
+          annullaSelezionePiani()
+        },
+      },
+    ])
+  }
+
   function avviaSelezioneRata(rataId: string) {
+    annullaSelezionePiani()
     setRateSelezioneAttiva(true)
     setRateSelezionate(ids => ids.includes(rataId) ? ids : [...ids, rataId])
   }
@@ -449,17 +616,19 @@ export default function ClienteDettaglio() {
     setMostraModalRinominaCliente(true)
   }
 
+  useAnnullaSelezioneOnAndroidBack(modalitaSelezione, annullaSelezione)
+  useAnnullaSelezioneOnAndroidBack(pianoSelezioneAttiva, annullaSelezionePiani)
+  useAnnullaSelezioneOnAndroidBack(rateSelezioneAttiva, annullaSelezioneRate)
+
   const ora = new Date()
   const meseCorrente = ora.getMonth() + 1
   const annoCorrente = ora.getFullYear()
+  const barraSelezionePianiVisibile = pianoSelezioneAttiva && (tab === 'abbonamento' || tab === 'pagamento_rate')
+  const barraSelezioneRateVisibile = rateSelezioneAttiva && tab === 'abbonamento'
+  const barraSelezioneVisibile = barraSelezionePianiVisibile || barraSelezioneRateVisibile
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>
   if (!cliente) return <View style={styles.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>
-
-  const rataMeseCorrente = rate.find(r => r.mese === meseCorrente && r.anno === annoCorrente)
-const rateStoriche = rate.filter(r =>
-  !(r.mese === meseCorrente && r.anno === annoCorrente)
-)
 
   return (
     <View style={styles.container}>
@@ -479,9 +648,22 @@ const rateStoriche = rate.filter(r =>
         />
       )}
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={{ padding: 16, gap: 12 }}
+        contentContainerStyle={{
+          padding: 16,
+          gap: 12,
+          paddingBottom: keyboardHeight > 0
+            ? keyboardHeight + 24
+            : (barraSelezioneVisibile ? 120 : 40),
+        }}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}
       >
         <ClienteInfoCard cliente={cliente} />
@@ -490,7 +672,7 @@ const rateStoriche = rate.filter(r =>
           preventiviCount={preventivi.filter(p => p.is_ultimo).length}
           totaleValore={totaleValore}
           trascrizioniCount={trascrizioni.length}
-          abbonamentoTotale={abbonamento ? totaleIncassato + totaleParziale : null}
+          abbonamentoTotale={abbonamentiAttivi.length > 0 ? totaleIncassato + totaleParziale : null}
         />
 
         <ClienteTabs active={tab} onChange={setTab} />
@@ -525,6 +707,11 @@ const rateStoriche = rate.filter(r =>
           <ClientePagamentoRateTab
             onApriPreventivoMadre={apriPreventivoMadre}
             onPianoAggiornato={aggiornaCollegamentiPiano}
+            onCampoFocus={scrollCampoInVista}
+            selezionePianoAttiva={pianoSelezioneAttiva}
+            pianiSelezionati={pianiSelezionati}
+            onAvviaSelezionePiano={avviaSelezionePiano}
+            onToggleSelezionePiano={toggleSelezionePiano}
           />
         )}
 
@@ -532,40 +719,68 @@ const rateStoriche = rate.filter(r =>
         {tab === 'abbonamento' && (
           <ClienteAbbonamentoTab
             loading={loadingAb}
-            abbonamento={abbonamento}
-            preventivoMadre={preventivoMadre}
-            abbonamentiStorico={abbonamentiStorico}
+            abbonamentiAttivi={abbonamentiAttivi}
+            ratePerPiano={ratePerPiano}
             preventiviMadreStorico={preventiviMadreStorico}
             onApriPreventivoMadre={apriPreventivoMadre}
-            totaleIncassato={totaleIncassato}
             meseCorrente={meseCorrente}
             annoCorrente={annoCorrente}
-            rataMeseCorrente={rataMeseCorrente}
-            rateStoriche={rateStoriche}
-            abEspanso={abEspanso}
+            pianoEspansoId={pianoEspansoId}
             rataMiniAperta={rataMiniAperta}
             invioReminderLoading={invioReminderLoading}
             selezioneAttiva={rateSelezioneAttiva}
             rateSelezionate={rateSelezionate}
             onAvviaSelezione={avviaSelezioneRata}
             onToggleSelezione={toggleSelezioneRata}
-            onCreate={() => { setAbImporto(''); setAbGiorno('1'); setAbMensilita(''); setMostraModalNuovoAb(true) }}
-            onToggleEspanso={() => setAbEspanso(v => !v)}
-            onRename={() => { setNomeAbTemp(abbonamento?.nome || 'Abbonamento N.1'); setMostraModalRinominaAb(true) }}
+            onToggleEspanso={(abbonamentoId) => {
+              setPianoEspansoId(prev => {
+                const isExpanded = prev === abbonamentoId
+                  || (prev === null && abbonamentiAttivi[0]?.id === abbonamentoId)
+                if (isExpanded) return prev === abbonamentoId ? null : ''
+                return abbonamentoId
+              })
+            }}
+            onRename={(abbonamentoId) => {
+              const ab = abbonamentiAttivi.find(a => a.id === abbonamentoId)
+              const indice = abbonamentiAttivi.findIndex(a => a.id === abbonamentoId)
+              setAbbonamentoSelezionatoId(abbonamentoId)
+              setNomeAbTemp(ab?.nome || `Abbonamento N.${indice + 1}`)
+              setMostraModalRinominaAb(true)
+            }}
             onOpenAddRata={apriModalAggiungiRata}
             onOpenPagamento={apriModalPagamento}
             onSendReminder={inviaReminder}
             onAzzeraPagamento={azzeraPagamento}
             onToggleRataMini={(rataId) => setRataMiniAperta(rataMiniAperta === rataId ? null : rataId)}
-            onEditCanone={() => { if (!abbonamento) return; setAbImporto(abbonamento.importo_default.toString()); setAbGiorno(abbonamento.giorno_scadenza.toString()); setMostraModalModificaAb(true) }}
+            onEditCanone={(abbonamentoId) => {
+              const ab = abbonamentiAttivi.find(a => a.id === abbonamentoId)
+              if (!ab) return
+              setAbbonamentoSelezionatoId(abbonamentoId)
+              setAbImporto(ab.importo_default.toString())
+              setAbGiorno(ab.giorno_scadenza.toString())
+              setMostraModalModificaAb(true)
+            }}
             onDeleteAbbonamento={eliminaAbbonamentoCliente}
+            selezionePianoAttiva={pianoSelezioneAttiva}
+            pianiSelezionati={pianiSelezionati}
+            onAvviaSelezionePiano={avviaSelezionePiano}
+            onToggleSelezionePiano={toggleSelezionePiano}
           />
         )}
 
-        <View style={{ height: rateSelezioneAttiva && tab === 'abbonamento' ? 120 : 40 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
 
-      {tab === 'abbonamento' && rateSelezioneAttiva && (
+      {barraSelezionePianiVisibile && (
+        <AbbonamentoRateSelectionBar
+          count={pianiSelezionati.length}
+          countLabel="selezionati"
+          onCancel={annullaSelezionePiani}
+          onDelete={confermaEliminaPianiSelezionati}
+        />
+      )}
+
+      {barraSelezioneRateVisibile && (
         <AbbonamentoRateSelectionBar
           count={rateSelezionate.length}
           onCancel={annullaSelezioneRate}
@@ -573,20 +788,38 @@ const rateStoriche = rate.filter(r =>
         />
       )}
 
-      {/* Bottone nuovo preventivo */}
-      {!(tab === 'abbonamento' && rateSelezioneAttiva) && (
-      <TouchableOpacity
-        style={styles.nuovoBtn}
-        onPress={() => router.push({ pathname: '/(tabs)/nuovo', params: { cliente_id: id, cliente_nome: cliente.nome || nome } })}
-      >
-        <Text style={styles.nuovoBtnText}>+ Nuovo preventivo</Text>
-      </TouchableOpacity>
+      {/* Pulsante fondo: azione contestuale per tab */}
+      {!barraSelezioneVisibile && (
+        tab === 'abbonamento' ? (
+          <TouchableOpacity style={styles.nuovoBtn} onPress={apriModaleAbbonamento}>
+            <Text style={styles.nuovoBtnText}>+ Nuovo abbonamento</Text>
+          </TouchableOpacity>
+        ) : tab === 'pagamento_rate' ? (
+          <TouchableOpacity style={styles.nuovoBtn} onPress={apriModaleRate}>
+            <Text style={styles.nuovoBtnText}>+ Nuovo pagamento a rate</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.nuovoBtn}
+            onPress={() => router.push({ pathname: '/(tabs)/nuovo', params: { cliente_id: id, cliente_nome: cliente.nome || nome } })}
+          >
+            <Text style={styles.nuovoBtnText}>+ Nuovo preventivo</Text>
+          </TouchableOpacity>
+        )
       )}
 
       <ClientePreventivoModals
         modalStato={modalStato}
         onCloseStato={() => setModalStato(null)}
         onChangeStato={(preventivoId, stato) => { cambiaStato(preventivoId, stato); eventBus.emit('aggiorna-home') }}
+        preventivoStatoCorrente={preventivoModale?.stato}
+        preventivoPagato={preventivoModale?.pagato ?? false}
+        mostraTogglePagato={!!modalStato && !collegamentiPiano[modalStato]}
+        onTogglePagato={async (pagato) => {
+          if (!modalStato) return
+          await segnaPagato(modalStato, pagato)
+          eventBus.emit('aggiorna-home')
+        }}
         mostraModalSposta={mostraModalSposta}
         clientiDisponibili={clientiDisponibili}
         onCloseSposta={() => setMostraModalSposta(null)}
@@ -613,7 +846,24 @@ const rateStoriche = rate.filter(r =>
         onChangeAbGiorno={setAbGiorno}
         abMensilita={abMensilita}
         onChangeAbMensilita={setAbMensilita}
+        preventiviDisponibili={preventiviSenzaPiano}
+        preventivoSelezionatoId={preventivoSelezionatoId}
+        onSelectPreventivo={selezionaPreventivoAbbonamento}
         onCreaAbbonamento={salvaNuovoAbbonamento}
+        mostraNuovoRate={mostraModalNuovoRate}
+        onCloseNuovoRate={() => setMostraModalNuovoRate(false)}
+        rateImportoTotale={rateImportoTotale}
+        onChangeRateImportoTotale={setRateImportoTotale}
+        rateNumero={rateNumero}
+        onChangeRateNumero={setRateNumero}
+        rateGiorno={rateGiorno}
+        onChangeRateGiorno={setRateGiorno}
+        rateMeseInizio={rateMeseInizio}
+        onChangeRateMeseInizio={setRateMeseInizio}
+        preventiviDisponibiliRate={preventiviSenzaPiano}
+        preventivoRateSelezionatoId={preventivoRateSelezionatoId}
+        onSelectPreventivoRate={selezionaPreventivoRate}
+        onCreaPianoRate={salvaNuovoPianoRate}
         mostraModifica={mostraModalModificaAb}
         onCloseModifica={() => setMostraModalModificaAb(false)}
         onAggiornaAbbonamento={salvaModificaAbbonamento}

@@ -1,29 +1,51 @@
 import { StyleSheet, Text, View, ViewStyle } from 'react-native'
 
-type Props = {
+type BadgeOpts = {
   stato?: string | null
+  pagato?: boolean
+  pagamentoGestitoDalPiano?: boolean
+}
+
+type Props = BadgeOpts & {
   showArrow?: boolean
 }
 
-export function statoBadgeStyle(stato?: string | null): ViewStyle {
+function badgeMeta({ stato, pagato, pagamentoGestitoDalPiano }: BadgeOpts) {
   const s = stato || 'bozza'
-  if (s === 'accettato') return { backgroundColor: '#D1FAE5' }
-  if (s === 'rifiutato') return { backgroundColor: '#FEE2E2' }
-  if (s === 'inviato') return { backgroundColor: '#DBEAFE' }
-  return { backgroundColor: '#F3F4F6' }
+  if (s === 'accettato' && !pagamentoGestitoDalPiano) {
+    if (pagato) {
+      return { label: 'pagato', backgroundColor: '#0E9F8E', color: '#fff', fontWeight: '600' as const }
+    }
+    return { label: 'da incassare', backgroundColor: '#FEF3C7', color: '#B45309', fontWeight: '600' as const }
+  }
+  if (s === 'accettato') return { label: 'accettato', backgroundColor: '#D1FAE5', color: '#6B7280', fontWeight: '500' as const }
+  if (s === 'rifiutato') return { label: 'rifiutato', backgroundColor: '#FEE2E2', color: '#6B7280', fontWeight: '500' as const }
+  if (s === 'inviato') return { label: 'inviato', backgroundColor: '#DBEAFE', color: '#6B7280', fontWeight: '500' as const }
+  return { label: s, backgroundColor: '#F3F4F6', color: '#6B7280', fontWeight: '500' as const }
 }
 
-export function PreventivoStatoBadge({ stato, showArrow = false }: Props) {
-  const label = `${stato || 'bozza'}${showArrow ? ' \u25BC' : ''}`
+export function statoBadgeStyle(opts: BadgeOpts): ViewStyle {
+  const { backgroundColor } = badgeMeta(opts)
+  return { backgroundColor }
+}
+
+export function PreventivoStatoBadge({
+  stato,
+  pagato,
+  pagamentoGestitoDalPiano,
+  showArrow = false,
+}: Props) {
+  const meta = badgeMeta({ stato, pagato, pagamentoGestitoDalPiano })
+  const label = `${meta.label}${showArrow ? ' \u25BC' : ''}`
 
   return (
-    <View style={[styles.badge, statoBadgeStyle(stato)]}>
-      <Text style={styles.text}>{label}</Text>
+    <View style={[styles.badge, { backgroundColor: meta.backgroundColor }]}>
+      <Text style={[styles.text, { color: meta.color, fontWeight: meta.fontWeight }]}>{label}</Text>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, alignSelf: 'flex-start' },
-  text: { fontSize: 10, color: '#6B7280', fontWeight: '500' },
+  text: { fontSize: 10 },
 })

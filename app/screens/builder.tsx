@@ -8,6 +8,7 @@ import { creaServizioListino } from '../../lib/api/servizi';
 import { Cliente, ProfiloFiscale, Servizio, VocePreventivo } from '../../lib/types';
 import { eventBus } from '../../lib/eventBus';
 import { trackEvento } from '../../lib/utils/analytics';
+import { formatImportoEuroVisuale } from '../../lib/utils/importo';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
 import { caricaClientiBuilder, caricaMetodiPagamentoBuilder, caricaProfiloFiscaleBuilder, caricaServiziBuilder, creaClienteBuilder, metodoContantiDefault } from '../../lib/builder/data';
 import { calcolaFiscalePreventivo, calcolaLordoDaNetto as calcolaLordoDaNettoBuilder, calcolaTotaleTrasferte, calcolaTotaleVoci } from '../../lib/builder/fiscale';
@@ -378,7 +379,7 @@ export default function Builder() {
   const totaleTrasferte = calcolaTotaleTrasferte(trasferte)
   const totaleConIva = includiIva ? (totale + totaleTrasferte) * 1.22 : (totale + totaleTrasferte)
   const f = calcolaFiscale()
-  const fmt = (n: number) => n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)
+  const fmt = formatImportoEuroVisuale
 
   return (
     <KeyboardAvoidingView

@@ -1,5 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
+import { formatImportoEuroVisuale } from '../../utils/importo'
+
 type Props = {
   disabled: boolean
   totaleConIva: number
@@ -8,7 +10,7 @@ type Props = {
 }
 
 function formatTotale(totaleConIva: number) {
-  return totaleConIva % 1 === 0 ? totaleConIva.toFixed(0) : totaleConIva.toFixed(2)
+  return formatImportoEuroVisuale(totaleConIva)
 }
 
 export function GeneraPdfButton({ disabled, totaleConIva, onPress, bottomInset = 0 }: Props) {

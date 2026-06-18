@@ -8,7 +8,7 @@ import { eventBus } from "../../lib/eventBus"
 import { caricaHomeData } from '../../lib/api/home'
 import { Preventivo, Profile } from "../../lib/types"
 import { trackEvento } from "../../lib/utils/analytics"
-import { formatImportoEuro } from '../../lib/utils/importo'
+import { formatImportoEuro, formatImportoDb } from '../../lib/utils/importo'
 import { PreventivoStatoBadge } from '../../lib/components/preventivo/PreventivoStatoBadge'
 
 export default function Home() {
@@ -138,8 +138,8 @@ useEffect(() => {
                   </Text>
                 </View>
                 <View style={styles.prevRight}>
-                  <Text style={styles.prevImporto}>{p.importo_totale ? `€${p.importo_totale}` : '—'}</Text>
-                  <PreventivoStatoBadge stato={p.stato} />
+                  <Text style={styles.prevImporto}>{p.importo_totale ? `€${formatImportoDb(p.importo_totale)}` : '—'}</Text>
+                  <PreventivoStatoBadge stato={p.stato} pagato={p.pagato} />
                 </View>
               </TouchableOpacity>
             ))

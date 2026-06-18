@@ -1,10 +1,11 @@
+import { formatImportoEuro } from '../../utils/importo'
+
 type VoceDemo = { nome: string; dettagli: [string, string]; prezzo: number }
 type DemoPreventivo = {
   servizi: VoceDemo[]
   rimborsi: { nome: string; dettaglio: string; tipo: string; importo: number }[]
   note: string
 }
-
 export const DEMO_PREVENTIVO: Record<string, DemoPreventivo> = {
   videomaker: {
     servizi: [
@@ -167,10 +168,6 @@ export const DEMO_NOME_AZIENDA: Record<string, string> = {
   altro: 'Studio Professionale Demo',
 }
 
-function formatEuro(valore: number) {
-  return valore.toFixed(2).replace('.', ',')
-}
-
 export function generaTestoDemo(categoria: string, compatto = false): string {
   const demo = DEMO_PREVENTIVO[categoria] || DEMO_PREVENTIVO.altro
   const serviziDemo = compatto ? demo.servizi.slice(0, 4) : demo.servizi
@@ -180,11 +177,11 @@ export function generaTestoDemo(categoria: string, compatto = false): string {
   const iva = imponibile * 0.22
   const totale = imponibile + iva
   const servizi = serviziDemo.map(s =>
-    `SERVIZIO: ${s.nome}\nDETTAGLI:\n- ${s.dettagli[0]}\n- ${s.dettagli[1]}\nPREZZO: €${formatEuro(s.prezzo)}`
+    `SERVIZIO: ${s.nome}\nDETTAGLI:\n- ${s.dettagli[0]}\n- ${s.dettagli[1]}\nPREZZO: €${formatImportoEuro(s.prezzo, 2)}`
   ).join('\n\n')
   const rimborsi = rimborsiDemo.map(r =>
-    `RIMBORSO: ${r.nome}\nDETTAGLIO: ${r.dettaglio}\nTIPO: ${r.tipo}\nIMPORTO: €${formatEuro(r.importo)}`
+    `RIMBORSO: ${r.nome}\nDETTAGLIO: ${r.dettaglio}\nTIPO: ${r.tipo}\nIMPORTO: €${formatImportoEuro(r.importo, 2)}`
   ).join('\n\n')
 
-  return `PREVENTIVO\nData: ${data}  |  Validità: 30 giorni\n\nSERVIZI:\n\n${servizi}\n\nRIMBORSI SPESE:\n\n${rimborsi}\n\nRIEPILOGO:\nImponibile: €${formatEuro(imponibile)}\nIVA 22%: €${formatEuro(iva)}\nTOTALE: €${formatEuro(totale)}\n\nNote: ${demo.note}\nPAGAMENTO: Bonifico bancario\nLINK PAGAMENTO: https://checkout.stripe.com/demo-link-esempio`
+  return `PREVENTIVO\nData: ${data}  |  Validità: 30 giorni\n\nSERVIZI:\n\n${servizi}\n\nRIMBORSI SPESE:\n\n${rimborsi}\n\nRIEPILOGO:\nImponibile: €${formatImportoEuro(imponibile, 2)}\nIVA 22%: €${formatImportoEuro(iva, 2)}\nTOTALE: €${formatImportoEuro(totale, 2)}\n\nNote: ${demo.note}\nPAGAMENTO: Bonifico bancario\nLINK PAGAMENTO: https://checkout.stripe.com/demo-link-esempio`
 }

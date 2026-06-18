@@ -111,6 +111,27 @@ export async function segnaPreventivoInviato(preventivoId: string) {
   await supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', preventivoId)
 }
 
+export async function caricaInfoPagamentoPreventivo(preventivoId: string) {
+  const [{ data: prev }, { data: ab }] = await Promise.all([
+    supabase.from('preventivi').select('stato, pagato, data_pagamento').eq('id', preventivoId).single(),
+    supabase.from('abbonamenti').select('id').eq('preventivo_id', preventivoId).maybeSingle(),
+  ])
+  if (!prev) return null
+  return {
+    stato: prev.stato as string,
+    pagato: prev.pagato ?? false,
+    data_pagamento: (prev.data_pagamento as string | null) ?? null,
+    haAbbonamento: !!ab,
+  }
+}
+
+export async function segnaPreventivoPagato(preventivoId: string, pagato: boolean) {
+  const update = pagato
+    ? { pagato: true, data_pagamento: new Date().toISOString() }
+    : { pagato: false, data_pagamento: null }
+  await supabase.from('preventivi').update(update).eq('id', preventivoId)
+}
+
 export async function salvaTemplatePreferito(template: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
@@ -143,15 +164,14 @@ export async function creaAbbonamentoDaPreventivo({
     return { esistente: false }
   }
 
-  const { data: abEsistente } = await supabase
+  const { data: pianoEsistente } = await supabase
     .from('abbonamenti')
     .select('id')
-    .eq('cliente_id', cliente.id)
+    .eq('preventivo_id', preventivoId)
     .eq('attivo', true)
-    .eq('tipo', 'canone')
     .maybeSingle()
 
-  if (abEsistente) return { esistente: true }
+  if (pianoEsistente) return { esistente: true }
 
   const nome = await nomePianoPerPreventivo(preventivoId, 'canone')
   const { data: ab } = await supabase.from('abbonamenti').insert({
@@ -210,9 +230,8 @@ export async function creaPianoRateDaPreventivo({
   const { data: pianoEsistente } = await supabase
     .from('abbonamenti')
     .select('id')
-    .eq('cliente_id', cliente.id)
+    .eq('preventivo_id', preventivoId)
     .eq('attivo', true)
-    .eq('tipo', 'rate')
     .maybeSingle()
 
   if (pianoEsistente) return { esistente: true }

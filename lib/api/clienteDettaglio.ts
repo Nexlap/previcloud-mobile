@@ -69,6 +69,7 @@ export async function caricaCollegamentiPianoPreventivo(clienteId: string) {
     .from('abbonamenti')
     .select('preventivo_id, tipo, attivo, created_at')
     .eq('cliente_id', clienteId)
+    .eq('attivo', true)
     .not('preventivo_id', 'is', null)
     .order('created_at', { ascending: false })
 

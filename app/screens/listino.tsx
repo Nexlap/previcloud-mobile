@@ -7,6 +7,7 @@ import { ServizioForm } from '../../lib/types'
 import { creaServizioListino } from '../../lib/api/servizi'
 import { sessionToken } from '../../lib/api/auth'
 import { trackEvento } from '../../lib/utils/analytics'
+import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { aggiornaServizioListino, caricaServiziListino, eliminaServiziListino, eliminaServizioListino, normalizzaServizioListino } from '../../lib/api/listino'
 import { avviaRegistrazioneListinoSmart, elaboraListinoDaTestoSmart, fermaRegistrazioneListinoSmart, scattaFotoListinoSmart, scegliFotoListinoSmart } from '../../lib/features/listino/media'
 import { ListinoEmpty } from '../../lib/components/listino/ListinoEmpty'
@@ -110,6 +111,8 @@ export default function Listino() {
     setSelezioneAttiva(false)
     setServiziSelezionati([])
   }
+
+  useAnnullaSelezioneOnAndroidBack(selezioneAttiva, annullaSelezione)
 
   async function eliminaServiziSelezionati() {
     const ids = [...serviziSelezionati]

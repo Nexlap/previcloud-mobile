@@ -1,6 +1,7 @@
 import { Dispatch, SetStateAction } from 'react'
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { TrasfertaBuilder } from '../../builder/types'
+import { formatImportoEuroVisuale } from '../../utils/importo'
 
 type Props = {
   trasferte: TrasfertaBuilder[]
@@ -57,7 +58,7 @@ export function TrasferteCard({
                     </TouchableOpacity>
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 12, color: '#6B7280' }}>€{t.importo}</Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280' }}>€{formatImportoEuroVisuale(parseFloat(t.importo) || 0)}</Text>
                     <TouchableOpacity
                       style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: t.esente ? '#F0FDF4' : '#FEF3C7', borderWidth: 1, borderColor: t.esente ? '#0E9F8E' : '#F59E0B' }}
                       onPress={() => setTrasferte(ts => ts.map(x => x.id === t.id ? { ...x, esente: !x.esente } : x))}
@@ -136,7 +137,7 @@ export function TrasferteCard({
                 <View style={{ borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between' }}>
                   <Text style={{ fontSize: 13, color: '#6B7280' }}>Totale trasferte</Text>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: '#0D1B2A' }}>
-                    €{trasferte.reduce((a, t) => a + (parseFloat(t.importo) || 0), 0).toFixed(2)}
+                    €{formatImportoEuroVisuale(trasferte.reduce((a, t) => a + (parseFloat(t.importo) || 0), 0))}
                   </Text>
                 </View>
               )}

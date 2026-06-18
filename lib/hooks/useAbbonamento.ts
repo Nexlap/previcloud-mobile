@@ -3,7 +3,7 @@ import { Alert } from 'react-native'
 import { MESI_BREVI } from '../constants'
 import { supabase } from '../supabase'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../types'
-import { calcolaImportiRate, calcolaScadenzeRate } from '../utils/importo'
+import { calcolaImportiRate, calcolaScadenzeRate, formatImportoEuro } from '../utils/importo'
 import { nomePianoDaPreventivo } from '../utils/preventivoMadre'
 
 type UseAbbonamentoOpts = {
@@ -11,16 +11,6 @@ type UseAbbonamentoOpts = {
 }
 
 const PREVENTIVO_MADRE_SELECT = 'id, titolo, created_at, versione, importo_totale, stato'
-
-async function caricaPreventivoMadre(preventivoId: string | null) {
-  if (!preventivoId) return null
-  const { data } = await supabase
-    .from('preventivi')
-    .select(PREVENTIVO_MADRE_SELECT)
-    .eq('id', preventivoId)
-    .single()
-  return (data as PreventivoMadre | null) || null
-}
 
 async function nomeDaPreventivoId(preventivoId: string, tipo: 'canone' | 'rate') {
   const { data } = await supabase
@@ -31,15 +21,50 @@ async function nomeDaPreventivoId(preventivoId: string, tipo: 'canone' | 'rate')
   return data ? nomePianoDaPreventivo(data, tipo) : null
 }
 
+async function pianoAttivoSuPreventivo(preventivoId: string) {
+  const { data } = await supabase
+    .from('abbonamenti')
+    .select('id, tipo')
+    .eq('preventivo_id', preventivoId)
+    .eq('attivo', true)
+    .maybeSingle()
+  return data?.tipo as 'canone' | 'rate' | undefined
+}
+
 export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
-  const [abbonamento, setAbbonamento] = useState<Abbonamento | null>(null)
+  const [abbonamentiAttivi, setAbbonamentiAttivi] = useState<Abbonamento[]>([])
   const [abbonamentiStorico, setAbbonamentiStorico] = useState<Abbonamento[]>([])
-  const [preventivoMadre, setPreventivoMadre] = useState<PreventivoMadre | null>(null)
   const [preventiviMadreStorico, setPreventiviMadreStorico] = useState<Record<string, PreventivoMadre>>({})
-  const [rate, setRate] = useState<RataAbbonamento[]>([])
+  const [ratePerPiano, setRatePerPiano] = useState<Record<string, RataAbbonamento[]>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => { carica() }, [clienteId, opts?.soloTipo])
+
+  function tutteLeRate() {
+    return Object.values(ratePerPiano).flat()
+  }
+
+  function trovaRata(rataId: string) {
+    for (const [abbonamentoId, rate] of Object.entries(ratePerPiano)) {
+      const rata = rate.find(r => r.id === rataId)
+      if (rata) return { rata, abbonamentoId }
+    }
+    return null
+  }
+
+  function pianoById(abbonamentoId: string) {
+    return abbonamentiAttivi.find(a => a.id === abbonamentoId)
+  }
+
+  function aggiornaRatePiano(
+    abbonamentoId: string,
+    updater: (rate: RataAbbonamento[]) => RataAbbonamento[],
+  ) {
+    setRatePerPiano(prev => ({
+      ...prev,
+      [abbonamentoId]: updater(prev[abbonamentoId] || []),
+    }))
+  }
 
   async function caricaPreventiviMadreMap(abbonamenti: Abbonamento[]) {
     const ids = [...new Set(abbonamenti.map(a => a.preventivo_id).filter(Boolean))] as string[]
@@ -53,6 +78,26 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     return map
   }
 
+  async function caricaRatePerPiani(abbonamentoIds: string[]) {
+    if (abbonamentoIds.length === 0) {
+      setRatePerPiano({})
+      return
+    }
+    const { data } = await supabase
+      .from('rate_abbonamento')
+      .select('*')
+      .in('abbonamento_id', abbonamentoIds)
+      .order('anno', { ascending: true })
+      .order('mese', { ascending: true })
+    const map: Record<string, RataAbbonamento[]> = {}
+    for (const id of abbonamentoIds) map[id] = []
+    for (const rata of data || []) {
+      if (!map[rata.abbonamento_id]) map[rata.abbonamento_id] = []
+      map[rata.abbonamento_id].push(rata)
+    }
+    setRatePerPiano(map)
+  }
+
   async function carica() {
     setLoading(true)
     let query = supabase
@@ -64,34 +109,17 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     const { data: tutti } = await query
 
     const lista = tutti || []
-    const attivo = lista.find(a => a.attivo) || null
+    const attivi = lista.filter(a => a.attivo)
     const storico = lista.filter(a => !a.attivo)
     const preventiviMap = await caricaPreventiviMadreMap(lista)
 
-    setAbbonamento(attivo)
+    setAbbonamentiAttivi(attivi)
     setAbbonamentiStorico(storico)
-    setPreventivoMadre(attivo?.preventivo_id ? preventiviMap[attivo.preventivo_id] || null : null)
     setPreventiviMadreStorico(preventiviMap)
-
-    if (attivo) {
-      await caricaRate(attivo.id)
-    } else {
-      setRate([])
-    }
+    await caricaRatePerPiani(attivi.map(a => a.id))
     setLoading(false)
   }
 
-  async function caricaRate(abbonamentoId: string) {
-    const { data } = await supabase
-      .from('rate_abbonamento')
-      .select('*')
-      .eq('abbonamento_id', abbonamentoId)
-      .order('anno', { ascending: true })
-      .order('mese', { ascending: true })
-    if (data) setRate(data)
-  }
-
-  // Crea abbonamento manuale
   async function creaAbbonamento(
     importo: number,
     giornoScadenza: number,
@@ -106,6 +134,19 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     if (!user) return
 
     const tipoFinale = opzioni?.tipo || 'canone'
+    if (opzioni?.preventivoId) {
+      const tipoEsistente = await pianoAttivoSuPreventivo(opzioni.preventivoId)
+      if (tipoEsistente) {
+        Alert.alert(
+          'Preventivo già collegato',
+          tipoEsistente === 'rate'
+            ? 'Questo preventivo ha già un piano a rate collegato.'
+            : 'Questo preventivo ha già un abbonamento collegato.',
+        )
+        return
+      }
+    }
+
     const nome = opzioni?.preventivoId
       ? await nomeDaPreventivoId(opzioni.preventivoId, tipoFinale)
       : null
@@ -124,26 +165,18 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
         tipo: tipoFinale,
         nome,
       })
-      
       .select()
       .single()
 
     if (error) { Alert.alert('Errore', error.message); return }
-    setAbbonamento(data)
-    if (opzioni?.preventivoId) {
-      setPreventivoMadre(await caricaPreventivoMadre(opzioni.preventivoId))
-    } else {
-      setPreventivoMadre(null)
-    }
 
-    // Genera rate: se ha numero_mensilita le genera tutte, altrimenti solo mese corrente
     if (opzioni?.numeroMensilita && opzioni.numeroMensilita > 0) {
       await generaRateMultiple(data.id, importo, opzioni.numeroMensilita)
     } else {
       await generaRataMeseCorrente(data.id, importo)
     }
 
-    await caricaRate(data.id)
+    await carica()
   }
 
   async function generaRataMeseCorrente(abbonamentoId: string, importo: number) {
@@ -164,7 +197,7 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
       anno,
       importo,
       acconto: 0,
-      stato: 'da_incassare'
+      stato: 'da_incassare',
     })
   }
 
@@ -179,7 +212,7 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
         anno: data.getFullYear(),
         importo,
         acconto: 0,
-        stato: 'da_incassare'
+        stato: 'da_incassare',
       })
     }
     await supabase.from('rate_abbonamento').insert(inserimenti)
@@ -202,18 +235,37 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     )
   }
 
-  async function creaPianoRate(preventivoId: string, importoTotale: number, numeroRate: number) {
+  async function creaPianoRate(
+    importoTotale: number,
+    numeroRate: number,
+    opzioni?: { preventivoId?: string; giornoScadenza?: number; meseInizio?: number },
+  ) {
     const importi = calcolaImportiRate(importoTotale, numeroRate)
     if (importi.length === 0) {
       Alert.alert('Errore', 'Inserisci un numero di rate valido (minimo 2).')
       return false
     }
-    const giornoScadenza = new Date().getDate()
-    const scadenze = calcolaScadenzeRate(numeroRate, giornoScadenza)
+
+    const preventivoId = opzioni?.preventivoId
+    if (preventivoId) {
+      const tipoEsistente = await pianoAttivoSuPreventivo(preventivoId)
+      if (tipoEsistente) {
+        Alert.alert(
+          'Preventivo già collegato',
+          tipoEsistente === 'canone'
+            ? 'Questo preventivo ha già un abbonamento collegato.'
+            : 'Questo preventivo ha già un piano a rate collegato.',
+        )
+        return false
+      }
+    }
+
+    const giornoScadenza = opzioni?.giornoScadenza ?? new Date().getDate()
+    const scadenze = calcolaScadenzeRate(numeroRate, giornoScadenza, opzioni?.meseInizio)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return false
 
-    const nome = await nomeDaPreventivoId(preventivoId, 'rate')
+    const nome = preventivoId ? await nomeDaPreventivoId(preventivoId, 'rate') : null
     const { data, error } = await supabase
       .from('abbonamenti')
       .insert({
@@ -222,7 +274,7 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
         importo_default: importoTotale,
         giorno_scadenza: giornoScadenza,
         attivo: true,
-        preventivo_id: preventivoId,
+        preventivo_id: preventivoId || null,
         numero_mensilita: numeroRate,
         note: null,
         tipo: 'rate',
@@ -232,38 +284,41 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
       .single()
 
     if (error) { Alert.alert('Errore', error.message); return false }
-    setAbbonamento(data)
-    setPreventivoMadre(await caricaPreventivoMadre(preventivoId))
 
     await generaRateConImporti(
       data.id,
       importi.map((importo, i) => ({ importo, ...scadenze[i] })),
     )
-    await caricaRate(data.id)
+    await carica()
     return true
   }
 
   async function segnaRataPagata(rataId: string, pagata: boolean) {
-    const rata = rate.find(r => r.id === rataId)
-    if (!rata) return
+    const found = trovaRata(rataId)
+    if (!found) return
     if (pagata) {
-      await registraPagamento(rataId, rata.importo - (rata.acconto || 0))
+      await registraPagamento(rataId, found.rata.importo - (found.rata.acconto || 0))
     } else {
       await azzeraPagamento(rataId)
     }
   }
 
-  async function aggiornaAbbonamento(importo: number, giornoScadenza: number) {
-    if (!abbonamento) return
+  async function aggiornaAbbonamento(abbonamentoId: string, importo: number, giornoScadenza: number) {
     const { error } = await supabase
       .from('abbonamenti')
       .update({ importo_default: importo, giorno_scadenza: giornoScadenza })
-      .eq('id', abbonamento.id)
+      .eq('id', abbonamentoId)
     if (error) { Alert.alert('Errore', error.message); return }
-    setAbbonamento(a => a ? { ...a, importo_default: importo, giorno_scadenza: giornoScadenza } : a)
+    setAbbonamentiAttivi(lista =>
+      lista.map(a => a.id === abbonamentoId
+        ? { ...a, importo_default: importo, giorno_scadenza: giornoScadenza }
+        : a),
+    )
   }
 
-  async function modificaImportoPianoRate(nuovoImportoTotale: number) {
+  async function modificaImportoPianoRate(abbonamentoId: string, nuovoImportoTotale: number) {
+    const abbonamento = pianoById(abbonamentoId)
+    const rate = ratePerPiano[abbonamentoId] || []
     if (!abbonamento) return false
     if (!(nuovoImportoTotale > 0)) {
       Alert.alert('Importo non valido', 'Inserisci un importo maggiore di zero.')
@@ -277,7 +332,7 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     if (nuovoImportoTotale < raccolto) {
       Alert.alert(
         'Importo troppo basso',
-        `Hai già incassato \u20AC${raccolto.toFixed(2).replace('.', ',')}. L'importo totale non può essere inferiore.`,
+        `Hai già incassato \u20AC${formatImportoEuro(raccolto, 2)}. L'importo totale non può essere inferiore.`,
       )
       return false
     }
@@ -297,7 +352,7 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     const { error: errAb } = await supabase
       .from('abbonamenti')
       .update({ importo_default: nuovoImportoTotale })
-      .eq('id', abbonamento.id)
+      .eq('id', abbonamentoId)
     if (errAb) { Alert.alert('Errore', errAb.message); return false }
 
     for (let i = 0; i < rateAperte.length; i++) {
@@ -315,31 +370,32 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
       if (error) { Alert.alert('Errore', error.message); return false }
     }
 
-    setAbbonamento(a => a ? { ...a, importo_default: nuovoImportoTotale } : a)
-    await caricaRate(abbonamento.id)
+    setAbbonamentiAttivi(lista =>
+      lista.map(a => a.id === abbonamentoId ? { ...a, importo_default: nuovoImportoTotale } : a),
+    )
+    await caricaRatePerPiani([abbonamentoId])
     return true
   }
 
-  async function eliminaAbbonamento() {
-    if (!abbonamento) return
+  async function eliminaAbbonamento(abbonamentoId: string) {
     const { error } = await supabase
       .from('abbonamenti')
       .update({ attivo: false })
-      .eq('id', abbonamento.id)
+      .eq('id', abbonamentoId)
     if (error) { Alert.alert('Errore', error.message); return }
     await carica()
   }
 
-  // Registra un pagamento (acconto o saldo completo)
   async function registraPagamento(rataId: string, importoPagato: number, nota?: string) {
-    const rata = rate.find(r => r.id === rataId)
-    if (!rata) return
+    const found = trovaRata(rataId)
+    if (!found) return
+    const { rata, abbonamentoId } = found
 
     const nuovoAcconto = Math.min(rata.acconto + importoPagato, rata.importo)
     const nuovoSaldo = rata.importo - nuovoAcconto
     const nuovoStato = nuovoSaldo <= 0 ? 'incassato' : 'parziale'
 
-    const aggiornamento: any = {
+    const aggiornamento: Partial<RataAbbonamento> & { data_incasso?: string } = {
       acconto: nuovoAcconto,
       stato: nuovoStato,
       note: nota || rata.note || null,
@@ -354,30 +410,35 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
       .eq('id', rataId)
 
     if (error) { Alert.alert('Errore', error.message); return }
-    setRate(r => r.map(x => x.id === rataId ? { ...x, ...aggiornamento, saldo_residuo: nuovoSaldo } : x))
+    aggiornaRatePiano(abbonamentoId, rs =>
+      rs.map(x => x.id === rataId ? { ...x, ...aggiornamento, saldo_residuo: nuovoSaldo } : x),
+    )
   }
 
-  // Azzera pagamento rata (torna a da_incassare)
   async function azzeraPagamento(rataId: string) {
-  const aggiornamento: Partial<RataAbbonamento> & { data_incasso: null } = {
-    acconto: 0,
-    stato: 'da_incassare' as const,
-    data_incasso: null,
-    note: null,
+    const found = trovaRata(rataId)
+    if (!found) return
+    const aggiornamento: Partial<RataAbbonamento> & { data_incasso: null } = {
+      acconto: 0,
+      stato: 'da_incassare',
+      data_incasso: null,
+      note: null,
+    }
+    const { error } = await supabase
+      .from('rate_abbonamento')
+      .update(aggiornamento)
+      .eq('id', rataId)
+    if (error) { Alert.alert('Errore', error.message); return }
+    aggiornaRatePiano(found.abbonamentoId, rs =>
+      rs.map(x => x.id === rataId ? { ...x, ...aggiornamento, saldo_residuo: x.importo } : x),
+    )
   }
-  const { error } = await supabase
-    .from('rate_abbonamento')
-    .update(aggiornamento)
-    .eq('id', rataId)
-  if (error) { Alert.alert('Errore', error.message); return }
-  setRate(r => r.map(x => x.id === rataId ? { ...x, ...aggiornamento, saldo_residuo: x.importo } : x))
-}
-  async function aggiungiRataMese(mese: number, anno: number, importo: number) {
-    if (!abbonamento) return false
+
+  async function aggiungiRataMese(abbonamentoId: string, mese: number, anno: number, importo: number) {
     const { data: esistente } = await supabase
       .from('rate_abbonamento')
       .select('id')
-      .eq('abbonamento_id', abbonamento.id)
+      .eq('abbonamento_id', abbonamentoId)
       .eq('mese', mese)
       .eq('anno', anno)
       .single()
@@ -389,17 +450,19 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     const { data, error } = await supabase
       .from('rate_abbonamento')
       .insert({
-        abbonamento_id: abbonamento.id,
+        abbonamento_id: abbonamentoId,
         mese,
         anno,
         importo,
         acconto: 0,
-        stato: 'da_incassare'
+        stato: 'da_incassare',
       })
       .select()
       .single()
     if (error) { Alert.alert('Errore', error.message); return false }
-    setRate(r => [...r, data].sort((a, b) => a.anno - b.anno || a.mese - b.mese))
+    aggiornaRatePiano(abbonamentoId, rs =>
+      [...rs, data].sort((a, b) => a.anno - b.anno || a.mese - b.mese),
+    )
     return true
   }
 
@@ -410,71 +473,189 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
       .delete()
       .in('id', rataIds)
     if (error) { Alert.alert('Errore', error.message); return false }
-    setRate(r => r.filter(x => !rataIds.includes(x.id)))
+    setRatePerPiano(prev => {
+      const next = { ...prev }
+      for (const abId of Object.keys(next)) {
+        next[abId] = next[abId].filter(x => !rataIds.includes(x.id))
+      }
+      return next
+    })
     return true
   }
 
-  // Controlla e aggiorna rate in ritardo
   async function aggiornaRitardi() {
-    if (!abbonamento) return
     const ora = new Date()
     const meseOra = ora.getMonth() + 1
     const annoOra = ora.getFullYear()
     const giornoOggi = ora.getDate()
 
-    for (const r of rate) {
-      if (r.stato === 'da_incassare' || r.stato === 'parziale') {
-        const scaduta =
-          r.anno < annoOra ||
-          (r.anno === annoOra && r.mese < meseOra) ||
-          (r.anno === annoOra && r.mese === meseOra && giornoOggi > abbonamento.giorno_scadenza)
-        if (scaduta) {
-          await supabase.from('rate_abbonamento').update({ stato: 'in_ritardo' }).eq('id', r.id)
-          setRate(rv => rv.map(x => x.id === r.id ? { ...x, stato: 'in_ritardo' } : x))
+    for (const abbonamento of abbonamentiAttivi) {
+      const rate = ratePerPiano[abbonamento.id] || []
+      for (const r of rate) {
+        if (r.stato === 'da_incassare' || r.stato === 'parziale') {
+          const scaduta =
+            r.anno < annoOra
+            || (r.anno === annoOra && r.mese < meseOra)
+            || (r.anno === annoOra && r.mese === meseOra && giornoOggi > abbonamento.giorno_scadenza)
+          if (scaduta) {
+            await supabase.from('rate_abbonamento').update({ stato: 'in_ritardo' }).eq('id', r.id)
+            aggiornaRatePiano(abbonamento.id, rs =>
+              rs.map(x => x.id === r.id ? { ...x, stato: 'in_ritardo' } : x),
+            )
+          }
         }
       }
     }
   }
 
   useEffect(() => {
-    if (abbonamento && rate.length > 0) aggiornaRitardi()
-  }, [rate.length])
+    if (abbonamentiAttivi.length > 0 && tutteLeRate().length > 0) aggiornaRitardi()
+  }, [abbonamentiAttivi.length, Object.values(ratePerPiano).flat().length])
 
-  async function rinominaAbbonamento(nuovoNome: string) {
-    if (!abbonamento) return
+  async function rinominaAbbonamento(abbonamentoId: string, nuovoNome: string) {
     const { error } = await supabase
       .from('abbonamenti')
       .update({ nome: nuovoNome })
-      .eq('id', abbonamento.id)
+      .eq('id', abbonamentoId)
     if (error) { Alert.alert('Errore', error.message); return }
-    setAbbonamento(a => a ? { ...a, nome: nuovoNome } : a)
+    setAbbonamentiAttivi(lista =>
+      lista.map(a => a.id === abbonamentoId ? { ...a, nome: nuovoNome } : a),
+    )
   }
-async function modificaImportoRata(rataId: string, nuovoImporto: number) {
-  const { error } = await supabase
-    .from('rate_abbonamento')
-    .update({ importo: nuovoImporto })
-    .eq('id', rataId)
-  if (error) { Alert.alert('Errore', error.message); return }
-  setRate(r => r.map(x => x.id === rataId ? { ...x, importo: nuovoImporto } : x))
-}
 
-  const totaleIncassato = rate
+  function nuovoStatoDopoImportoRata(rata: RataAbbonamento, nuovoImporto: number): RataAbbonamento['stato'] {
+    const acconto = rata.acconto || 0
+    if (acconto >= nuovoImporto) return 'incassato'
+    if (acconto > 0) return 'parziale'
+    if (rata.stato === 'in_ritardo') return 'in_ritardo'
+    return 'da_incassare'
+  }
+
+  async function modificaImportoRata(rataId: string, nuovoImporto: number) {
+    const found = trovaRata(rataId)
+    if (!found) return false
+    const { rata, abbonamentoId } = found
+    const abbonamento = pianoById(abbonamentoId)
+    const rate = ratePerPiano[abbonamentoId] || []
+    if (!abbonamento) return false
+    if (!(nuovoImporto > 0)) {
+      Alert.alert('Importo non valido', 'Inserisci un importo maggiore di zero.')
+      return false
+    }
+    if (nuovoImporto < (rata.acconto || 0)) {
+      Alert.alert('Importo troppo basso', 'L\'importo non può essere inferiore a quanto già incassato su questa rata.')
+      return false
+    }
+
+    if (abbonamento.tipo === 'rate') {
+      const sommaAltri = rate
+        .filter(r => r.id !== rataId)
+        .reduce((a, r) => a + r.importo, 0)
+      const sommaTotale = Math.round((sommaAltri + nuovoImporto) * 100) / 100
+      if (Math.abs(sommaTotale - abbonamento.importo_default) > 0.01) {
+        Alert.alert(
+          'Somma rate errata',
+          `Le rate devono sommare \u20AC${formatImportoEuro(abbonamento.importo_default, 2)}. Usa Personalizza rate per ripartire gli importi.`,
+        )
+        return false
+      }
+    }
+
+    const nuovoStato = nuovoStatoDopoImportoRata(rata, nuovoImporto)
+    const { error } = await supabase
+      .from('rate_abbonamento')
+      .update({ importo: nuovoImporto, stato: nuovoStato })
+      .eq('id', rataId)
+    if (error) { Alert.alert('Errore', error.message); return false }
+    aggiornaRatePiano(abbonamentoId, rs =>
+      rs.map(x => x.id === rataId ? { ...x, importo: nuovoImporto, stato: nuovoStato } : x),
+    )
+    return true
+  }
+
+  async function salvaImportiRatePersonalizzati(abbonamentoId: string, importiPerRata: Record<string, number>) {
+    const abbonamento = pianoById(abbonamentoId)
+    const rate = ratePerPiano[abbonamentoId] || []
+    if (!abbonamento || abbonamento.tipo !== 'rate') return false
+
+    const incassate = rate.filter(r => r.stato === 'incassato')
+    const modificabili = rate.filter(r => r.stato !== 'incassato')
+
+    for (const rata of modificabili) {
+      const importo = importiPerRata[rata.id]
+      if (importo === undefined || !(importo > 0)) {
+        Alert.alert('Importo non valido', 'Inserisci un importo valido per ogni rata modificabile.')
+        return false
+      }
+      if (importo < (rata.acconto || 0)) {
+        Alert.alert(
+          'Importo troppo basso',
+          `La rata di ${MESI_BREVI[rata.mese - 1]} ${rata.anno} ha già un acconto di \u20AC${formatImportoEuro(rata.acconto || 0, 2)}.`,
+        )
+        return false
+      }
+    }
+
+    const sommaIncassate = incassate.reduce((a, r) => a + r.importo, 0)
+    const sommaModificabili = modificabili.reduce((a, r) => a + importiPerRata[r.id], 0)
+    const sommaTotale = Math.round((sommaIncassate + sommaModificabili) * 100) / 100
+    const target = abbonamento.importo_default
+
+    if (Math.abs(sommaTotale - target) > 0.01) {
+      Alert.alert(
+        'Somma rate errata',
+        `Le rate devono sommare \u20AC${formatImportoEuro(target, 2)} (attuale: \u20AC${formatImportoEuro(sommaTotale, 2)}).`,
+      )
+      return false
+    }
+
+    for (const rata of modificabili) {
+      const nuovoImporto = importiPerRata[rata.id]
+      const nuovoStato = nuovoStatoDopoImportoRata(rata, nuovoImporto)
+      const { error } = await supabase
+        .from('rate_abbonamento')
+        .update({ importo: nuovoImporto, stato: nuovoStato })
+        .eq('id', rata.id)
+      if (error) { Alert.alert('Errore', error.message); return false }
+    }
+
+    await caricaRatePerPiani([abbonamentoId])
+    return true
+  }
+
+  const tutteRate = tutteLeRate()
+  const totaleIncassato = tutteRate
     .filter(r => r.stato === 'incassato')
     .reduce((a, r) => a + r.importo, 0)
 
-  const totaleParziale = rate
+  const totaleParziale = tutteRate
     .filter(r => r.stato === 'parziale')
     .reduce((a, r) => a + r.acconto, 0)
 
-  const rataDaIncassare = rate.find(r => r.stato !== 'incassato')
+  const rataDaIncassare = tutteRate.find(r => r.stato !== 'incassato')
 
- return {
-    abbonamento, abbonamentiStorico, preventivoMadre, preventiviMadreStorico, rate, loading,
-    creaAbbonamento, creaPianoRate, aggiornaAbbonamento, eliminaAbbonamento,
+  return {
+    abbonamentiAttivi,
+    abbonamentiStorico,
+    preventiviMadreStorico,
+    ratePerPiano,
+    loading,
+    creaAbbonamento,
+    creaPianoRate,
+    aggiornaAbbonamento,
+    eliminaAbbonamento,
     modificaImportoPianoRate,
-    registraPagamento, azzeraPagamento, segnaRataPagata,
-    aggiungiRataMese, eliminaRate, rinominaAbbonamento, modificaImportoRata,
-    totaleIncassato, totaleParziale, rataDaIncassare,
-    carica
+    registraPagamento,
+    azzeraPagamento,
+    segnaRataPagata,
+    aggiungiRataMese,
+    eliminaRate,
+    rinominaAbbonamento,
+    modificaImportoRata,
+    salvaImportiRatePersonalizzati,
+    totaleIncassato,
+    totaleParziale,
+    rataDaIncassare,
+    carica,
   }
 }

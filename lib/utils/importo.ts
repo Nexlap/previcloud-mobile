@@ -46,6 +46,19 @@ export function formatImportoEuro(valore: number, decimals = 0): string {
   })
 }
 
+/** Solo UI: 0 decimali se intero, altrimenti 2. */
+export function formatImportoEuroVisuale(valore: number): string {
+  const decimals = Math.abs(valore - Math.round(valore)) < 1e-9 ? 0 : 2
+  return formatImportoEuro(valore, decimals)
+}
+
+export function formatImportoDb(valore: number | string | null | undefined): string {
+  if (valore == null || valore === '') return ''
+  const n = typeof valore === 'number' ? valore : Number(valore)
+  if (Number.isNaN(n)) return String(valore)
+  return formatImportoEuroVisuale(n)
+}
+
 /** Divide un totale in N rate: prime N-1 arrotondate a 2 decimali, ultima = resto. */
 export function calcolaImportiRate(importoTotale: number, numeroRate: number): number[] {
   if (numeroRate < 2 || importoTotale <= 0) return []
@@ -53,6 +66,74 @@ export function calcolaImportiRate(importoTotale: number, numeroRate: number): n
   const prime = Array.from({ length: numeroRate - 1 }, () => quota)
   const ultima = Math.round((importoTotale - quota * (numeroRate - 1)) * 100) / 100
   return [...prime, ultima]
+}
+
+export type RataImportoModificabile = {
+  id: string
+  pinnata: boolean
+  importoBozza: number | null
+  accontoMinimo: number
+}
+
+/** Ripartisce il residuo del piano sulle rate non fissate (pin o già pagate escluse). */
+export function ricalcolaImportiRateLibere(
+  totalePiano: number,
+  sommaRateIncassate: number,
+  rateModificabili: RataImportoModificabile[],
+): { ok: true; importi: Record<string, number> } | { ok: false; messaggio: string } {
+  let sommaFisse = sommaRateIncassate
+  const importi: Record<string, number> = {}
+  const libere: RataImportoModificabile[] = []
+
+  for (const rata of rateModificabili) {
+    if (rata.pinnata) {
+      if (rata.importoBozza === null || rata.importoBozza <= 0) {
+        return { ok: false, messaggio: 'Inserisci un importo valido per ogni rata fissata.' }
+      }
+      if (rata.importoBozza < rata.accontoMinimo) {
+        return { ok: false, messaggio: 'Una rata fissata ha importo inferiore all\'acconto già versato.' }
+      }
+      importi[rata.id] = rata.importoBozza
+      sommaFisse += rata.importoBozza
+    } else {
+      libere.push(rata)
+    }
+  }
+
+  const residuo = Math.round((totalePiano - sommaFisse) * 100) / 100
+
+  if (libere.length === 0) {
+    if (Math.abs(residuo) > 0.01) {
+      return { ok: false, messaggio: 'Gli importi fissi non corrispondono al totale del piano. Modifica le rate fissate o sbloccane una.' }
+    }
+    return { ok: true, importi }
+  }
+
+  if (residuo <= 0) {
+    return { ok: false, messaggio: 'Gli importi fissi superano il totale del piano. Riduci una rata fissata.' }
+  }
+
+  const nuoviImporti = libere.length === 1
+    ? [residuo]
+    : calcolaImportiRate(residuo, libere.length)
+
+  if (nuoviImporti.length !== libere.length) {
+    return { ok: false, messaggio: 'Impossibile ricalcolare le rate libere.' }
+  }
+
+  for (let i = 0; i < libere.length; i++) {
+    const rata = libere[i]
+    const importo = nuoviImporti[i]
+    if (importo < rata.accontoMinimo) {
+      return {
+        ok: false,
+        messaggio: `Il ricalcolo assegnerebbe meno dell'acconto già versato su una rata. Fissa manualmente quella rata o sblocca altre.`,
+      }
+    }
+    importi[rata.id] = importo
+  }
+
+  return { ok: true, importi }
 }
 
 /** Scadenze mensili a partire dal mese indicato (1-12), con giorno fisso (1-31). */

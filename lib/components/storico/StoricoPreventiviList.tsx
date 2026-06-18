@@ -3,6 +3,7 @@ import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPrev
 import { PreventivoStatoBadge } from '../preventivo/PreventivoStatoBadge'
 import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { Preventivo } from '../../types'
+import { formatImportoDb } from '../../utils/importo'
 import { storicoStyles as styles } from './storicoStyles'
 
 type Props = {
@@ -73,8 +74,8 @@ export function StoricoPreventiviList({
                   style={{ alignItems: 'flex-end', gap: 4 }}
                   onPress={() => selezioneAttiva ? onToggleSelezione(p.id) : onStatoPress(p.id)}
                 >
-                  <Text style={styles.cardImporto}>{p.importo_totale ? `\u20AC${p.importo_totale}` : '\u2014'}</Text>
-                  <PreventivoStatoBadge stato={p.stato} showArrow />
+                  <Text style={styles.cardImporto}>{p.importo_totale ? `\u20AC${formatImportoDb(p.importo_totale)}` : '\u2014'}</Text>
+                  <PreventivoStatoBadge stato={p.stato} pagato={p.pagato} showArrow />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => selezioneAttiva ? onToggleSelezione(p.id) : onScaricaPdf(p)}>
                   <Text style={{ fontSize: 16 }}>{p.pdf_url ? '\uD83D\uDCC4' : '\uD83D\uDD04'}</Text>
@@ -101,7 +102,7 @@ export function StoricoPreventiviList({
                   <TouchableOpacity key={v.id} style={styles.cronologiaItem} onPress={() => onToggleVersione(v.id)}>
                     <Text style={styles.cronologiaVer}>{`v${v.versione || 1}`}</Text>
                     <Text style={styles.cronologiaData}>{new Date(v.created_at).toLocaleDateString('it-IT')}</Text>
-                    <Text style={styles.cronologiaImporto}>{v.importo_totale ? `\u20AC${v.importo_totale}` : '\u2014'}</Text>
+                    <Text style={styles.cronologiaImporto}>{v.importo_totale ? `\u20AC${formatImportoDb(v.importo_totale)}` : '\u2014'}</Text>
                   </TouchableOpacity>
                 ))}
 

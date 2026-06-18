@@ -1,5 +1,6 @@
 import { VocePreventivo } from '../types'
 import { calcolaTotaleTrasferte, calcolaTotaleVoci } from './fiscale'
+import { formatImportoEuroVisuale } from '../utils/importo'
 import { TrasfertaBuilder } from './types'
 
 type MetodoPagamento = {
@@ -28,28 +29,30 @@ export function generaTestoPreventivoBuilder(params: {
   voci.forEach(v => {
     const qty = parseFloat(v.quantita) || 1
     const costo = parseFloat(v.costo) || 0
-    const totaleVoce = (qty * costo).toFixed(0)
+    const totaleVoce = qty * costo
     testo += `\nSERVIZIO: ${v.nome}\n`
     if (v.descrizione) testo += `DETTAGLI:\n- ${v.descrizione}\n`
     if (qty > 1) testo += `DETTAGLI:\n- ${qty} ${v.unita}\n`
-    testo += `PREZZO: €${totaleVoce}\n`
+    testo += `PREZZO: €${formatImportoEuroVisuale(totaleVoce)}\n`
   })
   if (trasferte.length > 0) {
     testo += `\nRIMBORSI SPESE:\n`
     trasferte.forEach(t => {
       if (t.tipo === 'km') {
-        testo += `RIMBORSO: Trasferta km\nDETTAGLIO: ${t.km} km × €0.25 = €${t.importo}\nTIPO: ${t.esente ? 'Esente' : 'Imponibile'}\n`
+        const importoKm = parseFloat(t.importo) || 0
+        testo += `RIMBORSO: Trasferta km\nDETTAGLIO: ${t.km} km × €0.25 = €${formatImportoEuroVisuale(importoKm)}\nTIPO: ${t.esente ? 'Esente' : 'Imponibile'}\n`
       } else {
-        testo += `RIMBORSO: ${t.nome}\nDETTAGLIO: Spesa viva\nTIPO: ${t.esente ? 'Esente' : 'Imponibile'}\nIMPORTO: €${t.importo}\n`
+        const importoSpesa = parseFloat(t.importo) || 0
+        testo += `RIMBORSO: ${t.nome}\nDETTAGLIO: Spesa viva\nTIPO: ${t.esente ? 'Esente' : 'Imponibile'}\nIMPORTO: €${formatImportoEuroVisuale(importoSpesa)}\n`
       }
     })
   }
   const totaleFinale = calcolaTotaleVoci(voci) + calcolaTotaleTrasferte(trasferte)
   testo += `\nRIEPILOGO:\n`
   if (includiIva) {
-    testo += `Imponibile: €${totaleFinale.toFixed(2).replace(/\.00$/, '')}\nIVA 22%: €${(totaleFinale * 0.22).toFixed(2).replace(/\.00$/, '')}\n─────────────────\nTOTALE: €${(totaleFinale * 1.22).toFixed(2).replace(/\.00$/, '')}\n`
+    testo += `Imponibile: €${formatImportoEuroVisuale(totaleFinale)}\nIVA 22%: €${formatImportoEuroVisuale(totaleFinale * 0.22)}\n─────────────────\nTOTALE: €${formatImportoEuroVisuale(totaleFinale * 1.22)}\n`
   } else {
-    testo += `TOTALE: €${totaleFinale.toFixed(2).replace(/\.00$/, '')}\n`
+    testo += `TOTALE: €${formatImportoEuroVisuale(totaleFinale)}\n`
   }
   if (noteExtra) testo += `\nNote: ${noteExtra}`
   if (metodoPagamentoSelezionato) {

@@ -4,38 +4,39 @@ import { MESI_BREVI } from '../../constants'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
 import { formatImportoEuro } from '../../utils/importo'
 import { titoloHeaderPiano } from '../../utils/preventivoMadre'
+import { analizzaStatoPiano, ordinaPianiPerStato } from '../../utils/statoPiano'
+import { PianoStatoBadge } from './PianoStatoBadge'
+import { PianoVuotoState } from './PianoVuotoState'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
-import { StoricoPianiCollegati } from './StoricoPianiCollegati'
 
 type Props = {
   loading: boolean
-  abbonamento: Abbonamento | null
-  preventivoMadre: PreventivoMadre | null
-  abbonamentiStorico: Abbonamento[]
+  abbonamentiAttivi: Abbonamento[]
+  ratePerPiano: Record<string, RataAbbonamento[]>
   preventiviMadreStorico: Record<string, PreventivoMadre>
   onApriPreventivoMadre?: (preventivoId: string) => void
-  totaleIncassato: number
   meseCorrente: number
   annoCorrente: number
-  rataMeseCorrente: RataAbbonamento | undefined
-  rateStoriche: RataAbbonamento[]
-  abEspanso: boolean
+  pianoEspansoId: string | null
   rataMiniAperta: string | null
   invioReminderLoading: string | null
   selezioneAttiva: boolean
   rateSelezionate: string[]
   onAvviaSelezione: (rataId: string) => void
   onToggleSelezione: (rataId: string) => void
-  onCreate: () => void
-  onToggleEspanso: () => void
-  onRename: () => void
-  onOpenAddRata: () => void
+  onToggleEspanso: (abbonamentoId: string) => void
+  onRename: (abbonamentoId: string) => void
+  onOpenAddRata: (abbonamentoId: string) => void
   onOpenPagamento: (rata: RataAbbonamento) => void
   onSendReminder: (rata: RataAbbonamento) => void
   onAzzeraPagamento: (rataId: string) => void
   onToggleRataMini: (rataId: string) => void
-  onEditCanone: () => void
-  onDeleteAbbonamento: () => void
+  onEditCanone: (abbonamentoId: string) => void
+  onDeleteAbbonamento: (abbonamentoId: string) => void
+  selezionePianoAttiva: boolean
+  pianiSelezionati: string[]
+  onAvviaSelezionePiano: (abbonamentoId: string) => void
+  onToggleSelezionePiano: (abbonamentoId: string) => void
 }
 
 function labelScadenza(rata: RataAbbonamento) {
@@ -61,6 +62,12 @@ function residuoRata(rata: RataAbbonamento) {
   return rata.importo - (rata.acconto || 0)
 }
 
+function totaleIncassatoPiano(rate: RataAbbonamento[]) {
+  return rate
+    .filter(r => r.stato === 'incassato')
+    .reduce((a, r) => a + r.importo, 0)
+}
+
 type RataDetailProps = {
   rata: RataAbbonamento
   invioReminderLoading: string | null
@@ -84,8 +91,8 @@ function RataDetail({
             <View style={[styles.rataBarraFill, { width: percentWidth(((rata.acconto || 0) / rata.importo) * 100) }]} />
           </View>
           <View style={styles.rataBarraLabels}>
-            <Text style={styles.rataBarraAcconto}>Acconto: {'\u20AC'}{rata.acconto}</Text>
-            <Text style={styles.rataBarraResiduo}>Residuo: {'\u20AC'}{residuoRata(rata)}</Text>
+            <Text style={styles.rataBarraAcconto}>Acconto: {'\u20AC'}{formatImportoEuro(rata.acconto || 0, 2)}</Text>
+            <Text style={styles.rataBarraResiduo}>Residuo: {'\u20AC'}{formatImportoEuro(residuoRata(rata), 2)}</Text>
           </View>
         </View>
       )}
@@ -127,6 +134,7 @@ type RataStoricoProps = {
   rata: RataAbbonamento
   aperta: boolean
   selezioneAttiva: boolean
+  selezionePianoAttiva: boolean
   selezionata: boolean
   invioReminderLoading: string | null
   onPress: () => void
@@ -140,6 +148,7 @@ function RataStoricoRow({
   rata,
   aperta,
   selezioneAttiva,
+  selezionePianoAttiva,
   selezionata,
   invioReminderLoading,
   onPress,
@@ -152,8 +161,14 @@ function RataStoricoRow({
   return (
     <Pressable
       style={[styles.rataMiniTab, selezioneAttiva && selezionata && styles.rataMiniTabSelected]}
-      onPress={onPress}
-      onLongPress={onLongPress}
+      onPress={() => {
+        if (selezionePianoAttiva) return
+        onPress()
+      }}
+      onLongPress={() => {
+        if (selezionePianoAttiva) return
+        onLongPress()
+      }}
       delayLongPress={400}
     >
       <View style={styles.rataMiniRow}>
@@ -169,7 +184,7 @@ function RataStoricoRow({
           <Text style={styles.sectionArrow}>{aperta ? '\u25B2' : '\u25BC'}</Text>
         ) : null}
       </View>
-      {!selezioneAttiva && aperta ? (
+      {!selezionePianoAttiva && !selezioneAttiva && aperta ? (
         <View style={styles.rataMiniDetail}>
           <RataDetail
             rata={rata}
@@ -184,26 +199,51 @@ function RataStoricoRow({
   )
 }
 
-export function ClienteAbbonamentoTab({
-  loading,
+type AbbonamentoPianoCardProps = {
+  abbonamento: Abbonamento
+  indice: number
+  preventivoMadre: PreventivoMadre | null
+  rate: RataAbbonamento[]
+  espanso: boolean
+  meseCorrente: number
+  annoCorrente: number
+  rataMiniAperta: string | null
+  invioReminderLoading: string | null
+  selezioneAttiva: boolean
+  rateSelezionate: string[]
+  onApriPreventivoMadre?: (preventivoId: string) => void
+  onAvviaSelezione: (rataId: string) => void
+  onToggleSelezione: (rataId: string) => void
+  onToggleEspanso: () => void
+  onRename: () => void
+  onOpenAddRata: () => void
+  onOpenPagamento: (rata: RataAbbonamento) => void
+  onSendReminder: (rata: RataAbbonamento) => void
+  onAzzeraPagamento: (rataId: string) => void
+  onToggleRataMini: (rataId: string) => void
+  onEditCanone: () => void
+  onDeleteAbbonamento: () => void
+  selezionePianoAttiva: boolean
+  pianoSelezionato: boolean
+  onAvviaSelezionePiano: () => void
+  onToggleSelezionePiano: () => void
+}
+
+function AbbonamentoPianoCard({
   abbonamento,
+  indice,
   preventivoMadre,
-  abbonamentiStorico,
-  preventiviMadreStorico,
-  onApriPreventivoMadre,
-  totaleIncassato,
+  rate,
+  espanso,
   meseCorrente,
   annoCorrente,
-  rataMeseCorrente,
-  rateStoriche,
-  abEspanso,
   rataMiniAperta,
   invioReminderLoading,
   selezioneAttiva,
   rateSelezionate,
+  onApriPreventivoMadre,
   onAvviaSelezione,
   onToggleSelezione,
-  onCreate,
   onToggleEspanso,
   onRename,
   onOpenAddRata,
@@ -213,56 +253,80 @@ export function ClienteAbbonamentoTab({
   onToggleRataMini,
   onEditCanone,
   onDeleteAbbonamento,
-}: Props) {
+  selezionePianoAttiva,
+  pianoSelezionato,
+  onAvviaSelezionePiano,
+  onToggleSelezionePiano,
+}: AbbonamentoPianoCardProps) {
   const [storicoAperto, setStoricoAperto] = useState(false)
 
+  const rataMeseCorrente = rate.find(r => r.mese === meseCorrente && r.anno === annoCorrente)
+  const rateStoriche = rate.filter(r => !(r.mese === meseCorrente && r.anno === annoCorrente))
   const rateStoricheOrdinate = useMemo(
     () => [...rateStoriche].sort(ordinaRateRecenti),
     [rateStoriche],
   )
-
-  if (loading) return <ActivityIndicator color="#0E9F8E" style={{ marginTop: 40 }} />
-
-  if (!abbonamento) {
-    return (
-      <View style={styles.abEmpty}>
-        <Text style={styles.abEmptyIcon}>{'\uD83D\uDCB0'}</Text>
-        <Text style={styles.abEmptyTitle}>Nessun abbonamento</Text>
-        <Text style={styles.abEmptyText}>Configura un canone mensile ricorrente per questo cliente</Text>
-        <TouchableOpacity style={styles.abCreaBtn} onPress={onCreate}>
-          <Text style={styles.abCreaBtnText}>+ Configura abbonamento</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-
+  const totaleIncassato = totaleIncassatoPiano(rate)
+  const analisi = useMemo(() => analizzaStatoPiano(abbonamento, rate), [abbonamento, rate])
   const badgeCorrente = rataMeseCorrente ? badgeCanone(rataMeseCorrente.stato) : null
+  const defaultNome = `Abbonamento N.${indice + 1}`
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.abHeader} onPress={onToggleEspanso} activeOpacity={0.8}>
+    <View style={styles.pianoCard}>
+      <Pressable
+        style={[
+          styles.abHeader,
+          pianoSelezionato && styles.pianoHeaderSelected,
+          analisi.concluso && styles.pianoHeaderConcluso,
+        ]}
+        onPress={() => {
+          if (selezionePianoAttiva) {
+            onToggleSelezionePiano()
+            return
+          }
+          onToggleEspanso()
+        }}
+        onLongPress={() => onAvviaSelezionePiano()}
+        delayLongPress={400}
+      >
+        {selezionePianoAttiva ? (
+          <View style={[styles.checkCircle, pianoSelezionato && styles.checkCircleActive]}>
+            {pianoSelezionato ? <Text style={styles.checkMark}>{'\u2713'}</Text> : null}
+          </View>
+        ) : null}
         <View style={styles.abHeaderTesto}>
-          <Text style={styles.abHeaderNome} numberOfLines={1} ellipsizeMode="tail">
-            {titoloHeaderPiano(abbonamento.nome, preventivoMadre, 'canone', 'Abbonamento N.1')}
-          </Text>
+          <View style={styles.pianoHeaderTitleRow}>
+            <Text style={styles.abHeaderNome} numberOfLines={1} ellipsizeMode="tail">
+              {titoloHeaderPiano(abbonamento.nome, preventivoMadre, 'canone', defaultNome)}
+            </Text>
+            {!selezionePianoAttiva ? <PianoStatoBadge analisi={analisi} compact /> : null}
+          </View>
           <Text style={styles.abHeaderSub}>
-            {`Canone mensile \u00B7 \u20AC${formatImportoEuro(abbonamento.importo_default, 2)}/mese \u00B7 giorno ${abbonamento.giorno_scadenza}`}
+            {analisi.concluso
+              ? `Canone completato \u00B7 \u20AC${formatImportoEuro(totaleIncassato, 2)} incassati`
+              : `Canone mensile \u00B7 \u20AC${formatImportoEuro(abbonamento.importo_default, 2)}/mese \u00B7 giorno ${abbonamento.giorno_scadenza}`}
           </Text>
-          {totaleIncassato > 0 ? (
+          {analisi.sottotitolo ? (
+            <Text style={[styles.abHeaderHint, analisi.concluso && styles.abHeaderHintConcluso]}>
+              {analisi.sottotitolo}
+            </Text>
+          ) : totaleIncassato > 0 && !analisi.concluso ? (
             <Text style={styles.abHeaderHint}>
               {`\u20AC${formatImportoEuro(totaleIncassato, 2)} incassati`}
             </Text>
           ) : null}
         </View>
-        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          <TouchableOpacity onPress={onRename}>
-            <Text style={{ fontSize: 16 }}>{'\u270F\uFE0F'}</Text>
-          </TouchableOpacity>
-          <Text style={styles.abHeaderArrow}>{abEspanso ? '\u25B2' : '\u25BC'}</Text>
-        </View>
-      </TouchableOpacity>
+        {!selezionePianoAttiva ? (
+          <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+            <TouchableOpacity onPress={onRename}>
+              <Text style={{ fontSize: 16 }}>{'\u270F\uFE0F'}</Text>
+            </TouchableOpacity>
+            <Text style={styles.abHeaderArrow}>{espanso ? '\u25B2' : '\u25BC'}</Text>
+          </View>
+        ) : null}
+      </Pressable>
 
-      {abEspanso ? (
+      {espanso && !selezionePianoAttiva ? (
         <View style={styles.abBody}>
           <PreventivoMadreLink preventivo={preventivoMadre} onPress={onApriPreventivoMadre} />
 
@@ -270,10 +334,16 @@ export function ClienteAbbonamentoTab({
             <Pressable
               style={[
                 styles.rataCardCorrente,
-                selezioneAttiva && rateSelezionate.includes(rataMeseCorrente.id) && styles.rataCardSelected,
+                !selezionePianoAttiva && selezioneAttiva && rateSelezionate.includes(rataMeseCorrente.id) && styles.rataCardSelected,
               ]}
-              onPress={() => selezioneAttiva ? onToggleSelezione(rataMeseCorrente.id) : undefined}
-              onLongPress={() => onAvviaSelezione(rataMeseCorrente.id)}
+              onPress={() => {
+                if (selezionePianoAttiva) return
+                if (selezioneAttiva) onToggleSelezione(rataMeseCorrente.id)
+              }}
+              onLongPress={() => {
+                if (selezionePianoAttiva) return
+                onAvviaSelezione(rataMeseCorrente.id)
+              }}
               delayLongPress={400}
             >
               <View style={styles.rataRow}>
@@ -300,7 +370,7 @@ export function ClienteAbbonamentoTab({
                   ) : null}
                 </View>
               </View>
-              {!selezioneAttiva ? (
+              {!selezionePianoAttiva && !selezioneAttiva ? (
                 <RataDetail
                   rata={rataMeseCorrente}
                   invioReminderLoading={invioReminderLoading}
@@ -330,10 +400,18 @@ export function ClienteAbbonamentoTab({
                   rata={rata}
                   aperta={rataMiniAperta === rata.id}
                   selezioneAttiva={selezioneAttiva}
+                  selezionePianoAttiva={selezionePianoAttiva}
                   selezionata={rateSelezionate.includes(rata.id)}
                   invioReminderLoading={invioReminderLoading}
-                  onPress={() => selezioneAttiva ? onToggleSelezione(rata.id) : onToggleRataMini(rata.id)}
-                  onLongPress={() => onAvviaSelezione(rata.id)}
+                  onPress={() => {
+                    if (selezionePianoAttiva) return
+                    if (selezioneAttiva) onToggleSelezione(rata.id)
+                    else onToggleRataMini(rata.id)
+                  }}
+                  onLongPress={() => {
+                    if (selezionePianoAttiva) return
+                    onAvviaSelezione(rata.id)
+                  }}
                   onOpenPagamento={onOpenPagamento}
                   onSendReminder={onSendReminder}
                   onAzzeraPagamento={onAzzeraPagamento}
@@ -342,7 +420,7 @@ export function ClienteAbbonamentoTab({
             </View>
           ) : null}
 
-          {!selezioneAttiva ? (
+          {!selezioneAttiva && !selezionePianoAttiva ? (
             <>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity style={styles.abAzioneBtn} onPress={onEditCanone}>
@@ -365,31 +443,157 @@ export function ClienteAbbonamentoTab({
           ) : null}
         </View>
       ) : null}
+    </View>
+  )
+}
 
-      <StoricoPianiCollegati
-        piani={abbonamentiStorico}
-        preventivi={preventiviMadreStorico}
-        onApriPreventivo={onApriPreventivoMadre}
+export function ClienteAbbonamentoTab({
+  loading,
+  abbonamentiAttivi,
+  ratePerPiano,
+  preventiviMadreStorico,
+  onApriPreventivoMadre,
+  meseCorrente,
+  annoCorrente,
+  pianoEspansoId,
+  rataMiniAperta,
+  invioReminderLoading,
+  selezioneAttiva,
+  rateSelezionate,
+  onAvviaSelezione,
+  onToggleSelezione,
+  onToggleEspanso,
+  onRename,
+  onOpenAddRata,
+  onOpenPagamento,
+  onSendReminder,
+  onAzzeraPagamento,
+  onToggleRataMini,
+  onEditCanone,
+  onDeleteAbbonamento,
+  selezionePianoAttiva,
+  pianiSelezionati,
+  onAvviaSelezionePiano,
+  onToggleSelezionePiano,
+}: Props) {
+  const pianiOrdinati = useMemo(
+    () => ordinaPianiPerStato(abbonamentiAttivi, ratePerPiano, id => abbonamentiAttivi.find(a => a.id === id)),
+    [abbonamentiAttivi, ratePerPiano],
+  )
+
+  const pianiAttivi = useMemo(
+    () => pianiOrdinati.filter(a => !analizzaStatoPiano(a, ratePerPiano[a.id] || []).concluso),
+    [pianiOrdinati, ratePerPiano],
+  )
+  const pianiConclusi = useMemo(
+    () => pianiOrdinati.filter(a => analizzaStatoPiano(a, ratePerPiano[a.id] || []).concluso),
+    [pianiOrdinati, ratePerPiano],
+  )
+
+  if (loading) return <ActivityIndicator color="#0E9F8E" style={{ marginTop: 40 }} />
+
+  if (abbonamentiAttivi.length === 0) {
+    return (
+      <PianoVuotoState
+        emoji={'\uD83D\uDCB0'}
+        title="Nessun abbonamento"
+        description="Configura un canone mensile ricorrente per questo cliente: importo fisso, scadenza e rate mensili automatiche."
       />
+    )
+  }
+
+  function renderPianoCard(abbonamento: Abbonamento, indice: number) {
+    const rate = ratePerPiano[abbonamento.id] || []
+    const preventivoMadre = abbonamento.preventivo_id
+      ? preventiviMadreStorico[abbonamento.preventivo_id] ?? null
+      : null
+    const espanso = pianoEspansoId === abbonamento.id
+      || (pianoEspansoId === null && indice === 0 && pianiAttivi[0]?.id === abbonamento.id)
+
+    return (
+      <AbbonamentoPianoCard
+        key={abbonamento.id}
+        abbonamento={abbonamento}
+        indice={indice}
+        preventivoMadre={preventivoMadre}
+        rate={rate}
+        espanso={espanso}
+        meseCorrente={meseCorrente}
+        annoCorrente={annoCorrente}
+        rataMiniAperta={rataMiniAperta}
+        invioReminderLoading={invioReminderLoading}
+        selezioneAttiva={selezioneAttiva}
+        rateSelezionate={rateSelezionate}
+        onApriPreventivoMadre={onApriPreventivoMadre}
+        onAvviaSelezione={onAvviaSelezione}
+        onToggleSelezione={onToggleSelezione}
+        onToggleEspanso={() => onToggleEspanso(abbonamento.id)}
+        onRename={() => onRename(abbonamento.id)}
+        onOpenAddRata={() => onOpenAddRata(abbonamento.id)}
+        onOpenPagamento={onOpenPagamento}
+        onSendReminder={onSendReminder}
+        onAzzeraPagamento={onAzzeraPagamento}
+        onToggleRataMini={onToggleRataMini}
+        onEditCanone={() => onEditCanone(abbonamento.id)}
+        onDeleteAbbonamento={() => onDeleteAbbonamento(abbonamento.id)}
+        selezionePianoAttiva={selezionePianoAttiva}
+        pianoSelezionato={pianiSelezionati.includes(abbonamento.id)}
+        onAvviaSelezionePiano={() => onAvviaSelezionePiano(abbonamento.id)}
+        onToggleSelezionePiano={() => onToggleSelezionePiano(abbonamento.id)}
+      />
+    )
+  }
+
+  return (
+    <View style={styles.container}>
+      {pianiAttivi.map((abbonamento, indice) => renderPianoCard(abbonamento, indice))}
+      {pianiConclusi.length > 0 ? (
+        <>
+          <Text style={styles.sezioneConclusiLabel}>
+            {pianiConclusi.length === 1 ? 'Concluso' : `Conclusi (${pianiConclusi.length})`}
+          </Text>
+          {pianiConclusi.map((abbonamento, indice) => renderPianoCard(abbonamento, pianiAttivi.length + indice))}
+        </>
+      ) : null}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: { gap: 12 },
-  abEmpty: { alignItems: 'center', paddingTop: 40, gap: 10 },
-  abEmptyIcon: { fontSize: 40 },
-  abEmptyTitle: { fontSize: 16, fontWeight: '700', color: '#0D1B2A' },
-  abEmptyText: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 20 },
-  abCreaBtn: { backgroundColor: '#0D1B2A', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, marginTop: 8 },
-  abCreaBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  checkCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  checkCircleActive: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
+  checkMark: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  pianoCard: { gap: 0 },
   abHeader: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center' },
+  pianoHeaderSelected: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
+  pianoHeaderConcluso: { borderColor: '#A7F3D0', backgroundColor: '#F0FDF4' },
+  pianoHeaderTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   abHeaderTesto: { flex: 1, minWidth: 0 },
-  abHeaderNome: { fontSize: 15, fontWeight: '700', color: '#0D1B2A' },
+  abHeaderNome: { fontSize: 15, fontWeight: '700', color: '#0D1B2A', flexShrink: 1 },
   abHeaderSub: { fontSize: 12, color: '#6B7280', marginTop: 4 },
   abHeaderHint: { fontSize: 12, color: '#0E9F8E', marginTop: 4, fontWeight: '500' },
+  abHeaderHintConcluso: { color: '#047857' },
+  sezioneConclusiLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginTop: 8,
+    marginBottom: -4,
+  },
   abHeaderArrow: { fontSize: 12, color: '#9CA3AF' },
-  abBody: { gap: 10 },
+  abBody: { gap: 10, marginTop: 10 },
   rataCardCorrente: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: '#0E9F8E', padding: 14, gap: 10 },
   rataCardSelected: { backgroundColor: '#F0FDF4' },
   rataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },

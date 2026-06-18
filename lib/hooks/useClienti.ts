@@ -1,9 +1,10 @@
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { Alert } from 'react-native'
+import { caricaIncassiPerCliente } from '../api/incassi'
+import { eliminaClienti } from '../api/clienti'
 import { supabase } from '../supabase'
 import { Cliente } from '../types'
-import { eliminaClienti } from '../api/clienti'
 
 // ── Hook riutilizzabile per la gestione clienti ───────────────────
 export function useClienti() {
@@ -26,16 +27,20 @@ export function useClienti() {
 
     if (!data) { setLoading(false); return }
 
-    // Carica stats preventivi per ogni cliente in parallelo
+    const incassiPerCliente = await caricaIncassiPerCliente(user.id)
+
     const clientiConStats = await Promise.all(data.map(async (c) => {
-      const { data: prevs } = await supabase
+      const { count } = await supabase
         .from('preventivi')
-        .select('importo_totale, stato')
+        .select('id', { count: 'exact', head: true })
         .eq('cliente_id', c.id)
         .eq('is_ultimo', true)
 
-      const totale = prevs?.filter(p => p.stato === 'accettato').reduce((a, p) => a + (p.importo_totale || 0), 0) || 0
-      return { ...c, totale_preventivi: totale, num_preventivi: prevs?.length || 0 }
+      return {
+        ...c,
+        totale_preventivi: incassiPerCliente[c.id] || 0,
+        num_preventivi: count || 0,
+      }
     }))
 
     setClienti(clientiConStats)

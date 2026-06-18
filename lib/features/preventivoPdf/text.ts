@@ -1,6 +1,6 @@
 import { creaLinkPagamento } from '../../api/pdf'
 import { MetodoPagamento } from '../../api/preventivoPdf'
-import { parseImportoEuro, testoPagamentoRatePdf, calcolaScadenzeRate, labelScadenzaRata } from '../../utils/importo'
+import { formatImportoEuro } from '../../utils/importo'
 import { giornoScadenzaValido } from '../../utils/giornoScadenza'
 
 export function importoDaTesto(testo: string): number | null {
@@ -72,7 +72,8 @@ export async function testoConPagamento({
   }
 
   if (abbonamentoAttivo && abVisibileNelPDF && abImporto) {
-    testoBase += `\nCANONE MENSILE: \u20AC${abImporto}/mese`
+    const importoCanone = parseImportoEuro(abImporto)
+    testoBase += `\nCANONE MENSILE: \u20AC${importoCanone != null ? formatImportoEuro(importoCanone, 2) : abImporto}/mese`
     const giorno = parseInt(abGiorno, 10)
     const mese = abMeseInizio >= 1 && abMeseInizio <= 12 ? abMeseInizio : undefined
     if (giornoScadenzaValido(abGiorno)) {

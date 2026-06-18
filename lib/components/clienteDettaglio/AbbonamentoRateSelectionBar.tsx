@@ -3,15 +3,16 @@ import { abbonamentoSelectionStyles as styles } from './abbonamentoSelectionStyl
 
 type Props = {
   count: number
+  countLabel?: string
   onCancel: () => void
   onDelete: () => void
 }
 
-export function AbbonamentoRateSelectionBar({ count, onCancel, onDelete }: Props) {
+export function AbbonamentoRateSelectionBar({ count, countLabel = 'selezionate', onCancel, onDelete }: Props) {
   return (
     <View style={styles.selectionBar}>
       <View style={styles.selectionTopRow}>
-        <Text style={styles.selectionCount}>{count} selezionate</Text>
+        <Text style={styles.selectionCount}>{`${count} ${countLabel}`}</Text>
         <TouchableOpacity onPress={onCancel}>
           <Text style={styles.selectionCancel}>{'\u2715'} Annulla</Text>
         </TouchableOpacity>

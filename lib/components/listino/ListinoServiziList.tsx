@@ -1,5 +1,6 @@
 import { Text, TouchableOpacity, View } from 'react-native'
 import { ServizioForm } from '../../types'
+import { formatImportoEuroVisuale } from '../../utils/importo'
 import { listinoStyles as styles } from './listinoStyles'
 
 type Props = {
@@ -38,7 +39,7 @@ export function ListinoServiziList({
             <View style={{ flex: 1 }}>
               <Text style={styles.servizioNome}>{s.nome}</Text>
               {s.descrizione ? <Text style={styles.servizioDesc}>{s.descrizione}</Text> : null}
-              {s.costo ? <Text style={styles.servizioCosto}>{`\u20AC${s.costo} / ${s.unita}`}</Text> : null}
+              {s.costo ? <Text style={styles.servizioCosto}>{`\u20AC${formatImportoEuroVisuale(parseFloat(s.costo) || 0)} / ${s.unita}`}</Text> : null}
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity onPress={() => selezioneAttiva ? onToggleSelezione(s.id) : onEdit(s)} style={styles.actionBtn}>

@@ -1,5 +1,6 @@
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { ServizioForm } from '../../types'
+import { formatImportoEuroVisuale } from '../../utils/importo'
 import { ESEMPI_LISTINO, UNITA } from '../../features/onboarding/constants'
 import { OnboardingStepper } from './OnboardingStepper'
 import { onboardingStyles as styles } from './onboardingStyles'
@@ -151,7 +152,7 @@ export function OnboardingServiziStep({
               <View key={i} style={styles.servizioItem}>
                 <View style={styles.servizioItemLeft}>
                   <Text style={styles.servizioItemNome}>{s.nome}</Text>
-                  {s.costo ? <Text style={styles.servizioItemCosto}>€{s.costo}/{s.unita}</Text> : null}
+                  {s.costo ? <Text style={styles.servizioItemCosto}>€{formatImportoEuroVisuale(parseFloat(s.costo) || 0)}/{s.unita}</Text> : null}
                 </View>
                 <TouchableOpacity onPress={() => onRimuoviServizio(i)}>
                   <Text style={styles.servizioItemDel}>✕</Text>
