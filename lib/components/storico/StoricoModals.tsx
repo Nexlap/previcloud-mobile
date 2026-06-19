@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { ActivityIndicator, Modal, Switch, Text, TouchableOpacity, View } from 'react-native'
-import { STATI_PREVENTIVO, statoPreventivoIcon } from '../../features/storico/constants'
+import { STATI_PREVENTIVO } from '../../features/storico/constants'
+import { StatoPreventivoIcon } from '../icons/StatoPreventivoIcon'
+import { AppIcon } from '../icons/AppIcon'
 import { Cliente } from '../../types'
 import { storicoStyles as styles } from './storicoStyles'
 
@@ -62,7 +64,9 @@ export function StoricoModals({
                   if (!restaAperto) onCloseStato()
                 }}
               >
-                <Text style={styles.modalOptionIcon}>{statoPreventivoIcon(s)}</Text>
+                <View style={styles.modalOptionIcon}>
+                  <StatoPreventivoIcon stato={s} size={20} />
+                </View>
                 <Text style={styles.modalOptionText}>{s}</Text>
               </TouchableOpacity>
             ))}

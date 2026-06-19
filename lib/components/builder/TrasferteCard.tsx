@@ -3,6 +3,7 @@ import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } fr
 import { TrasfertaBuilder } from '../../builder/types'
 import { formatImportoEuroVisuale } from '../../utils/importo'
 import { PLACEHOLDER } from '../../placeholders'
+import { AppIcon } from '../icons/AppIcon'
 
 type Props = {
   trasferte: TrasfertaBuilder[]
@@ -31,11 +32,10 @@ export function TrasferteCard({
 }: Props) {
   return (
     <>
-        {/* Card trasferte */}
         <View style={styles.card}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>🧳 Trasferte e rimborsi</Text>
+              <Text style={styles.cardTitle}>Trasferte e rimborsi</Text>
               <Text style={styles.cardSub}>Km e spese vive — esenti o imponibili</Text>
             </View>
             <Switch
@@ -51,11 +51,18 @@ export function TrasferteCard({
               {trasferte.map(t => (
                 <View key={t.id} style={{ backgroundColor: '#F7F8FA', borderRadius: 12, padding: 12, gap: 8, borderWidth: 1, borderColor: '#E5E7EB' }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#0D1B2A' }}>
-                      {t.tipo === 'km' ? `🚗 ${t.km} km` : `🧾 ${t.nome}`}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                      <AppIcon
+                        name={t.tipo === 'km' ? 'navigation' : 'file-text'}
+                        size={14}
+                        color="#6B7280"
+                      />
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#0D1B2A', flex: 1 }}>
+                        {t.tipo === 'km' ? `${t.km} km` : t.nome}
+                      </Text>
+                    </View>
                     <TouchableOpacity onPress={() => setTrasferte(ts => ts.filter(x => x.id !== t.id))}>
-                      <Text style={{ color: '#9CA3AF', fontSize: 16 }}>✕</Text>
+                      <AppIcon name="x" size={18} color="#9CA3AF" />
                     </TouchableOpacity>
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -72,7 +79,6 @@ export function TrasferteCard({
                 </View>
               ))}
 
-              {/* Rimborso km */}
               <View style={{ borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 10, gap: 8 }}>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.8 }}>RIMBORSO KM</Text>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -101,7 +107,6 @@ export function TrasferteCard({
                 <Text style={{ fontSize: 11, color: '#9CA3AF' }}>Tariffa ACI €0.25/km · Default: esente</Text>
               </View>
 
-              {/* Spesa viva */}
               <View style={{ gap: 8 }}>
                 <Text style={{ fontSize: 12, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.8 }}>SPESA VIVA</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -152,6 +157,6 @@ export function TrasferteCard({
 const styles = StyleSheet.create({
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
-  cardSub: { fontSize: 12, color: '#9CA3AF', marginTop: -6 },
+  cardSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   input: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
 })

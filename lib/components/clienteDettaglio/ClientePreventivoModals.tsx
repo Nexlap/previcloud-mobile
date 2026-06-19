@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { AppIcon } from '../icons/AppIcon'
+import { StatoPreventivoIcon } from '../icons/StatoPreventivoIcon'
 
 type ClienteOpzione = { id: string; nome: string }
 
@@ -23,13 +25,6 @@ type Props = {
 }
 
 const STATI = ['bozza', 'inviato', 'accettato', 'rifiutato']
-
-function statoIcon(stato: string) {
-  if (stato === 'bozza') return '\uD83D\uDCDD'
-  if (stato === 'inviato') return '\uD83D\uDCE4'
-  if (stato === 'accettato') return '\u2705'
-  return '\u274C'
-}
 
 export function ClientePreventivoModals({
   modalStato,
@@ -78,7 +73,9 @@ export function ClientePreventivoModals({
                   if (!restaAperto) onCloseStato()
                 }}
               >
-                <Text style={styles.modalOptionIcon}>{statoIcon(stato)}</Text>
+                <View style={styles.modalOptionIcon}>
+                  <StatoPreventivoIcon stato={stato} size={20} />
+                </View>
                 <Text style={styles.modalOptionText}>{stato}</Text>
               </TouchableOpacity>
             ))}
@@ -119,7 +116,9 @@ export function ClientePreventivoModals({
                   if (mostraModalSposta) onSposta(mostraModalSposta, cliente.id, cliente.nome)
                   onCloseSposta()
                 }}>
-                  <Text style={styles.modalOptionIcon}>{'\uD83D\uDC64'}</Text>
+                  <View style={styles.modalOptionIcon}>
+                    <AppIcon name="user" size={20} color="#6B7280" />
+                  </View>
                   <Text style={styles.modalOptionText}>{cliente.nome}</Text>
                 </TouchableOpacity>
               ))
@@ -154,7 +153,7 @@ const styles = StyleSheet.create({
   modalBox: { backgroundColor: '#fff', borderRadius: 20, padding: 20, width: '100%' },
   modalTitle: { fontSize: 16, fontWeight: '600', color: '#0D1B2A', marginBottom: 16, textAlign: 'center' },
   modalOption: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  modalOptionIcon: { fontSize: 20 },
+  modalOptionIcon: { width: 28, alignItems: 'center' as const, justifyContent: 'center' as const },
   modalOptionText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500', textTransform: 'capitalize' },
   pagatoDivider: { height: 1, backgroundColor: '#F3F4F6', marginTop: 8, marginBottom: 4 },
   pagatoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },

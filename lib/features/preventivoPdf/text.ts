@@ -1,6 +1,6 @@
 import { creaLinkPagamento } from '../../api/pdf'
 import { MetodoPagamento } from '../../api/preventivoPdf'
-import { formatImportoEuro } from '../../utils/importo'
+import { formatImportoEuro, parseImportoEuro, calcolaScadenzeRate, labelScadenzaRata, testoPagamentoRatePdf } from '../../utils/importo'
 import { giornoScadenzaValido } from '../../utils/giornoScadenza'
 
 export function importoDaTesto(testo: string): number | null {

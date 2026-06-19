@@ -1,5 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Trascrizione } from '../../types'
+import { AppIcon } from '../icons/AppIcon'
 
 type Props = {
   trascrizioni: Trascrizione[]
@@ -39,7 +40,10 @@ export function ClienteTrascrizioniList({
             <View style={styles.chiamataDetail}>
               <Text style={styles.chiamataTesto}>{t.testo}</Text>
               <TouchableOpacity style={styles.editBtn} onPress={() => onGeneraPreventivo(t.testo || '')}>
-                <Text style={styles.editBtnText}>{'\uD83D\uDCAC'} Genera preventivo da questa chiamata</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                  <AppIcon name="message-circle" size={16} color="#0E9F8E" />
+                  <Text style={styles.editBtnText}>Genera preventivo da questa chiamata</Text>
+                </View>
               </TouchableOpacity>
             </View>
           )}

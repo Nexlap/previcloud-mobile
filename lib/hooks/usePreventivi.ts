@@ -120,6 +120,10 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
     return true
   }
 
+  function patchPreventivoLocal(id: string, patch: Partial<Preventivo>) {
+    setPreventivi(p => p.map(x => x.id === id ? { ...x, ...patch } : x))
+  }
+
   async function spostaPreventivo(id: string, nuovoClienteId: string, nuovoClienteNome: string) {
     const { error } = await supabase.from('preventivi')
       .update({ cliente_id: nuovoClienteId, nome_cliente: nuovoClienteNome })
@@ -138,6 +142,6 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
   return {
     preventivi, loading, refreshing, totaleValore,
     onRefresh, carica,
-    eliminaPreventivo, cambiaStato, segnaPagato, rinominaPreventivo, spostaPreventivo
+    eliminaPreventivo, cambiaStato, segnaPagato, rinominaPreventivo, spostaPreventivo, patchPreventivoLocal
   }
 }

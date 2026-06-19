@@ -1,6 +1,7 @@
 import { StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { calcolaScadenzeRate, labelScadenzaRata } from '../../utils/importo'
-import { giornoScadenzaValido, meseInizioValido, normalizzaGiornoScadenzaInput, normalizzaMeseInizioInput } from '../../utils/giornoScadenza'
+import { giornoScadenzaValido, meseInizioValido } from '../../utils/giornoScadenza'
+import { GiornoScadenzaPicker, MeseInizioPicker } from '../pickers/DatePartPickers'
 
 type TariffaProps = {
   nascondiPrezzi: boolean
@@ -94,27 +95,20 @@ export function PreventivoPdfAbbonamentoCard({
             </View>
             <View style={styles.abFieldCol}>
               <Text style={styles.abLabelInRow}>GIORNO SCADENZA</Text>
-              <TextInput
-                style={styles.abInput}
+              <GiornoScadenzaPicker
                 value={giorno}
-                onChangeText={(t) => onChangeGiorno(normalizzaGiornoScadenzaInput(t))}
-                keyboardType="number-pad"
-                placeholder="1-31"
-                placeholderTextColor="#9CA3AF"
-                maxLength={2}
+                onChange={onChangeGiorno}
+                mese={meseInizio}
               />
             </View>
           </View>
           <View>
             <Text style={styles.abLabel}>MESE INIZIO PRIMO CANONE</Text>
-            <TextInput
-              style={styles.abInput}
+            <MeseInizioPicker
               value={meseInizio}
-              onChangeText={(t) => onChangeMeseInizio(normalizzaMeseInizioInput(t))}
-              keyboardType="number-pad"
-              placeholder="1-12"
-              placeholderTextColor="#9CA3AF"
-              maxLength={2}
+              onChange={onChangeMeseInizio}
+              giornoCollegato={giorno}
+              onGiornoCollegatoChange={onChangeGiorno}
             />
           </View>
           {primaScadenza ? (

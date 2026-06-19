@@ -1,6 +1,8 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Cliente } from '../../types'
 import { formatImportoEuro } from '../../utils/importo'
+import { AppIcon } from '../icons/AppIcon'
+import { IconLabel } from '../icons/IconLabel'
 
 export type ClienteDettaglioTab = 'preventivi' | 'pagamento_rate' | 'abbonamento'
 
@@ -15,15 +17,15 @@ export function ClienteDettaglioHeader({ title, onBack, onEdit, onDelete }: Head
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-        <Text style={styles.backText}>{'\u2190'}</Text>
+        <AppIcon name="arrow-left" size={20} color="#9CA3AF" />
       </TouchableOpacity>
       <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
       <View style={styles.headerActions}>
         <TouchableOpacity onPress={onEdit}>
-          <Text style={styles.headerActionText}>{'\u270F\uFE0F'}</Text>
+          <AppIcon name="edit-2" size={18} color="#6B7280" />
         </TouchableOpacity>
         <TouchableOpacity onPress={onDelete}>
-          <Text style={styles.headerActionText}>{'\uD83D\uDDD1'}</Text>
+          <AppIcon name="trash-2" size={18} color="#EF4444" />
         </TouchableOpacity>
       </View>
     </View>
@@ -51,7 +53,7 @@ export function ClienteSelectionBar({ count, onCancel, onMove, onDelete }: Selec
           </TouchableOpacity>
         ) : null}
         <TouchableOpacity style={[styles.selectionAction, styles.selectionActionDelete]} onPress={onDelete}>
-          <Text style={[styles.selectionActionText, { color: '#EF4444' }]}>{'\uD83D\uDDD1'} Elimina</Text>
+          <IconLabel icon="trash-2" label="Elimina" danger />
         </TouchableOpacity>
       </View>
     </View>
@@ -67,9 +69,24 @@ export function ClienteInfoCard({ cliente }: { cliente: Cliente }) {
         </View>
         <View style={styles.avatarInfo}>
           <Text style={styles.clienteNome}>{cliente.nome || ''}</Text>
-          {cliente.telefono && <Text style={styles.clienteInfo}>{'\uD83D\uDCDE'} {cliente.telefono}</Text>}
-          {cliente.email && <Text style={styles.clienteInfo}>{'\u2709\uFE0F'} {cliente.email}</Text>}
-          {cliente.indirizzo && <Text style={styles.clienteInfo}>{'\uD83D\uDCCD'} {cliente.indirizzo}</Text>}
+          {cliente.telefono ? (
+            <View style={styles.infoRow}>
+              <AppIcon name="phone" size={14} color="#9CA3AF" />
+              <Text style={styles.clienteInfo}>{cliente.telefono}</Text>
+            </View>
+          ) : null}
+          {cliente.email ? (
+            <View style={styles.infoRow}>
+              <AppIcon name="mail" size={14} color="#9CA3AF" />
+              <Text style={styles.clienteInfo}>{cliente.email}</Text>
+            </View>
+          ) : null}
+          {cliente.indirizzo ? (
+            <View style={styles.infoRow}>
+              <AppIcon name="map-pin" size={14} color="#9CA3AF" />
+              <Text style={styles.clienteInfo}>{cliente.indirizzo}</Text>
+            </View>
+          ) : null}
           {cliente.note && <Text style={styles.clienteNote}>{cliente.note}</Text>}
         </View>
       </View>
@@ -152,7 +169,8 @@ const styles = StyleSheet.create({
   avatarText: { color: '#fff', fontSize: 22, fontWeight: '700' },
   avatarInfo: { flex: 1, gap: 3 },
   clienteNome: { fontSize: 18, fontWeight: '700', color: '#0D1B2A' },
-  clienteInfo: { fontSize: 13, color: '#6B7280' },
+  clienteInfo: { fontSize: 13, color: '#6B7280', flex: 1 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   clienteNote: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', marginTop: 4 },
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },

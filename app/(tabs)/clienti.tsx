@@ -14,8 +14,11 @@ import { useClienti } from "../../lib/hooks/useClienti"
 import { Cliente } from '../../lib/types'
 import { formatImportoEuro } from '../../lib/utils/importo'
 import { trackEvento } from "../../lib/utils/analytics"
+import { AppIcon } from '../../lib/components/icons/AppIcon'
+import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 export default function Clienti() {
+  const { colors, isDark, s } = useScreenTheme()
   const { clienti, loading, refreshing, onRefresh, aggiungiCliente, eliminaCliente, aggiornaCliente } = useClienti()
   const [cerca, setCerca] = useState('')
   const [mostraForm, setMostraForm] = useState(false)
@@ -119,13 +122,13 @@ export default function Clienti() {
   }
 
   if (loading) return (
-    <View style={styles.center}>
+    <View style={s.center}>
       <ActivityIndicator size="large" color="#0E9F8E" />
     </View>
   )
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Clienti</Text>
         <TouchableOpacity onPress={apriModalNuovoCliente} style={styles.addBtn}>
@@ -139,24 +142,23 @@ export default function Clienti() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}
       >
         {/* Barra ricerca */}
-        <View style={styles.searchBox}>
-          <Text style={styles.searchIcon}>🔍</Text>
+        <View style={s.searchBox}>
+          <AppIcon name="search" size={16} color={colors.icon} />
           <TextInput
-            style={styles.searchInput}
+            style={s.searchInput}
             value={cerca}
             onChangeText={setCerca}
             onFocus={handleFocusRicerca}
             placeholder="Cerca per nome o telefono..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textMuted}
           />
         </View>
 
-        {/* Lista clienti */}
         {clientiFiltrati.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>👥</Text>
-            <Text style={styles.emptyText}>{cerca ? 'Nessun cliente trovato' : 'Nessun cliente ancora'}</Text>
-            {!cerca && <Text style={styles.emptySubtext}>Tocca + per aggiungere il primo cliente</Text>}
+            <AppIcon name="users" size={40} color={colors.icon} />
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>{cerca ? 'Nessun cliente trovato' : 'Nessun cliente ancora'}</Text>
+            {!cerca && <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>Tocca + per aggiungere il primo cliente</Text>}
           </View>
         ) : (
           clientiFiltrati.map(c => {
@@ -164,7 +166,12 @@ export default function Clienti() {
             return (
             <LongPressAwareTouchableOpacity
               key={c.id}
-              style={[styles.clienteCard, selezionato && styles.clienteCardSelected]}
+              style={[
+                s.card,
+                styles.clienteCard,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                selezionato && { borderColor: '#0E9F8E', backgroundColor: isDark ? 'rgba(14,159,142,0.12)' : '#F0FDF4' },
+              ]}
               onLongPress={() => avviaSelezione(c.id)}
               onPress={() => {
                 if (selezioneAttiva) toggleSelezione(c.id)
@@ -175,12 +182,12 @@ export default function Clienti() {
                 <Text style={styles.clienteAvatarText}>{c.nome.charAt(0).toUpperCase()}</Text>
               </View>
               <View style={styles.clienteBody}>
-                <Text style={styles.clienteNome}>{c.nome}</Text>
-                <Text style={styles.clienteInfo}>{c.telefono || c.email || 'Nessun contatto'}</Text>
+                <Text style={[styles.clienteNome, { color: colors.text }]}>{c.nome}</Text>
+                <Text style={[styles.clienteInfo, { color: colors.textMuted }]}>{c.telefono || c.email || 'Nessun contatto'}</Text>
               </View>
               <View style={styles.clienteStats}>
-                <Text style={styles.clienteStatVal}>{c.num_preventivi || 0}</Text>
-                <Text style={styles.clienteStatLabel}>preventivi</Text>
+                <Text style={[styles.clienteStatVal, { color: colors.text }]}>{c.num_preventivi || 0}</Text>
+                <Text style={[styles.clienteStatLabel, { color: colors.textMuted }]}>preventivi</Text>
                 {(c.totale_preventivi || 0) > 0 && (
                   <Text style={styles.clienteStatImporto}>€{formatImportoEuro(c.totale_preventivi ?? 0, 0)}</Text>
                 )}
@@ -191,7 +198,7 @@ export default function Clienti() {
                   hitSlop={8}
                   onPress={() => setMenuCliente(c)}
                 >
-                  <Text style={styles.menuPuntini}>{'\u22EE'}</Text>
+                  <Text style={[styles.menuPuntini, { color: colors.textMuted }]}>{'\u22EE'}</Text>
                 </TouchableOpacity>
               ) : null}
             </LongPressAwareTouchableOpacity>
@@ -244,31 +251,25 @@ export default function Clienti() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
   addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#0E9F8E', justifyContent: 'center', alignItems: 'center' },
   addBtnText: { color: '#fff', fontSize: 20, fontWeight: '300' },
   scroll: { flex: 1 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
-  searchIcon: { fontSize: 16 },
-  searchInput: { flex: 1, fontSize: 14, color: '#0D1B2A' },
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyText: { fontSize: 15, color: '#6B7280', fontWeight: '500' },
-  emptySubtext: { fontSize: 13, color: '#9CA3AF', marginTop: 4 },
-  clienteCard: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  empty: { alignItems: 'center', paddingTop: 60, gap: 12 },
+  emptyText: { fontSize: 15, fontWeight: '500' },
+  emptySubtext: { fontSize: 13, marginTop: 4 },
+  clienteCard: { padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   clienteAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
   clienteAvatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   clienteBody: { flex: 1 },
-  clienteNome: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
-  clienteInfo: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  clienteNome: { fontSize: 15, fontWeight: '600' },
+  clienteInfo: { fontSize: 12, marginTop: 2 },
   clienteStats: { alignItems: 'flex-end' },
-  clienteStatVal: { fontSize: 18, fontWeight: '700', color: '#0D1B2A' },
-  clienteStatLabel: { fontSize: 10, color: '#9CA3AF' },
+  clienteStatVal: { fontSize: 18, fontWeight: '700' },
+  clienteStatLabel: { fontSize: 10 },
   clienteStatImporto: { fontSize: 12, color: '#0E9F8E', fontWeight: '600', marginTop: 2 },
-  clienteCardSelected: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
   menuBtn: { paddingHorizontal: 4, paddingVertical: 8 },
-  menuPuntini: { fontSize: 22, color: '#9CA3AF', lineHeight: 24 },
+  menuPuntini: { fontSize: 22, lineHeight: 24 },
 })

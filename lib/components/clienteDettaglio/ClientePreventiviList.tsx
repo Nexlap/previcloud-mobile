@@ -10,6 +10,8 @@ import { FirmaStatoBadge, mostraPulsanteInviaFirma } from '../firma/FirmaStatoBa
 import { statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
 import { formatImportoDb } from '../../utils/importo'
+import { IconLabel } from '../icons/IconLabel'
+import { AppIcon } from '../icons/AppIcon'
 
 type Props = {
   preventivi: Preventivo[]
@@ -103,9 +105,14 @@ export function ClientePreventiviList({
                 {`${new Date(p.created_at).toLocaleDateString('it-IT')}${p.is_ultimo ? ' · attivo' : ''}`}
               </Text>
               {collegamentiPiano[p.id] ? (
-                <Text style={styles.prevPianoBadge}>
-                  {collegamentiPiano[p.id] === 'rate' ? '\uD83D\uDCC5 Piano a rate collegato' : '\uD83D\uDCB0 Abbonamento collegato'}
-                </Text>
+                <View style={styles.prevPianoBadge}>
+                  <IconLabel
+                    icon={collegamentiPiano[p.id] === 'rate' ? 'calendar' : 'repeat'}
+                    label={collegamentiPiano[p.id] === 'rate' ? 'Piano a rate collegato' : 'Abbonamento collegato'}
+                    color="#0E9F8E"
+                    textStyle={{ fontSize: 11, fontWeight: '600' }}
+                  />
+                </View>
               ) : null}
               <FirmaStatoBadge
                 invio={invio}
@@ -164,7 +171,10 @@ export function ClientePreventiviList({
               ))}
               {p.is_ultimo && (
                 <TouchableOpacity style={styles.editBtn} onPress={() => onModificaUltimo(p)}>
-                  <Text style={styles.editBtnText}>{`\u270F\uFE0F ${MODIFICA_VERSIONE_ALTERNATIVA_LABEL}`}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                    <AppIcon name="edit-2" size={16} color="#0E9F8E" />
+                    <Text style={styles.editBtnText}>{MODIFICA_VERSIONE_ALTERNATIVA_LABEL}</Text>
+                  </View>
                 </TouchableOpacity>
               )}
             </View>
@@ -192,7 +202,7 @@ const styles = StyleSheet.create({
   prevLeft: { flex: 1, minWidth: 0, paddingRight: 8 },
   prevVersione: { fontSize: 13, fontWeight: '700', color: '#0D1B2A' },
   prevData: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  prevPianoBadge: { fontSize: 11, color: '#0E9F8E', fontWeight: '600', marginTop: 4 },
+  prevPianoBadge: { marginTop: 4 },
   prevDetail: { padding: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
   prevTesto: { fontSize: 12, color: '#6B7280', lineHeight: 18, fontFamily: 'monospace' },
   editBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' },

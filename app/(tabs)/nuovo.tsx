@@ -22,8 +22,10 @@ import { ClienteRilevato, ClienteSuggerito, DatiClienteNuovo, NuovoParams } from
 import { Messaggio } from '../../lib/types'
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
+import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 export default function Nuovo() {
+  const { s } = useScreenTheme()
   const params = useLocalSearchParams<NuovoParams>()
   const modifica = risolviModifica(params)
   const testoModifica = modifica?.testoPreventivo || ''
@@ -278,7 +280,7 @@ export default function Nuovo() {
   const mostraScelta = modalitaScelta && !recap && !preventivo && messaggi.length === 0 && !inModifica
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <NuovoHeader
         title={headerTitle}
         showRicomincia={Boolean(preventivo)}

@@ -1,5 +1,6 @@
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { ClientePreventivo, MetodoPagamento } from '../../api/preventivoPdf'
+import { AppIcon } from '../icons/AppIcon'
 
 type ClienteProps = {
   cliente: ClientePreventivo | null
@@ -9,7 +10,7 @@ type ClienteProps = {
 export function PreventivoPdfClienteButton({ cliente, onPressCliente }: ClienteProps) {
   return (
     <TouchableOpacity style={styles.clienteBtn} onPress={onPressCliente}>
-      <Text style={styles.clienteBtnIcon}>{'\uD83D\uDC64'}</Text>
+      <AppIcon name="user" size={20} color="#6B7280" />
       <View style={styles.clienteBtnBody}>
         <Text style={styles.clienteBtnLabel}>Cliente</Text>
         <Text style={styles.clienteBtnVal}>
@@ -28,7 +29,7 @@ type PagamentoProps = {
 export function PreventivoPdfPagamentoInfo({ metodo }: PagamentoProps) {
   return (
     <View style={styles.pagamentoInfo}>
-      <Text style={styles.clienteBtnIcon}>{'\uD83D\uDCB3'}</Text>
+      <AppIcon name="credit-card" size={20} color="#6B7280" />
       <View style={styles.clienteBtnBody}>
         <Text style={styles.clienteBtnLabel}>Pagamento</Text>
         <Text style={styles.clienteBtnVal}>
@@ -64,7 +65,7 @@ export function PreventivoPdfFooter({ versionePadreId, generando, testoVuoto, on
       >
         {generando
           ? <ActivityIndicator color="#fff" />
-          : <Text style={styles.generateBtnText}>Genera PDF e condividi</Text>
+          : <Text style={styles.generateBtnText}>Genera PDF</Text>
         }
       </TouchableOpacity>
     </>

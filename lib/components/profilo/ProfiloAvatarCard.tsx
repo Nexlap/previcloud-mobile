@@ -13,12 +13,12 @@ export function ProfiloAvatarCard({ nomeAzienda, email, onEditSettings }: Props)
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{nomeAzienda.charAt(0).toUpperCase() || '?'}</Text>
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.profileName}>{nomeAzienda || 'Nome azienda'}</Text>
-        <Text style={styles.profileEmail}>{email}</Text>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.profileName} numberOfLines={1}>{nomeAzienda || 'Nome azienda'}</Text>
+        <Text style={styles.profileEmail} numberOfLines={1}>{email}</Text>
       </View>
-      <TouchableOpacity onPress={onEditSettings}>
-        <Text style={{ fontSize: 20 }}>{'\u270F\uFE0F'}</Text>
+      <TouchableOpacity style={styles.editBtn} onPress={onEditSettings}>
+        <Text style={styles.editBtnText}>Modifica</Text>
       </TouchableOpacity>
     </View>
   )

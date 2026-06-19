@@ -1,10 +1,25 @@
 import { router, Stack } from 'expo-router'
-import { StatusBar } from 'expo-status-bar'
 import { useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
 import 'react-native-url-polyfill/auto'
 import { currentUserId, hasCompletedProfile, onSignedOut } from '../lib/api/auth'
+import { ThemeProvider, useTheme } from '../lib/theme/ThemeContext'
+import { ThemedStatusBar } from '../lib/theme/ThemedStatusBar'
 import { trackSessione } from '../lib/utils/analytics'
+
+function RootStack() {
+  const { colors } = useTheme()
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+        }}
+      />
+    </View>
+  )
+}
 
 export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false)
@@ -53,9 +68,9 @@ export default function RootLayout() {
   }
 
   return (
-    <>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }} />
+    <ThemeProvider>
+      <ThemedStatusBar />
+      <RootStack />
       {!splashDone && (
         <Animated.View style={[styles.splash, { opacity: splashOpacity }]}>
           <Animated.View style={[styles.logoContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
@@ -70,7 +85,7 @@ export default function RootLayout() {
           </Animated.View>
         </Animated.View>
       )}
-    </>
+    </ThemeProvider>
   )
 }
 

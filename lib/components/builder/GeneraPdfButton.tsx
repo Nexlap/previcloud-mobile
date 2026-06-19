@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
 import { formatImportoEuroVisuale } from '../../utils/importo'
+import { AppIcon } from '../icons/AppIcon'
 
 type Props = {
   disabled: boolean
@@ -25,9 +26,10 @@ export function GeneraPdfButton({ disabled, totaleConIva, onPress, bottomInset =
         <Text style={styles.totalValue}>€{totaleFormatted}</Text>
       </View>
       <TouchableOpacity style={[styles.generateBtn, disabled && styles.generateBtnDisabled]} onPress={onPress} disabled={disabled}>
-        <Text style={styles.generateBtnText}>
-          📄 Genera PDF
-        </Text>
+        <View style={styles.generateBtnInner}>
+          <AppIcon name="file-text" size={18} color="#fff" />
+          <Text style={styles.generateBtnText}>Genera PDF</Text>
+        </View>
       </TouchableOpacity>
     </View>
   )
@@ -52,5 +54,6 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: 18, fontWeight: '700', color: '#0E9F8E' },
   generateBtn: { backgroundColor: '#0D1B2A', borderRadius: 16, padding: 16, alignItems: 'center' as const },
   generateBtnDisabled: { opacity: 0.4 },
+  generateBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   generateBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 })

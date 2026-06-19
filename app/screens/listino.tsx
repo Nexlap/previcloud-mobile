@@ -17,10 +17,12 @@ import { ListinoServiziList } from '../../lib/components/listino/ListinoServiziL
 import { ListinoServizioModal, ServizioDraft } from '../../lib/components/listino/ListinoServizioModal'
 import { ListinoSmartModal } from '../../lib/components/listino/ListinoSmartModal'
 import { listinoStyles as styles } from '../../lib/components/listino/listinoStyles'
+import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 const EMPTY_DRAFT: ServizioDraft = { nome: '', descrizione: '', costo: '', unita: 'cad' }
 
 export default function Listino() {
+  const { s } = useScreenTheme()
   const [servizi, setServizi] = useState<ServizioForm[]>([])
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState('')
@@ -191,10 +193,10 @@ export default function Listino() {
     setListinoTab('testo')
   }
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>
+  if (loading) return <View style={s.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       <ListinoHeader
         onBack={() => router.back()}
         onOpenAi={() => setMostraModalListino(true)}

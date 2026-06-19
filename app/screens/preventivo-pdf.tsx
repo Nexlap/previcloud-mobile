@@ -1,8 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy'
 import { router, useLocalSearchParams } from 'expo-router'
-import * as Sharing from 'expo-sharing'
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Animated, ScrollView, StyleSheet, View } from 'react-native'
+import { Alert, ScrollView, StyleSheet, View } from 'react-native'
 import { generaPDF as generaPDFApi, generaPDFFile, salvaPDF as salvaPDFApi } from "../../lib/api/pdf"
 import {
   PreventivoPdfClienteButton,
@@ -20,7 +19,8 @@ import {
   PreventivoPdfAbbonamentoCard,
   PreventivoPdfTariffaToggle,
 } from '../../lib/components/preventivoPdf/PreventivoPdfOptionsCards'
-import { PreventivoPdfPreviewCard, PreventivoPdfToast } from '../../lib/components/preventivoPdf/PreventivoPdfPreviewCard'
+import { PreventivoPdfPreviewCard } from '../../lib/components/preventivoPdf/PreventivoPdfPreviewCard'
+import { PreventivoPdfSuccessModal, type PdfSuccessInvio } from '../../lib/components/preventivoPdf/PreventivoPdfSuccessModal'
 import { PreventivoPdfTemplatePicker } from '../../lib/components/preventivoPdf/PreventivoPdfTemplatePicker'
 import { eventBus } from '../../lib/eventBus'
 import { importoDaTesto, scalaHtmlPreview, testoConPagamento } from '../../lib/features/preventivoPdf/text'
@@ -101,7 +101,6 @@ export default function PreventivoPDF() {
   const [nascondiPrezzi, setNascondiPrezzi] = useState(false)
   const [htmlPreview, setHtmlPreview] = useState('')
   const [caricandoPreview, setCaricandoPreview] = useState(false)
-  const [toastVisible, setToastVisible] = useState(false)
   const [metodiPagamento, setMetodiPagamento] = useState<MetodoPagamento[]>([])
   const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<MetodoPagamento | null>(null)
   const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
@@ -116,9 +115,13 @@ export default function PreventivoPDF() {
   const [rateGiornoScadenza, setRateGiornoScadenza] = useState('1')
   const [rateMeseInizio, setRateMeseInizio] = useState(meseCorrenteString())
   const [rateVisibileNelPDF, setRateVisibileNelPDF] = useState(true)
-  const toastOpacity = useRef(new Animated.Value(0)).current
   const previewTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [segnaInviato, setSegnaInviato] = useState(false)
+  const [modalPdfSuccesso, setModalPdfSuccesso] = useState<{
+    pdfUri: string
+    dettaglio: string
+    invio: PdfSuccessInvio
+  } | null>(null)
 
   useEffect(() => {
     trackEvento('preview_pdf_aperta', 'preventivo-pdf')
@@ -253,8 +256,9 @@ export default function PreventivoPDF() {
   async function generaPDF() {
     setGenerando(true)
     try {
+      const testoFinale = await buildTestoConPagamento()
       const data = await generaPDFFile({
-        testo: await buildTestoConPagamento(),
+        testo: testoFinale,
         template,
         token,
         versione_padre_id: versione_padre_id || null,
@@ -265,9 +269,13 @@ export default function PreventivoPDF() {
       await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as FileSystem.EncodingType })
 
       let pdfUrl = ''
+      let uploadOk = false
       try {
         pdfUrl = await salvaPDFApi(data.pdf_base64, token)
-      } catch {}
+        uploadOk = !!pdfUrl
+      } catch {
+        uploadOk = false
+      }
 
       const titoloAuto = clienteSelezionato
         ? `Preventivo ${clienteSelezionato.nome}`
@@ -275,12 +283,6 @@ export default function PreventivoPDF() {
       const idSalvato = await salvaSuSupabase(data.versione, titoloAuto, pdfUrl)
       if (idSalvato) setPreventivoSalvatoId(idSalvato)
 
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Invia preventivo', UTI: 'com.adobe.pdf' })
-        trackEvento('pdf_condiviso', 'preventivo-pdf', { template })
-      }
-
-      mostraToast()
       resetBuilderState()
       eventBus.emit('reset-builder')
 
@@ -314,11 +316,26 @@ export default function PreventivoPDF() {
       }
 
       setTitolo(clienteSelezionato ? `Preventivo ${clienteSelezionato.nome}` : '')
-      setTimeout(() => setMostraModalTitolo(true), 800)
+      setModalPdfSuccesso({
+        pdfUri: uri,
+        dettaglio: 'Preventivo salvato sul dispositivo.',
+        invio: {
+          preventivoId: idSalvato,
+          clienteId: clienteSelezionato?.id,
+          nomeCliente: clienteSelezionato?.nome,
+          haStripe: testoFinale.includes('LINK PAGAMENTO:'),
+          uploadOnlineOk: uploadOk,
+        },
+      })
     } catch (err: unknown) {
       Alert.alert('Errore', errorMessage(err))
     }
     setGenerando(false)
+  }
+
+  function chiudiModalPdfSuccesso() {
+    setModalPdfSuccesso(null)
+    setTimeout(() => setMostraModalTitolo(true), 400)
   }
 
   async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = ''): Promise<string | null> {
@@ -345,15 +362,6 @@ export default function PreventivoPDF() {
   async function salvaTemplate(tmpl: string) {
     setTemplate(tmpl)
     await salvaTemplatePreferito(tmpl)
-  }
-
-  function mostraToast() {
-    setToastVisible(true)
-    Animated.sequence([
-      Animated.timing(toastOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.delay(2500),
-      Animated.timing(toastOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
-    ]).start(() => setToastVisible(false))
   }
 
   async function chiudiTitoloModal(conSalvataggio: boolean) {
@@ -418,8 +426,6 @@ export default function PreventivoPDF() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      <PreventivoPdfToast visible={toastVisible} opacity={toastOpacity} />
-
       <PreventivoPdfPagamentoModal
         visible={mostraModalPagamento}
         metodiPagamento={metodiPagamento}
@@ -449,6 +455,14 @@ export default function PreventivoPDF() {
         onToggleSegnaInviato={() => setSegnaInviato(v => !v)}
         onSave={() => chiudiTitoloModal(true)}
         onSkip={() => chiudiTitoloModal(false)}
+      />
+
+      <PreventivoPdfSuccessModal
+        visible={modalPdfSuccesso !== null}
+        dettaglio={modalPdfSuccesso?.dettaglio}
+        pdfUri={modalPdfSuccesso?.pdfUri}
+        invio={modalPdfSuccesso?.invio}
+        onClose={chiudiModalPdfSuccesso}
       />
     </View>
   )

@@ -6,13 +6,15 @@ import {
 } from 'react-native'
 import { attivaBiometrico, aggiornaPasswordAccount, aggiornaPasswordBiometrico, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, logoutAccount, sessioneCorrente, verificaPasswordAccount } from '../../lib/api/profilo'
 import { ProfiloAppCard } from '../../lib/components/profilo/ProfiloAppCard'
-import { ProfiloAspettoCard } from '../../lib/components/profilo/ProfiloAspettoCard'
 import { ProfiloAvatarCard } from '../../lib/components/profilo/ProfiloAvatarCard'
 import { ProfiloCambiaPasswordModal } from '../../lib/components/profilo/ProfiloCambiaPasswordModal'
+import { ProfiloFeedbackCard } from '../../lib/components/profilo/ProfiloFeedbackCard'
 import { ProfiloHeader } from '../../lib/components/profilo/ProfiloHeader'
 import { ProfiloNotificheCard } from '../../lib/components/profilo/ProfiloNotificheCard'
 import { ProfiloPasswordModal } from '../../lib/components/profilo/ProfiloPasswordModal'
 import { ProfiloSicurezzaCard } from '../../lib/components/profilo/ProfiloSicurezzaCard'
+import { SegnalazioneForm, SettingsSegnalazioneModal } from '../../lib/components/settings/SettingsSegnalazioneModal'
+import { inviaSegnalazioneSettings } from '../../lib/api/settings'
 import { profiloStyles as styles } from '../../lib/components/profilo/profiloStyles'
 import { errorMessage } from '../../lib/utils/errors'
 
@@ -31,6 +33,9 @@ export default function Profilo() {
   const [passwordNuova, setPasswordNuova] = useState('')
   const [passwordConferma, setPasswordConferma] = useState('')
   const [salvandoPassword, setSalvandoPassword] = useState(false)
+  const [mostraSegnalazione, setMostraSegnalazione] = useState(false)
+  const [segnalazione, setSegnalazione] = useState<SegnalazioneForm>({ tipo: 'bug', titolo: '', descrizione: '', schermata: '' })
+  const [inviandoSegnalazione, setInviandoSegnalazione] = useState(false)
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   useEffect(() => { carica() }, [])
@@ -217,6 +222,21 @@ export default function Profilo() {
     Alert.alert('Password aggiornata', 'La tua password è stata cambiata con successo.')
   }
 
+  async function inviaSegnalazione() {
+    if (!segnalazione.titolo.trim() || !segnalazione.descrizione.trim()) {
+      Alert.alert('Campi obbligatori', 'Inserisci titolo e descrizione')
+      return
+    }
+    setInviandoSegnalazione(true)
+    const { error, user } = await inviaSegnalazioneSettings(segnalazione)
+    setInviandoSegnalazione(false)
+    if (!user) return
+    if (error) { Alert.alert('Errore', 'Impossibile inviare la segnalazione'); return }
+    Alert.alert('Inviata', 'Grazie! Analizzeremo il problema il prima possibile.')
+    setSegnalazione({ tipo: 'bug', titolo: '', descrizione: '', schermata: '' })
+    setMostraSegnalazione(false)
+  }
+
   return (
     <View style={styles.container}>
       <ProfiloPasswordModal
@@ -257,7 +277,7 @@ export default function Profilo() {
           onCambiaPassword={apriModalCambiaPassword}
         />
 
-        <ProfiloAspettoCard />
+        <ProfiloFeedbackCard onSegnala={() => setMostraSegnalazione(true)} />
 
         <ProfiloNotificheCard notifiche={notifiche} onChangeNotifiche={setNotifiche} />
 
@@ -280,6 +300,15 @@ export default function Profilo() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <SettingsSegnalazioneModal
+        visible={mostraSegnalazione}
+        segnalazione={segnalazione}
+        inviando={inviandoSegnalazione}
+        onClose={() => setMostraSegnalazione(false)}
+        onChange={setSegnalazione}
+        onInvia={() => void inviaSegnalazione()}
+      />
     </View>
   )
 }

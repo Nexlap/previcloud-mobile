@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity, View } from 'react-native'
+import { IconLabel } from '../icons/IconLabel'
 import { storicoStyles as styles } from './storicoStyles'
 
 type Props = {
@@ -14,20 +15,20 @@ export function StoricoSelectionBar({ count, onCancel, onDelete, onShare, onMove
     <View style={styles.selectionBar}>
       <View style={styles.selectionTopRow}>
         <TouchableOpacity onPress={onCancel} style={styles.selectionCancel}>
-          <Text style={styles.selectionCancelText}>{'\u2715'}</Text>
+          <Text style={styles.selectionCancelText}>Annulla</Text>
         </TouchableOpacity>
         <Text style={styles.selectionCount}>{count} selezionati</Text>
       </View>
 
       <View style={styles.selectionActions}>
         <TouchableOpacity style={styles.selectionAction} onPress={onMove}>
-          <Text style={styles.selectionActionText}>{'\u2197'} Sposta</Text>
+          <IconLabel icon="folder" label="Sposta" color="#0D1B2A" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.selectionAction} onPress={onShare}>
-          <Text style={styles.selectionActionText}>{'\uD83D\uDCE4'} Condividi</Text>
+          <IconLabel icon="share-2" label="Condividi" color="#0D1B2A" />
         </TouchableOpacity>
         <TouchableOpacity style={[styles.selectionAction, styles.selectionActionDelete]} onPress={onDelete}>
-          <Text style={[styles.selectionActionText, styles.selectionActionDeleteText]}>{'\uD83D\uDDD1'} Elimina</Text>
+          <IconLabel icon="trash-2" label="Elimina" danger />
         </TouchableOpacity>
       </View>
     </View>

@@ -2,8 +2,10 @@ import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { eliminaMetodoPagamento, caricaMetodiPagamento, MetodoPagamento, MetodoPagamentoForm, salvaMetodoPagamento, TipoPagamento } from '../../lib/api/pagamenti'
+import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 export default function Pagamenti() {
+  const { colors, isDark, s } = useScreenTheme()
   const [metodi, setMetodi] = useState<MetodoPagamento[]>([])
   const [modal, setModal] = useState(false)
   const [edit, setEdit] = useState<MetodoPagamento | null>(null)
@@ -54,7 +56,7 @@ export default function Pagamenti() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>←</Text></TouchableOpacity>
         <Text style={styles.title}>Metodi di pagamento</Text>
@@ -62,18 +64,18 @@ export default function Pagamenti() {
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         {metodi.length === 0 ? (
-          <TouchableOpacity style={styles.empty} onPress={nuovo}>
+          <TouchableOpacity style={[styles.empty, s.card]} onPress={nuovo}>
             <Text style={styles.emptyIcon}>💳</Text>
-            <Text style={styles.emptyTitle}>Nessun metodo configurato</Text>
-            <Text style={styles.emptySub}>Tocca + per aggiungere bonifico, PayPal, contanti, carta o Stripe</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Nessun metodo configurato</Text>
+            <Text style={[styles.emptySub, { color: colors.textMuted }]}>Tocca + per aggiungere bonifico, PayPal, contanti, carta o Stripe</Text>
           </TouchableOpacity>
         ) : metodi.map(m => (
-          <View key={m.id} style={styles.card}>
+          <View key={m.id} style={[styles.card, s.card]}>
             <Text style={styles.cardIcon}>{icon(m.tipo)}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>{m.nome}</Text>
-              {m.tipo === 'bonifico' && m.dati?.iban && <Text style={styles.cardSub}>{m.dati.iban}</Text>}
-              {m.tipo === 'paypal' && m.dati?.email && <Text style={styles.cardSub}>{m.dati.email}</Text>}
+              <Text style={[styles.cardTitle, { color: colors.text }]}>{m.nome}</Text>
+              {m.tipo === 'bonifico' && m.dati?.iban && <Text style={[styles.cardSub, { color: colors.textMuted }]}>{m.dati.iban}</Text>}
+              {m.tipo === 'paypal' && m.dati?.email && <Text style={[styles.cardSub, { color: colors.textMuted }]}>{m.dati.email}</Text>}
               {m.predefinito && <Text style={styles.default}>predefinito</Text>}
             </View>
             <TouchableOpacity onPress={() => modifica(m)}><Text style={styles.action}>✏️</Text></TouchableOpacity>
@@ -83,14 +85,14 @@ export default function Pagamenti() {
       </ScrollView>
 
       <Modal visible={modal} animationType="slide" presentationStyle="pageSheet">
-        <View style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setModal(false)}><Text style={styles.close}>✕</Text></TouchableOpacity>
-            <Text style={styles.modalTitle}>{edit ? 'Modifica metodo' : 'Nuovo metodo'}</Text>
+        <View style={[styles.modal, { backgroundColor: colors.bg }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
+            <TouchableOpacity onPress={() => setModal(false)}><Text style={[styles.close, { color: colors.textMuted }]}>✕</Text></TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{edit ? 'Modifica metodo' : 'Nuovo metodo'}</Text>
             <TouchableOpacity onPress={salva} disabled={saving}>{saving ? <ActivityIndicator color="#0E9F8E" /> : <Text style={styles.save}>Salva</Text>}</TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.modalContent}>
-            <Text style={styles.label}>TIPO</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>TIPO</Text>
             <View style={styles.chips}>
               {[
                 { key: 'bonifico', label: '🏦 Bonifico' },
@@ -98,31 +100,74 @@ export default function Pagamenti() {
                 { key: 'contanti', label: '💵 Contanti' },
                 { key: 'carta', label: '💳 Carta' },
                 { key: 'stripe', label: '🔗 Stripe link' },
-              ].map(t => (
-                <TouchableOpacity key={t.key} style={[styles.chip, form.tipo === t.key && styles.chipActive]} onPress={() => setForm(f => ({ ...f, tipo: t.key as TipoPagamento, dati: {} }))}>
-                  <Text style={[styles.chipText, form.tipo === t.key && styles.chipTextActive]}>{t.label}</Text>
-                </TouchableOpacity>
-              ))}
+              ].map(t => {
+                const active = form.tipo === t.key
+                return (
+                  <TouchableOpacity
+                    key={t.key}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active ? '#0D1B2A' : (isDark ? colors.bg : '#F7F8FA'),
+                        borderColor: active ? '#0D1B2A' : colors.border,
+                      },
+                    ]}
+                    onPress={() => setForm(f => ({ ...f, tipo: t.key as TipoPagamento, dati: {} }))}
+                  >
+                    <Text style={[styles.chipText, active ? styles.chipTextActive : { color: colors.textMuted }]}>{t.label}</Text>
+                  </TouchableOpacity>
+                )
+              })}
             </View>
-            <Text style={styles.label}>NOME *</Text>
-            <TextInput style={styles.input} value={form.nome} onChangeText={v => setForm(f => ({ ...f, nome: v }))} placeholder="es. Conto principale" placeholderTextColor="#9CA3AF" />
+            <Text style={[styles.label, { color: colors.textMuted }]}>NOME *</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+              value={form.nome}
+              onChangeText={v => setForm(f => ({ ...f, nome: v }))}
+              placeholder="es. Conto principale"
+              placeholderTextColor={colors.textMuted}
+            />
             {form.tipo === 'bonifico' && (
               <>
-                <Text style={styles.label}>IBAN</Text>
-                <TextInput style={styles.input} value={form.dati?.iban || ''} onChangeText={v => setForm(f => ({ ...f, dati: { ...f.dati, iban: v.toUpperCase() } }))} autoCapitalize="characters" placeholder="IT60..." placeholderTextColor="#9CA3AF" />
-                <Text style={styles.label}>INTESTATARIO</Text>
-                <TextInput style={styles.input} value={form.dati?.intestatario || ''} onChangeText={v => setForm(f => ({ ...f, dati: { ...f.dati, intestatario: v } }))} placeholder="Mario Rossi" placeholderTextColor="#9CA3AF" />
+                <Text style={[styles.label, { color: colors.textMuted }]}>IBAN</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                  value={form.dati?.iban || ''}
+                  onChangeText={v => setForm(f => ({ ...f, dati: { ...f.dati, iban: v.toUpperCase() } }))}
+                  autoCapitalize="characters"
+                  placeholder="IT60..."
+                  placeholderTextColor={colors.textMuted}
+                />
+                <Text style={[styles.label, { color: colors.textMuted }]}>INTESTATARIO</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                  value={form.dati?.intestatario || ''}
+                  onChangeText={v => setForm(f => ({ ...f, dati: { ...f.dati, intestatario: v } }))}
+                  placeholder="Mario Rossi"
+                  placeholderTextColor={colors.textMuted}
+                />
               </>
             )}
             {form.tipo === 'paypal' && (
               <>
-                <Text style={styles.label}>EMAIL PAYPAL</Text>
-                <TextInput style={styles.input} value={form.dati?.email || ''} onChangeText={v => setForm(f => ({ ...f, dati: { ...f.dati, email: v } }))} keyboardType="email-address" autoCapitalize="none" placeholder="mail@example.com" placeholderTextColor="#9CA3AF" />
+                <Text style={[styles.label, { color: colors.textMuted }]}>EMAIL PAYPAL</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                  value={form.dati?.email || ''}
+                  onChangeText={v => setForm(f => ({ ...f, dati: { ...f.dati, email: v } }))}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  placeholder="mail@example.com"
+                  placeholderTextColor={colors.textMuted}
+                />
               </>
             )}
-            <TouchableOpacity style={styles.defaultRow} onPress={() => setForm(f => ({ ...f, predefinito: !f.predefinito }))}>
+            <TouchableOpacity
+              style={[styles.defaultRow, { backgroundColor: isDark ? colors.surface : '#F7F8FA', borderWidth: 1, borderColor: colors.border }]}
+              onPress={() => setForm(f => ({ ...f, predefinito: !f.predefinito }))}
+            >
               <Text style={styles.defaultBox}>{form.predefinito ? '✓' : ''}</Text>
-              <Text style={styles.defaultText}>Imposta come predefinito</Text>
+              <Text style={[styles.defaultText, { color: colors.text }]}>Imposta come predefinito</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -132,36 +177,34 @@ export default function Pagamenti() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
   header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { color: '#9CA3AF', fontSize: 22, width: 40 },
   title: { color: '#fff', fontSize: 16, fontWeight: '600' },
   add: { color: '#0E9F8E', fontSize: 28, width: 40, textAlign: 'right' },
   content: { padding: 16, gap: 12 },
-  empty: { backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  empty: { borderRadius: 16, padding: 24, alignItems: 'center', borderWidth: 1 },
   emptyIcon: { fontSize: 34 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#0D1B2A', marginTop: 8 },
-  emptySub: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', marginTop: 4 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', marginTop: 8 },
+  emptySub: { fontSize: 13, textAlign: 'center', marginTop: 4 },
+  card: { borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1 },
   cardIcon: { fontSize: 22 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
-  cardSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  cardTitle: { fontSize: 15, fontWeight: '600' },
+  cardSub: { fontSize: 12, marginTop: 2 },
   default: { fontSize: 11, color: '#0E9F8E', fontWeight: '700', marginTop: 3 },
   action: { fontSize: 18, padding: 4 },
-  modal: { flex: 1, backgroundColor: '#fff' },
-  modalHeader: { paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  close: { fontSize: 22, color: '#6B7280', width: 50 },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#0D1B2A' },
+  modal: { flex: 1 },
+  modalHeader: { paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
+  close: { fontSize: 22, width: 50 },
+  modalTitle: { fontSize: 16, fontWeight: '700' },
   save: { fontSize: 15, color: '#0E9F8E', fontWeight: '700', width: 50, textAlign: 'right' },
   modalContent: { padding: 16, gap: 12 },
-  label: { fontSize: 11, color: '#9CA3AF', fontWeight: '700' },
-  input: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
+  label: { fontSize: 11, fontWeight: '700' },
+  input: { borderRadius: 12, borderWidth: 1, padding: 12, fontSize: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 999, backgroundColor: '#F7F8FA', borderWidth: 1, borderColor: '#E5E7EB' },
-  chipActive: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A' },
-  chipText: { color: '#374151', fontSize: 13 },
+  chip: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
+  chipText: { fontSize: 13 },
   chipTextActive: { color: '#fff' },
-  defaultRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: '#F7F8FA', borderRadius: 12 },
+  defaultRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12 },
   defaultBox: { width: 22, height: 22, borderRadius: 4, backgroundColor: '#0E9F8E', color: '#fff', textAlign: 'center', fontWeight: '700' },
-  defaultText: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
+  defaultText: { fontSize: 14, fontWeight: '500' },
 })

@@ -1,5 +1,6 @@
-﻿import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { COLORS, MESI_BREVI } from '../../constants'
+import { AnnoPicker, GiornoScadenzaPicker, MeseInizioPicker } from '../pickers/DatePartPickers'
 import { Preventivo, RataAbbonamento } from '../../types'
 import { formatImportoEuro } from '../../utils/importo'
 import { PreventivoPicker } from './PreventivoPicker'
@@ -133,7 +134,7 @@ export function ClienteAbbonamentoModals({
               <Text style={[styles.modalFieldLabel, { marginTop: 12 }]}>IMPORTO MENSILE ({'\u20AC'})</Text>
               <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abImporto} onChangeText={onChangeAbImporto} placeholder="es. 500" placeholderTextColor={COLORS.textMuted} keyboardType="decimal-pad" />
               <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
-              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abGiorno} onChangeText={onChangeAbGiorno} placeholder="es. 15" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
+              <GiornoScadenzaPicker value={abGiorno} onChange={onChangeAbGiorno} style={{ marginTop: 6, marginBottom: 12 }} />
               <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>N° MENSILITA (opzionale)</Text>
               <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abMensilita} onChangeText={onChangeAbMensilita} placeholder="es. 12 - lascia vuoto per canone aperto" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
               <TouchableOpacity style={styles.modalSaveBtn} onPress={onCreaAbbonamento}>
@@ -162,9 +163,15 @@ export function ClienteAbbonamentoModals({
               <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>N° RATE (min. 2)</Text>
               <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={rateNumero} onChangeText={onChangeRateNumero} placeholder="es. 6" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
               <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
-              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={rateGiorno} onChangeText={onChangeRateGiorno} placeholder="es. 15" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
-              <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>MESE PRIMA RATA (1-12)</Text>
-              <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={rateMeseInizio} onChangeText={onChangeRateMeseInizio} placeholder="es. 6" placeholderTextColor={COLORS.textMuted} keyboardType="number-pad" />
+              <GiornoScadenzaPicker value={rateGiorno} onChange={onChangeRateGiorno} mese={rateMeseInizio} style={{ marginTop: 6, marginBottom: 12 }} />
+              <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>MESE PRIMA RATA</Text>
+              <MeseInizioPicker
+                value={rateMeseInizio}
+                onChange={onChangeRateMeseInizio}
+                giornoCollegato={rateGiorno}
+                onGiornoCollegatoChange={onChangeRateGiorno}
+                style={{ marginTop: 6, marginBottom: 12 }}
+              />
               <TouchableOpacity style={styles.modalSaveBtn} onPress={onCreaPianoRate}>
                 <Text style={styles.modalSaveBtnText}>Crea piano a rate</Text>
               </TouchableOpacity>
@@ -183,7 +190,7 @@ export function ClienteAbbonamentoModals({
             <Text style={styles.modalFieldLabel}>IMPORTO MENSILE ({'\u20AC'})</Text>
             <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abImporto} onChangeText={onChangeAbImporto} keyboardType="decimal-pad" autoFocus />
             <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>GIORNO SCADENZA</Text>
-            <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={abGiorno} onChangeText={onChangeAbGiorno} keyboardType="number-pad" />
+            <GiornoScadenzaPicker value={abGiorno} onChange={onChangeAbGiorno} style={{ marginTop: 6, marginBottom: 12 }} />
             <TouchableOpacity style={styles.modalSaveBtn} onPress={onAggiornaAbbonamento}>
               <Text style={styles.modalSaveBtnText}>Salva</Text>
             </TouchableOpacity>
@@ -245,25 +252,10 @@ export function ClienteAbbonamentoModals({
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={onCloseAggiungiRata}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Aggiungi rata</Text>
-            <Text style={styles.modalFieldLabel}>MESE (1-12)</Text>
-            <TextInput
-              style={[styles.modalInput, { marginTop: 6 }]}
-              value={nuovaRataMese}
-              onChangeText={onChangeNuovaRataMese}
-              placeholder="es. 6"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="number-pad"
-              autoFocus
-            />
+            <Text style={styles.modalFieldLabel}>MESE</Text>
+            <MeseInizioPicker value={nuovaRataMese} onChange={onChangeNuovaRataMese} style={{ marginTop: 6, marginBottom: 12 }} />
             <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>ANNO</Text>
-            <TextInput
-              style={[styles.modalInput, { marginTop: 6 }]}
-              value={nuovaRataAnno}
-              onChangeText={onChangeNuovaRataAnno}
-              placeholder="es. 2026"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="number-pad"
-            />
+            <AnnoPicker value={nuovaRataAnno} onChange={onChangeNuovaRataAnno} style={{ marginTop: 6, marginBottom: 12 }} />
             <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>IMPORTO ({'\u20AC'})</Text>
             <TextInput
               style={[styles.modalInput, { marginTop: 6 }]}

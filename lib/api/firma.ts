@@ -3,7 +3,8 @@ import { BACKEND_URL } from '../constants'
 import { supabase } from '../supabase'
 import { sessionToken } from './settings'
 
-export type CanaleFirma = 'whatsapp' | 'email' | 'link'
+export type CanaleFirma = 'whatsapp' | 'email' | 'link' | 'manuale'
+export type MetodoFirma = 'online' | 'manuale'
 
 export type PreventivoInvio = {
   id: string
@@ -17,6 +18,7 @@ export type PreventivoInvio = {
   pdf_firmato_url: string | null
   reminder_disabilitato: boolean
   canale: CanaleFirma | null
+  metodo_firma?: MetodoFirma | null
 }
 
 const FIRMA_WEB_BASE_URL = 'https://preventivoai-web.vercel.app'
@@ -26,7 +28,7 @@ export async function inviaPreventivoPerFirma(preventivoId: string, canale: Cana
   const res = await fetch(`${BACKEND_URL}/api/preventivi/${preventivoId}/invia-firma`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth}` },
-    body: JSON.stringify({ canale }),
+    body: JSON.stringify({ canale: canale === 'manuale' ? 'link' : canale }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || `Errore server (${res.status})`)
@@ -35,6 +37,65 @@ export async function inviaPreventivoPerFirma(preventivoId: string, canale: Cana
     invio_id: string
     url: string | null
     riuso: boolean
+    scade_at: string
+  }
+}
+
+export type FirmaManualeInput = {
+  documentoBase64?: string
+  mimeType?: string
+}
+
+export async function registraFirmaManuale(preventivoId: string, input?: FirmaManualeInput, token?: string) {
+  const auth = token || (await sessionToken())
+  const res = await fetch(`${BACKEND_URL}/api/preventivi/${preventivoId}/firma-manuale`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth}` },
+    body: JSON.stringify({
+      documento_base64: input?.documentoBase64,
+      mime_type: input?.mimeType,
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Errore server (${res.status})`)
+  if (data.error) throw new Error(data.error)
+  return data as {
+    ok: boolean
+    invio_id: string
+    firmato_at: string
+    pdf_firmato_url: string | null
+    firma_immagine_url: string | null
+    metodo_firma: MetodoFirma
+  }
+}
+
+export function labelFirmaFirmata(invio?: PreventivoInvio) {
+  if (invio?.metodo_firma === 'manuale' || invio?.canale === 'manuale') return '✓ Firmato a mano'
+  return '✓ Firmato online'
+}
+
+export function isFirmaManuale(invio?: PreventivoInvio) {
+  return invio?.metodo_firma === 'manuale' || invio?.canale === 'manuale'
+}
+
+export function isFirmaOnline(invio?: PreventivoInvio) {
+  return !!invio?.firmato_at && !isFirmaManuale(invio)
+}
+
+export async function annullaFirmaOnline(preventivoId: string, token?: string) {
+  const auth = token || (await sessionToken())
+  const res = await fetch(`${BACKEND_URL}/api/preventivi/${preventivoId}/annulla-firma`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Errore server (${res.status})`)
+  if (data.error) throw new Error(data.error)
+  return data as {
+    ok: boolean
+    invio_id: string
+    link_attivo: boolean
+    url: string | null
     scade_at: string
   }
 }
@@ -74,10 +135,15 @@ export async function ottieniUrlFirma(preventivoId: string, invio?: PreventivoIn
   return res.url
 }
 
-export function testoInvioFirma(nomeCliente: string, url: string, nomeAzienda?: string) {
-  const chi = nomeAzienda || 'Il tuo artigiano'
-  return `${chi} ti ha inviato un preventivo da firmare.\n\nCliente: ${nomeCliente}\n\nApri il link, leggi il preventivo e firma online:\n${url}\n\nIl link è valido 30 giorni.`
-}
+export {
+  buildMessaggioFirmaInvio,
+  buildMessaggioFirmaReminder,
+  buildMessaggioCondividiPdf,
+  buildOggettoFirmaInvio,
+  buildOggettoFirmaReminder,
+  testoInvioFirma,
+  caricaMessaggiCliente,
+} from '../messaggiCliente'
 
 export async function apriWhatsAppFirma(telefono: string | null | undefined, testo: string) {
   const phone = telefono?.replace(/\s/g, '').replace(/^\+/, '') || ''

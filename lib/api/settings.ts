@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { invalidaCacheMessaggiCliente, mergeMessaggiCliente, type MessaggiClienteTemplates } from '../messaggiCliente'
 
 type SettingsProfile = {
   nome_azienda?: string | null
@@ -13,6 +14,7 @@ type SettingsProfile = {
   logo_url?: string | null
   reminder_firma_giorni?: number | null
   reminder_firma_globale_disabilitato?: boolean | null
+  messaggi_cliente?: Partial<MessaggiClienteTemplates> | null
 }
 
 export type SettingsForm = {
@@ -27,6 +29,7 @@ export type SettingsForm = {
   firma_nome: string
   reminder_firma_giorni: number
   reminder_firma_globale_disabilitato: boolean
+  messaggi: MessaggiClienteTemplates
 }
 
 type SegnalazioneSettings = {
@@ -49,6 +52,7 @@ export function normalizzaFormProfilo(data: SettingsProfile): SettingsForm {
     firma_nome: data.firma_nome || '',
     reminder_firma_giorni: typeof data.reminder_firma_giorni === 'number' ? data.reminder_firma_giorni : 3,
     reminder_firma_globale_disabilitato: Boolean(data.reminder_firma_globale_disabilitato),
+    messaggi: mergeMessaggiCliente(data.messaggi_cliente),
   }
 }
 
@@ -70,7 +74,12 @@ export async function salvaProfiloSettings(form: SettingsForm) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: null, user: null }
 
-  const { error } = await supabase.from('profiles').update(form).eq('id', user.id)
+  const { messaggi, ...profileFields } = form
+  const { error } = await supabase.from('profiles').update({
+    ...profileFields,
+    messaggi_cliente: messaggi,
+  }).eq('id', user.id)
+  if (!error) invalidaCacheMessaggiCliente()
   return { error, user }
 }
 

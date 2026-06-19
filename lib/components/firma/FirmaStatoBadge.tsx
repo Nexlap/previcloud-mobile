@@ -1,6 +1,6 @@
 import { Text, TouchableOpacity } from 'react-native'
 import type { PreventivoInvio } from '../../api/firma'
-import { statoFirmaInvio } from '../../api/firma'
+import { labelFirmaFirmata, statoFirmaInvio } from '../../api/firma'
 
 type Props = {
   invio?: PreventivoInvio
@@ -13,7 +13,7 @@ export function FirmaStatoBadge({ invio, onPress, onLongPress }: Props) {
   if (sf === 'nessuno') return null
 
   const label =
-    sf === 'firmato' ? '\u2713 Firmato online'
+    sf === 'firmato' ? labelFirmaFirmata(invio)
       : sf === 'attesa' ? '\u23F3 In attesa firma'
         : sf === 'scaduto' ? 'Link firma scaduto'
           : 'Link revocato'

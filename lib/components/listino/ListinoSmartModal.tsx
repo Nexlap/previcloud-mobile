@@ -1,5 +1,6 @@
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { LISTINO_TABS } from '../../features/listino/constants'
+import { AppIcon } from '../icons/AppIcon'
 import { listinoStyles as styles } from './listinoStyles'
 
 type ListinoTab = 'testo' | 'foto' | 'vocale'
@@ -105,14 +106,14 @@ export function ListinoSmartModal({
                 {elaborandoListino
                   ? <ActivityIndicator color="#0E9F8E" />
                   : <>
-                      <Text style={styles.fotoUploadIcon}>{'\uD83D\uDCF7'}</Text>
+                      <AppIcon name="image" size={32} color="#0E9F8E" />
                       <Text style={styles.fotoUploadTitle}>Scegli dalla galleria</Text>
                       {fotoHint ? <Text style={styles.fotoUploadSub}>JPG, PNG — anche scritto a mano</Text> : null}
                     </>
                 }
               </TouchableOpacity>
               <TouchableOpacity style={styles.fotoCameraArea} disabled={elaborandoListino} onPress={onFotoCamera}>
-                <Text style={styles.fotoUploadIcon}>{'\uD83D\uDCF8'}</Text>
+                <AppIcon name="camera" size={32} color="#0E9F8E" />
                 <Text style={styles.fotoUploadTitle}>Scatta una foto</Text>
               </TouchableOpacity>
             </View>
@@ -127,7 +128,7 @@ export function ListinoSmartModal({
               >
                 {elaborandoListino
                   ? <ActivityIndicator color="#fff" size="large" />
-                  : <Text style={styles.vocaleBtnIcon}>{registrando ? '\u23F9' : '\uD83C\uDF99'}</Text>
+                  : <AppIcon name={registrando ? 'square' : 'mic'} size={28} color="#fff" />
                 }
               </TouchableOpacity>
               <Text style={[styles.vocaleStatus, { color: registrando ? '#EF4444' : '#9CA3AF' }]}>

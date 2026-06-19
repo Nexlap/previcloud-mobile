@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity, View } from 'react-native'
+import { IconLabel } from '../icons/IconLabel'
 import { abbonamentoSelectionStyles as styles } from './abbonamentoSelectionStyles'
 
 type Props = {
@@ -14,12 +15,12 @@ export function AbbonamentoRateSelectionBar({ count, countLabel = 'selezionate',
       <View style={styles.selectionTopRow}>
         <Text style={styles.selectionCount}>{`${count} ${countLabel}`}</Text>
         <TouchableOpacity onPress={onCancel}>
-          <Text style={styles.selectionCancel}>{'\u2715'} Annulla</Text>
+          <Text style={styles.selectionCancel}>Annulla</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.selectionActions}>
         <TouchableOpacity style={styles.selectionActionBtn} onPress={onDelete}>
-          <Text style={styles.selectionActionText}>{'\uD83D\uDDD1'} Elimina</Text>
+          <IconLabel icon="trash-2" label="Elimina" color="#fff" />
         </TouchableOpacity>
       </View>
     </View>

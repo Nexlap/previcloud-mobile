@@ -10,6 +10,7 @@ import { analizzaStatoPiano, ordinaPianiPerStato } from '../../utils/statoPiano'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PianoVuotoState } from './PianoVuotoState'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
+import { AppIcon } from '../icons/AppIcon'
 
 type Props = {
   loading: boolean
@@ -113,7 +114,12 @@ function RataDetail({
           >
             {invioReminderLoading === rata.id
               ? <ActivityIndicator size="small" color="#25D366" />
-              : <Text style={styles.reminderBtnCompactText}>{'\uD83D\uDCE4'} WA</Text>}
+              : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <AppIcon name="send" size={14} color="#25D366" />
+                  <Text style={styles.reminderBtnCompactText}>WA</Text>
+                </View>
+              )}
           </TouchableOpacity>
         )}
         {rata.stato === 'incassato' && (
@@ -502,7 +508,7 @@ export function ClienteAbbonamentoTab({
   if (abbonamentiAttivi.length === 0) {
     return (
       <PianoVuotoState
-        emoji={'\uD83D\uDCB0'}
+        icon="repeat"
         title="Nessun abbonamento"
         description="Configura un canone mensile ricorrente per questo cliente: importo fisso, scadenza e rate mensili automatiche."
       />

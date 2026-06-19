@@ -1,5 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Cliente } from '../../types'
+import { AppIcon } from '../icons/AppIcon'
+import { IconLabel } from '../icons/IconLabel'
 
 type Props = {
   clienteSelezionato: Cliente | null
@@ -10,7 +12,7 @@ type Props = {
 export function ClienteCard({ clienteSelezionato, onOpenCliente, onClearCliente }: Props) {
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>👤 Cliente</Text>
+      <IconLabel icon="user" label="Cliente" textStyle={styles.cardTitle} />
       <Text style={styles.cardSub}>Opzionale — i dati appariranno nel PDF</Text>
       {clienteSelezionato ? (
         <View style={styles.clienteSelezionatoBox}>
@@ -20,7 +22,7 @@ export function ClienteCard({ clienteSelezionato, onOpenCliente, onClearCliente 
             {clienteSelezionato.telefono ? <Text style={styles.clienteSelezionatoInfo}>{clienteSelezionato.telefono}</Text> : null}
           </View>
           <TouchableOpacity onPress={onClearCliente}>
-            <Text style={{ fontSize: 18, color: '#9CA3AF' }}>✕</Text>
+            <AppIcon name="x" size={18} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
       ) : (

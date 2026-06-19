@@ -29,3 +29,30 @@ export function meseInizioValido(raw: string): boolean {
 export function meseCorrenteString() {
   return String(new Date().getMonth() + 1)
 }
+
+/** Giorni effettivi nel mese (1-12). Anno opzionale per febbraio bisestile. */
+export function giorniInMese(mese: number, anno?: number): number {
+  if (!(mese >= 1 && mese <= 12)) return 31
+  const y = anno && anno > 2000 ? anno : new Date().getFullYear()
+  return new Date(y, mese, 0).getDate()
+}
+
+/** Riduce il giorno se supera il massimo del mese indicato. */
+export function clampGiornoAlMese(giornoStr: string, meseStr: string, annoStr?: string): string {
+  const g = parseInt(giornoStr, 10)
+  const m = parseInt(meseStr, 10)
+  if (!(g >= 1) || !(m >= 1 && m <= 12)) return giornoStr
+  const anno = annoStr ? parseInt(annoStr, 10) : undefined
+  const max = giorniInMese(m, anno && anno > 2000 ? anno : undefined)
+  return String(Math.min(g, max))
+}
+
+/** Giorno valido rispetto al mese (se indicato). */
+export function giornoValidoPerMese(giornoStr: string, meseStr?: string, annoStr?: string): boolean {
+  if (!giornoScadenzaValido(giornoStr)) return false
+  const m = meseStr ? parseInt(meseStr, 10) : 0
+  if (!(m >= 1 && m <= 12)) return true
+  const g = parseInt(giornoStr, 10)
+  const anno = annoStr ? parseInt(annoStr, 10) : undefined
+  return g <= giorniInMese(m, anno && anno > 2000 ? anno : undefined)
+}

@@ -1,5 +1,6 @@
 import { Switch, Text, TouchableOpacity, View } from 'react-native'
 import { PROFILO_COLORS as C } from '../../features/profilo/constants'
+import { AppIcon } from '../icons/AppIcon'
 import { profiloStyles as styles } from './profiloStyles'
 
 type Props = {
@@ -9,12 +10,18 @@ type Props = {
   onCambiaPassword: () => void
 }
 
-export function ProfiloSicurezzaCard({ biometricoDisponibile, biometricoAttivato, onToggleBiometrico, onCambiaPassword }: Props) {
+export function ProfiloSicurezzaCard({
+  biometricoDisponibile,
+  biometricoAttivato,
+  onToggleBiometrico,
+  onCambiaPassword,
+}: Props) {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Sicurezza</Text>
+      <Text style={styles.cardSub}>Cambia la password del tuo account.</Text>
       {biometricoDisponibile ? (
-        <View style={styles.settingRow}>
+        <View style={[styles.settingRow, { marginTop: 4 }]}>
           <View style={{ flex: 1 }}>
             <Text style={styles.settingLabel}>Accesso biometrico</Text>
             <Text style={styles.settingDesc}>Impronta digitale o Face ID</Text>
@@ -28,8 +35,11 @@ export function ProfiloSicurezzaCard({ biometricoDisponibile, biometricoAttivato
         </View>
       ) : null}
       <TouchableOpacity style={styles.settingBtn} onPress={onCambiaPassword}>
-        <Text style={styles.settingBtnText}>{'\uD83D\uDD11'} Cambia password</Text>
-        <Text style={styles.settingBtnArrow}>{'\u203A'}</Text>
+        <View style={styles.settingBtnInner}>
+          <AppIcon name="key" size={16} />
+          <Text style={styles.settingBtnText}>Cambia password</Text>
+        </View>
+        <AppIcon name="chevron-right" size={18} color="#9CA3AF" />
       </TouchableOpacity>
     </View>
   )

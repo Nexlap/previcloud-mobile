@@ -39,4 +39,12 @@ export const profiloStyles = StyleSheet.create({
   passwordFieldLabel: { fontSize: 11, fontWeight: '600' as const, color: C.muted, letterSpacing: 0.8, marginBottom: 6 },
   passwordSaveBtn: { flex: 1, borderRadius: 12, padding: 13, alignItems: 'center' as const, backgroundColor: C.navy },
   passwordSaveText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  editBtn: { borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14, paddingVertical: 8 },
+  editBtnText: { fontSize: 13, fontWeight: '600', color: '#0D1B2A' },
+  actionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8,
+    borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14, paddingVertical: 12,
+  },
+  actionBtnText: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
+  settingBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
 })

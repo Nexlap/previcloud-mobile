@@ -61,9 +61,11 @@ export async function salvaPDF(pdfBase64: string, token: string): Promise<string
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify({ pdf_base64: pdfBase64 })
   })
-  const data = await res.json()
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Errore upload PDF (${res.status})`)
   if (data.error) throw new Error(data.error)
-  return data.pdf_url
+  if (!data.pdf_url) throw new Error('Upload PDF completato senza URL online.')
+  return data.pdf_url as string
 }
 
 export async function creaLinkPagamento(importo: number, descrizione: string, token: string): Promise<string> {

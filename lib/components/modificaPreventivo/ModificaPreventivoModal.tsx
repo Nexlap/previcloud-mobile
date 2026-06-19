@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'reac
 import { ModificaPreventivoInput, paramsRouterModifica } from '../../features/modificaPreventivo/apriModificaPreventivo'
 import { MODIFICA_VERSIONE_MODAL_SUB } from '../../features/modificaPreventivo/constants'
 import { setModificaSession } from '../../features/modificaPreventivo/modificaSession'
+import { AppIcon, type AppIconName } from '../icons/AppIcon'
 import { nuovoStyles as styles } from '../nuovo/nuovoStyles'
 
 type Props = {
@@ -11,29 +12,31 @@ type Props = {
   onClose: () => void
 }
 
-const OPZIONI = [
+type OpzionePath = '/screens/builder' | '/(tabs)/nuovo' | '/screens/registra'
+
+const OPZIONI: { icon: AppIconName; title: string; sub: string; pathname: OpzionePath }[] = [
   {
-    icon: '\uD83D\uDCCB',
+    icon: 'list',
     title: 'Builder manuale',
     sub: 'Modifica servizi, rimborsi e pagamento dal form',
-    pathname: '/screens/builder' as const,
+    pathname: '/screens/builder',
   },
   {
-    icon: '\u270D\uFE0F',
+    icon: 'edit-3',
     title: 'Chat',
     sub: "Descrivi le modifiche all'AI a testo",
-    pathname: '/(tabs)/nuovo' as const,
+    pathname: '/(tabs)/nuovo',
   },
   {
-    icon: '\uD83C\uDF99',
+    icon: 'mic',
     title: 'Registra voce',
     sub: 'Parla delle modifiche da fare',
-    pathname: '/screens/registra' as const,
+    pathname: '/screens/registra',
   },
 ]
 
 export function ModificaPreventivoModal({ visible, input, onClose }: Props) {
-  function scegli(pathname: typeof OPZIONI[number]['pathname']) {
+  function scegli(pathname: OpzionePath) {
     if (!input) return
     setModificaSession(input)
     const params = paramsRouterModifica(input)
@@ -52,12 +55,14 @@ export function ModificaPreventivoModal({ visible, input, onClose }: Props) {
 
           {OPZIONI.map(op => (
             <TouchableOpacity key={op.title} style={styles.sceltaCard} onPress={() => scegli(op.pathname)}>
-              <Text style={styles.sceltaCardIcon}>{op.icon}</Text>
+              <View style={modalStyles.sceltaCardIconWrap}>
+                <AppIcon name={op.icon} size={24} color="#0E9F8E" />
+              </View>
               <View style={styles.sceltaCardBody}>
                 <Text style={styles.sceltaCardTitle}>{op.title}</Text>
                 <Text style={styles.sceltaCardSub}>{op.sub}</Text>
               </View>
-              <Text style={styles.sceltaCardArrow}>{'\u203A'}</Text>
+              <AppIcon name="chevron-right" size={20} color="#9CA3AF" />
             </TouchableOpacity>
           ))}
 
@@ -86,4 +91,5 @@ const modalStyles = StyleSheet.create({
   },
   cancelBtn: { alignItems: 'center', paddingVertical: 12 },
   cancelText: { fontSize: 15, fontWeight: '600', color: '#6B7280' },
+  sceltaCardIconWrap: { width: 36, alignItems: 'center', justifyContent: 'center' },
 })

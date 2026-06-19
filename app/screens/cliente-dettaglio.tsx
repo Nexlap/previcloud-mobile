@@ -17,7 +17,8 @@ import { MESI_BREVI } from '../../lib/constants'
 import { creaLinkPagamentoRata } from '../../lib/api/pdf'
 import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, caricaCronologiaCliente, eliminaClienteDettaglio, eliminaPreventiviCliente, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
 import { ripristinaVersionePreventivo } from '../../lib/api/storico'
-import { caricaInviiFirma, type PreventivoInvio } from '../../lib/api/firma'
+import { caricaContattiCliente } from '../../lib/api/firma'
+import { useInviiFirma } from '../../lib/hooks/useInviiFirma'
 import { caricaSettingsData } from '../../lib/api/settings'
 import { eventBus } from '../../lib/eventBus'
 import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
@@ -124,7 +125,6 @@ export default function ClienteDettaglio() {
   const [pianoSelezioneAttiva, setPianoSelezioneAttiva] = useState(false)
   const [pianiSelezionati, setPianiSelezionati] = useState<string[]>([])
   const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
-  const [inviiFirma, setInviiFirma] = useState<Record<string, PreventivoInvio>>({})
   const [firmaModalPreventivo, setFirmaModalPreventivo] = useState<Preventivo | null>(null)
   const [firmaDettaglioPreventivo, setFirmaDettaglioPreventivo] = useState<Preventivo | null>(null)
   const [nomeAzienda, setNomeAzienda] = useState('')
@@ -132,10 +132,17 @@ export default function ClienteDettaglio() {
   const {
     preventivi, totaleValore,
     cambiaStato, segnaPagato, eliminaPreventivo: eliminaPrev, rinominaPreventivo, spostaPreventivo,
-    onRefresh: onRefreshPreventivi
+    onRefresh: onRefreshPreventivi, patchPreventivoLocal,
   } = usePreventivi({ clienteId: id })
 
   const preventivoModale = modalStato ? preventivi.find(p => p.id === modalStato) : null
+  const idsInviiFirma = preventivi.map(p => p.id)
+
+  const { inviiFirma, ricaricaInviiFirma } = useInviiFirma(idsInviiFirma, {
+    onPreventivoChange: (row) => {
+      patchPreventivoLocal(row.id, { stato: row.stato, pdf_url: row.pdf_url ?? undefined })
+    },
+  })
 
   const {
     abbonamentiAttivi, preventiviMadreStorico, ratePerPiano, loading: loadingAb,
@@ -167,17 +174,6 @@ export default function ClienteDettaglio() {
       setTab(tabIniziale)
     }
   }, [tabIniziale])
-
-  useEffect(() => {
-    const ids = preventivi.map(p => p.id)
-    if (ids.length === 0) { setInviiFirma({}); return }
-    void caricaInviiFirma(ids).then(setInviiFirma)
-  }, [preventivi.map(p => p.id).join(',')])
-
-  function ricaricaInviiFirma() {
-    const ids = preventivi.map(x => x.id)
-    if (ids.length) void caricaInviiFirma(ids).then(setInviiFirma)
-  }
 
   useEffect(() => {
     setPianoSelezioneAttiva(false)
@@ -881,6 +877,16 @@ export default function ClienteDettaglio() {
           nomeAzienda={nomeAzienda}
           onClose={() => setFirmaDettaglioPreventivo(null)}
           onInviaNuovo={() => setFirmaModalPreventivo(firmaDettaglioPreventivo)}
+          onAggiornato={() => {
+            ricaricaInviiFirma()
+            cambiaStato(firmaDettaglioPreventivo.id, 'accettato')
+            eventBus.emit('aggiorna-home')
+          }}
+          onFirmaAnnullata={() => {
+            ricaricaInviiFirma()
+            cambiaStato(firmaDettaglioPreventivo.id, 'inviato')
+            eventBus.emit('aggiorna-home')
+          }}
         />
       ) : null}
 
@@ -898,6 +904,7 @@ export default function ClienteDettaglio() {
             cambiaStato(firmaModalPreventivo.id, 'inviato')
             eventBus.emit('aggiorna-home')
           }}
+          onFirmaManuale={() => setFirmaDettaglioPreventivo(firmaModalPreventivo)}
         />
       ) : null}
 

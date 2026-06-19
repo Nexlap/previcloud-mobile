@@ -10,6 +10,9 @@ import { FirmaStatoBadge, mostraPulsanteInviaFirma } from '../firma/FirmaStatoBa
 import { statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
 import { formatImportoDb } from '../../utils/importo'
+import { useStoricoTheme } from '../../hooks/useStoricoTheme'
+import { IconLabel } from '../icons/IconLabel'
+import { AppIcon } from '../icons/AppIcon'
 import { storicoStyles as styles } from './storicoStyles'
 
 type Props = {
@@ -64,6 +67,7 @@ export function StoricoPreventiviList({
   onApriFirmaDettaglio,
 }: Props) {
   const [menuPreventivo, setMenuPreventivo] = useState<Preventivo | null>(null)
+  const th = useStoricoTheme()
 
   function vociMenu(p: Preventivo): VoceMenuAzione[] {
     return [
@@ -87,20 +91,25 @@ export function StoricoPreventiviList({
         })
 
         return (
-          <View key={p.id} style={[styles.card, selezionato && styles.cardSelected]}>
+          <View key={p.id} style={[styles.card, th.card, selezionato && th.cardSelected]}>
             <LongPressAwarePressable
               style={styles.cardRow}
               onPress={() => onCardPress(p)}
               onLongPress={() => onLongPress(p.id)}
             >
               <View style={styles.cardLeft}>
-                <Text style={styles.cardCliente}>{p.nome_cliente || 'Senza cliente'}</Text>
-                {p.titolo ? <Text style={styles.cardTitolo}>{p.titolo}</Text> : null}
-                <Text style={styles.cardData}>{dataFormattata}</Text>
+                <Text style={[styles.cardCliente, th.text]}>{p.nome_cliente || 'Senza cliente'}</Text>
+                {p.titolo ? <Text style={[styles.cardTitolo, th.textMuted]}>{p.titolo}</Text> : null}
+                <Text style={[styles.cardData, th.textMuted]}>{dataFormattata}</Text>
                 {collegamentiPiano[p.id] ? (
-                  <Text style={styles.cardPianoBadge}>
-                    {collegamentiPiano[p.id] === 'rate' ? '\uD83D\uDCC5 Piano a rate collegato' : '\uD83D\uDCB0 Abbonamento collegato'}
-                  </Text>
+                  <View style={styles.cardPianoBadge}>
+                    <IconLabel
+                      icon={collegamentiPiano[p.id] === 'rate' ? 'calendar' : 'repeat'}
+                      label={collegamentiPiano[p.id] === 'rate' ? 'Piano a rate collegato' : 'Abbonamento collegato'}
+                      color="#0E9F8E"
+                      textStyle={styles.cardPianoBadgeText}
+                    />
+                  </View>
                 ) : null}
                 <FirmaStatoBadge
                   invio={invio}
@@ -131,8 +140,8 @@ export function StoricoPreventiviList({
             </LongPressAwarePressable>
 
             {aperto === p.id && (
-              <View style={styles.detail}>
-                {p.testo_preventivo ? <Text style={styles.detailText}>{p.testo_preventivo}</Text> : null}
+              <View style={[styles.detail, th.detailBorder]}>
+                {p.testo_preventivo ? <Text style={[styles.detailText, th.detailText]}>{p.testo_preventivo}</Text> : null}
 
                 {p.versione && p.versione > 1 ? (
                   <TouchableOpacity style={styles.cronologiaBtn} onPress={() => onCaricaCronologia(p.id, p.preventivo_padre_id)}>
@@ -143,7 +152,7 @@ export function StoricoPreventiviList({
                 ) : null}
 
                 {cronologiaAperta === p.id && cronologia[p.id]?.map(v => (
-                  <TouchableOpacity key={v.id} style={styles.cronologiaItem} onPress={() => onToggleVersione(v.id)}>
+                  <TouchableOpacity key={v.id} style={[styles.cronologiaItem, th.cronologiaItem]} onPress={() => onToggleVersione(v.id)}>
                     <Text style={styles.cronologiaVer}>{`v${v.versione || 1}`}</Text>
                     <Text style={styles.cronologiaData}>{new Date(v.created_at).toLocaleDateString('it-IT')}</Text>
                     <Text style={styles.cronologiaImporto}>{v.importo_totale ? `\u20AC${formatImportoDb(v.importo_totale)}` : '\u2014'}</Text>
@@ -163,7 +172,10 @@ export function StoricoPreventiviList({
                 )}
 
                 <TouchableOpacity style={styles.editBtn} onPress={() => onModificaVersione(p)}>
-                  <Text style={styles.editBtnText}>{`\u270F\uFE0F ${MODIFICA_VERSIONE_ALTERNATIVA_LABEL}`}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                    <AppIcon name="edit-2" size={16} color="#0E9F8E" />
+                    <Text style={styles.editBtnText}>{MODIFICA_VERSIONE_ALTERNATIVA_LABEL}</Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             )}

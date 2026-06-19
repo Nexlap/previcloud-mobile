@@ -5,11 +5,14 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View,
 } from 'react-native'
-import { caricaInviiFirma, caricaContattiCliente, type PreventivoInvio } from '../../lib/api/firma'
+import { caricaContattiCliente } from '../../lib/api/firma'
+import { useInviiFirma } from '../../lib/hooks/useInviiFirma'
 import { caricaSettingsData } from '../../lib/api/settings'
 import { InviaFirmaModal } from '../../lib/components/firma/InviaFirmaModal'
 import { FirmaDettaglioModal } from '../../lib/components/firma/FirmaDettaglioModal'
+import { NotificaAzioneStorico } from '../../lib/components/firma/NotificheBell'
 import { eventBus } from '../../lib/eventBus'
+import type { Notifica } from '../../lib/hooks/useNotifiche'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { caricaClientiPerSposta, caricaCollegamentiPianoPreventivi, caricaCronologiaPreventivo, eliminaPreventivi, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
@@ -23,9 +26,11 @@ import { MenuAzioniSheet } from '../../lib/components/MenuAzioniSheet'
 import { storicoStyles as styles } from '../../lib/components/storico/storicoStyles'
 import { Cliente, Preventivo } from '../../lib/types'
 import { trackEvento } from '../../lib/utils/analytics'
+import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 export default function Storico() {
-  const { preventivi, loading, refreshing, onRefresh, cambiaStato, segnaPagato, eliminaPreventivo, rinominaPreventivo } = usePreventivi()
+  const { s } = useScreenTheme()
+  const { preventivi, loading, refreshing, onRefresh, cambiaStato, segnaPagato, eliminaPreventivo, rinominaPreventivo, patchPreventivoLocal } = usePreventivi()
   const { modificaInput, apriDaPreventivo, chiudiSceltaModifica } = useModificaPreventivoScelta()
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
@@ -43,18 +48,25 @@ export default function Storico() {
   const [preventiviEliminati, setPreventiviEliminati] = useState<string[]>([])
   const [preventiviSpostati, setPreventiviSpostati] = useState<{ [id: string]: { cliente_id: string, nome_cliente: string } }>({})
   const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
-  const [inviiFirma, setInviiFirma] = useState<Record<string, PreventivoInvio>>({})
   const [firmaModalPreventivo, setFirmaModalPreventivo] = useState<Preventivo | null>(null)
   const [firmaDettaglioPreventivo, setFirmaDettaglioPreventivo] = useState<Preventivo | null>(null)
   const [firmaTelefono, setFirmaTelefono] = useState<string | null>(null)
   const [firmaEmail, setFirmaEmail] = useState<string | null>(null)
   const [nomeAzienda, setNomeAzienda] = useState('')
+  const [notificaAzione, setNotificaAzione] = useState<Notifica | null>(null)
 
   const preventiviVisibili = preventivi
     .filter(p => !preventiviEliminati.includes(p.id))
     .map(p => preventiviSpostati[p.id] ? { ...p, ...preventiviSpostati[p.id] } : p)
   const selezionati = preventiviVisibili.filter(p => preventiviSelezionati.includes(p.id))
   const preventivoModale = preventiviVisibili.find(p => p.id === modalStato)
+  const idsInviiFirma = preventiviVisibili.map(p => p.id)
+
+  const { inviiFirma, ricaricaInviiFirma } = useInviiFirma(idsInviiFirma, {
+    onPreventivoChange: (row) => {
+      patchPreventivoLocal(row.id, { stato: row.stato, pdf_url: row.pdf_url ?? undefined })
+    },
+  })
 
   useFocusEffect(useCallback(() => {
     trackEvento('storico_aperto', 'storico')
@@ -65,10 +77,13 @@ export default function Storico() {
   }, []))
 
   useEffect(() => {
-    const ids = preventiviVisibili.map(p => p.id)
-    if (ids.length === 0) { setInviiFirma({}); return }
-    void caricaInviiFirma(ids).then(setInviiFirma)
-  }, [preventiviVisibili.map(p => p.id).join(',')])
+    function apriDaNotifica(n: Notifica) {
+      setNotificaAzione(n)
+      if (n.preventivo_id) setAperto(n.preventivo_id)
+    }
+    eventBus.on('apri-notifica', apriDaNotifica)
+    return () => { eventBus.off('apri-notifica', apriDaNotifica) }
+  }, [])
 
   async function apriFirmaModal(p: Preventivo) {
     setFirmaModalPreventivo(p)
@@ -80,11 +95,6 @@ export default function Storico() {
       setFirmaTelefono(null)
       setFirmaEmail(null)
     }
-  }
-
-  function ricaricaInviiFirma() {
-    const ids = preventiviVisibili.map(x => x.id)
-    if (ids.length) void caricaInviiFirma(ids).then(setInviiFirma)
   }
 
   async function scaricaPDF(p: Preventivo) {
@@ -255,13 +265,13 @@ export default function Storico() {
   }
 
   if (loading) return (
-    <View style={styles.center}>
+    <View style={s.center}>
       <ActivityIndicator size="large" color="#0E9F8E" />
     </View>
   )
 
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       <StoricoHeader />
 
       <ScrollView
@@ -363,6 +373,16 @@ export default function Storico() {
           nomeAzienda={nomeAzienda}
           onClose={() => setFirmaDettaglioPreventivo(null)}
           onInviaNuovo={() => void apriFirmaModal(firmaDettaglioPreventivo)}
+          onAggiornato={() => {
+            ricaricaInviiFirma()
+            cambiaStato(firmaDettaglioPreventivo.id, 'accettato')
+            eventBus.emit('aggiorna-home')
+          }}
+          onFirmaAnnullata={() => {
+            ricaricaInviiFirma()
+            cambiaStato(firmaDettaglioPreventivo.id, 'inviato')
+            eventBus.emit('aggiorna-home')
+          }}
         />
       ) : null}
 
@@ -380,8 +400,14 @@ export default function Storico() {
             cambiaStato(firmaModalPreventivo.id, 'inviato')
             eventBus.emit('aggiorna-home')
           }}
+          onFirmaManuale={() => setFirmaDettaglioPreventivo(firmaModalPreventivo)}
         />
       ) : null}
+
+      <NotificaAzioneStorico
+        notifica={notificaAzione}
+        onClose={() => setNotificaAzione(null)}
+      />
 
       <MenuAzioniSheet
         variant="dock"

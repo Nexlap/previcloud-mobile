@@ -99,7 +99,7 @@ export function ClientePagamentoRateTab({
   if (abbonamentiAttivi.length === 0) {
     return (
       <PianoVuotoState
-        emoji={'\uD83D\uDCC5'}
+        icon="calendar"
         title="Nessun piano a rate"
         description="Suddividi l'importo di un preventivo in rate mensili con scadenze, promemoria e tracciamento degli incassi."
       />
