@@ -10,6 +10,7 @@ import { Preventivo, Profile } from "../../lib/types"
 import { trackEvento } from "../../lib/utils/analytics"
 import { formatImportoEuro, formatImportoDb } from '../../lib/utils/importo'
 import { PreventivoStatoBadge } from '../../lib/components/preventivo/PreventivoStatoBadge'
+import { NotificheBell } from '../../lib/components/firma/NotificheBell'
 
 export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -69,9 +70,12 @@ useEffect(() => {
           <Text style={styles.saluto}>{saluto},</Text>
           <Text style={styles.nome}>{nome} 👋</Text>
         </View>
-        <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/screens/profilo')}>
-          <Text style={styles.profileBtnText}>{(nome || 'A').charAt(0).toUpperCase()}</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <NotificheBell />
+          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/screens/profilo')}>
+            <Text style={styles.profileBtnText}>{(nome || 'A').charAt(0).toUpperCase()}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView

@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity, View } from 'react-native'
+import { LongPressAwareTouchableOpacity } from '../LongPressAwarePressable'
 import { ServizioForm } from '../../types'
 import { formatImportoEuroVisuale } from '../../utils/importo'
 import { listinoStyles as styles } from './listinoStyles'
@@ -29,7 +30,7 @@ export function ListinoServiziList({
       {servizi.map(s => {
         const selezionato = serviziSelezionati.includes(s.id)
         return (
-          <TouchableOpacity
+          <LongPressAwareTouchableOpacity
             key={s.id}
             style={[styles.servizioCard, selezionato && styles.servizioCardSelected]}
             activeOpacity={0.8}
@@ -49,7 +50,7 @@ export function ListinoServiziList({
                 <Text style={{ fontSize: 16 }}>{'\uD83D\uDDD1'}</Text>
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </LongPressAwareTouchableOpacity>
         )
       })}
     </>

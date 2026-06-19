@@ -1,10 +1,14 @@
 import * as FileSystem from 'expo-file-system/legacy'
 import { router, useFocusEffect } from 'expo-router'
 import * as Sharing from 'expo-sharing'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
-  ActivityIndicator, Alert, RefreshControl, ScrollView, View,
+  ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View,
 } from 'react-native'
+import { caricaInviiFirma, caricaContattiCliente, type PreventivoInvio } from '../../lib/api/firma'
+import { caricaSettingsData } from '../../lib/api/settings'
+import { InviaFirmaModal } from '../../lib/components/firma/InviaFirmaModal'
+import { FirmaDettaglioModal } from '../../lib/components/firma/FirmaDettaglioModal'
 import { eventBus } from '../../lib/eventBus'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
@@ -15,17 +19,20 @@ import { StoricoEmpty } from '../../lib/components/storico/StoricoEmpty'
 import { StoricoHeader } from '../../lib/components/storico/StoricoHeader'
 import { StoricoModals } from '../../lib/components/storico/StoricoModals'
 import { StoricoPreventiviList } from '../../lib/components/storico/StoricoPreventiviList'
-import { StoricoSelectionBar } from '../../lib/components/storico/StoricoSelectionBar'
+import { MenuAzioniSheet } from '../../lib/components/MenuAzioniSheet'
 import { storicoStyles as styles } from '../../lib/components/storico/storicoStyles'
 import { Cliente, Preventivo } from '../../lib/types'
 import { trackEvento } from '../../lib/utils/analytics'
 
 export default function Storico() {
-  const { preventivi, loading, refreshing, onRefresh, cambiaStato, segnaPagato, eliminaPreventivo } = usePreventivi()
+  const { preventivi, loading, refreshing, onRefresh, cambiaStato, segnaPagato, eliminaPreventivo, rinominaPreventivo } = usePreventivi()
   const { modificaInput, apriDaPreventivo, chiudiSceltaModifica } = useModificaPreventivoScelta()
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
   const [modalClienti, setModalClienti] = useState(false)
+  const [spostaPreventivoId, setSpostaPreventivoId] = useState<string | null>(null)
+  const [modalRinominaId, setModalRinominaId] = useState<string | null>(null)
+  const [nuovoTitolo, setNuovoTitolo] = useState('')
   const [clienti, setClienti] = useState<Cliente[]>([])
   const [caricandoClienti, setCaricandoClienti] = useState(false)
   const [cronologiaAperta, setCronologiaAperta] = useState<string | null>(null)
@@ -36,6 +43,12 @@ export default function Storico() {
   const [preventiviEliminati, setPreventiviEliminati] = useState<string[]>([])
   const [preventiviSpostati, setPreventiviSpostati] = useState<{ [id: string]: { cliente_id: string, nome_cliente: string } }>({})
   const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
+  const [inviiFirma, setInviiFirma] = useState<Record<string, PreventivoInvio>>({})
+  const [firmaModalPreventivo, setFirmaModalPreventivo] = useState<Preventivo | null>(null)
+  const [firmaDettaglioPreventivo, setFirmaDettaglioPreventivo] = useState<Preventivo | null>(null)
+  const [firmaTelefono, setFirmaTelefono] = useState<string | null>(null)
+  const [firmaEmail, setFirmaEmail] = useState<string | null>(null)
+  const [nomeAzienda, setNomeAzienda] = useState('')
 
   const preventiviVisibili = preventivi
     .filter(p => !preventiviEliminati.includes(p.id))
@@ -46,7 +59,33 @@ export default function Storico() {
   useFocusEffect(useCallback(() => {
     trackEvento('storico_aperto', 'storico')
     caricaCollegamentiPianoPreventivi().then(setCollegamentiPiano)
+    void caricaSettingsData().then(d => {
+      if (d?.form?.nome_azienda) setNomeAzienda(d.form.nome_azienda.split(' ')[0] || d.form.nome_azienda)
+    })
   }, []))
+
+  useEffect(() => {
+    const ids = preventiviVisibili.map(p => p.id)
+    if (ids.length === 0) { setInviiFirma({}); return }
+    void caricaInviiFirma(ids).then(setInviiFirma)
+  }, [preventiviVisibili.map(p => p.id).join(',')])
+
+  async function apriFirmaModal(p: Preventivo) {
+    setFirmaModalPreventivo(p)
+    if (p.cliente_id) {
+      const c = await caricaContattiCliente(p.cliente_id)
+      setFirmaTelefono(c?.telefono || null)
+      setFirmaEmail(c?.email || null)
+    } else {
+      setFirmaTelefono(null)
+      setFirmaEmail(null)
+    }
+  }
+
+  function ricaricaInviiFirma() {
+    const ids = preventiviVisibili.map(x => x.id)
+    if (ids.length) void caricaInviiFirma(ids).then(setInviiFirma)
+  }
 
   async function scaricaPDF(p: Preventivo) {
     if (p.pdf_url) {
@@ -87,6 +126,8 @@ export default function Storico() {
     setSelezioneAttiva(false)
     setPreventiviSelezionati([])
   }
+
+  useAnnullaSelezioneOnAndroidBack(selezioneAttiva, annullaSelezione)
 
   async function handleRefresh() {
     await onRefresh()
@@ -137,8 +178,23 @@ export default function Storico() {
     if (clienti.length === 0) await caricaClienti()
   }
 
-  async function spostaSelezionati(cliente: Cliente) {
-    const ids = [...preventiviSelezionati]
+  function apriSpostaSingolo(preventivoId: string) {
+    setSpostaPreventivoId(preventivoId)
+    void apriSpostaCliente()
+  }
+
+  function apriRinomina(preventivo: Preventivo) {
+    setNuovoTitolo(preventivo.titolo || '')
+    setModalRinominaId(preventivo.id)
+  }
+
+  function chiudiModalSposta() {
+    setModalClienti(false)
+    setSpostaPreventivoId(null)
+  }
+
+  async function spostaSuCliente(cliente: Cliente) {
+    const ids = spostaPreventivoId ? [spostaPreventivoId] : [...preventiviSelezionati]
     if (ids.length === 0) return
     const { error } = await spostaPreventivi(ids, cliente)
     if (error) { Alert.alert('Errore', error.message); return }
@@ -146,7 +202,7 @@ export default function Storico() {
       ...acc,
       [id]: { cliente_id: cliente.id, nome_cliente: cliente.nome },
     }), prev))
-    setModalClienti(false)
+    chiudiModalSposta()
     annullaSelezione()
     eventBus.emit('aggiorna-home')
     await onRefresh()
@@ -208,19 +264,9 @@ export default function Storico() {
     <View style={styles.container}>
       <StoricoHeader />
 
-      {selezioneAttiva ? (
-        <StoricoSelectionBar
-          count={preventiviSelezionati.length}
-          onCancel={annullaSelezione}
-          onDelete={eliminaSelezionati}
-          onShare={condividiSelezionati}
-          onMove={apriSpostaCliente}
-        />
-      ) : null}
-
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={{ padding: 16, gap: 10 }}
+        contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: selezioneAttiva ? 120 : 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0E9F8E" colors={['#0E9F8E']} />}
       >
         {preventiviVisibili.length === 0 ? (
@@ -241,10 +287,15 @@ export default function Storico() {
             onStatoPress={setModalStato}
             onScaricaPdf={scaricaPDF}
             onElimina={elimina}
+            onRinomina={apriRinomina}
+            onSposta={apriSpostaSingolo}
             onCaricaCronologia={caricaCronologia}
             onToggleVersione={onToggleVersione}
             onRipristinaVersione={onRipristinaVersione}
             onModificaVersione={(preventivo) => apriDaPreventivo(preventivo)}
+            inviiFirma={inviiFirma}
+            onInviaFirma={apriFirmaModal}
+            onApriFirmaDettaglio={setFirmaDettaglioPreventivo}
           />
         )}
         <View style={{ height: 40 }} />
@@ -263,16 +314,85 @@ export default function Storico() {
           eventBus.emit('aggiorna-home')
         }}
         modalClienti={modalClienti}
-        onCloseClienti={() => setModalClienti(false)}
+        onCloseClienti={chiudiModalSposta}
         clienti={clienti}
         caricandoClienti={caricandoClienti}
-        onSpostaCliente={spostaSelezionati}
+        onSpostaCliente={spostaSuCliente}
       />
+
+      <Modal visible={modalRinominaId !== null} transparent animationType="fade" onRequestClose={() => setModalRinominaId(null)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalRinominaId(null)}>
+          <TouchableOpacity style={styles.modalBox} activeOpacity={1} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Rinomina preventivo</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={nuovoTitolo}
+              onChangeText={setNuovoTitolo}
+              placeholder="es. Preventivo caldaia"
+              placeholderTextColor="#9CA3AF"
+              autoFocus
+            />
+            <TouchableOpacity
+              style={styles.modalSaveBtn}
+              onPress={async () => {
+                if (!modalRinominaId) return
+                await rinominaPreventivo(modalRinominaId, nuovoTitolo.trim())
+                setModalRinominaId(null)
+              }}
+            >
+              <Text style={styles.modalSaveBtnText}>Salva</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setModalRinominaId(null)}>
+              <Text style={styles.modalCancelText}>Annulla</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       <ModificaPreventivoModal
         visible={!!modificaInput}
         input={modificaInput}
         onClose={chiudiSceltaModifica}
+      />
+
+      {firmaDettaglioPreventivo ? (
+        <FirmaDettaglioModal
+          visible
+          preventivo={firmaDettaglioPreventivo}
+          invio={inviiFirma[firmaDettaglioPreventivo.id]}
+          nomeAzienda={nomeAzienda}
+          onClose={() => setFirmaDettaglioPreventivo(null)}
+          onInviaNuovo={() => void apriFirmaModal(firmaDettaglioPreventivo)}
+        />
+      ) : null}
+
+      {firmaModalPreventivo ? (
+        <InviaFirmaModal
+          visible
+          preventivoId={firmaModalPreventivo.id}
+          nomeCliente={firmaModalPreventivo.nome_cliente || 'Cliente'}
+          telefonoCliente={firmaTelefono}
+          emailCliente={firmaEmail}
+          nomeAzienda={nomeAzienda}
+          onClose={() => setFirmaModalPreventivo(null)}
+          onInviato={() => {
+            ricaricaInviiFirma()
+            cambiaStato(firmaModalPreventivo.id, 'inviato')
+            eventBus.emit('aggiorna-home')
+          }}
+        />
+      ) : null}
+
+      <MenuAzioniSheet
+        variant="dock"
+        visible={selezioneAttiva}
+        titolo={`${preventiviSelezionati.length} selezionati`}
+        onClose={annullaSelezione}
+        voci={[
+          { label: 'Sposta', onPress: apriSpostaCliente },
+          { label: 'Condividi', onPress: condividiSelezionati },
+          { label: 'Elimina', onPress: eliminaSelezionati, danger: true },
+        ]}
       />
     </View>
   )

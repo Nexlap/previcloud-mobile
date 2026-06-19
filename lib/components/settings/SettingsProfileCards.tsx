@@ -1,4 +1,4 @@
-import { ActivityIndicator, Image, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Image, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { SettingsForm } from '../../api/settings'
 import { CATEGORIE, COLORI_BRAND, TONI } from '../../features/settings/constants'
 import { settingsStyles as styles } from './settingsStyles'
@@ -8,10 +8,11 @@ type Props = {
   logoUrl: string
   uploadingLogo: boolean
   onSetField: (key: string, val: string) => void
+  onPatchForm: (patch: Partial<SettingsForm>) => void
   onScegliLogo: () => void
 }
 
-export function SettingsProfileCards({ form, logoUrl, uploadingLogo, onSetField, onScegliLogo }: Props) {
+export function SettingsProfileCards({ form, logoUrl, uploadingLogo, onSetField, onPatchForm, onScegliLogo }: Props) {
   return (
     <>
       <View style={styles.card}>
@@ -121,6 +122,31 @@ export function SettingsProfileCards({ form, logoUrl, uploadingLogo, onSetField,
         {form.firma_nome ? (
           <Text style={styles.firmaPreview}>{form.firma_nome}</Text>
         ) : null}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Firma digitale — reminder</Text>
+        <Text style={styles.cardSub}>Quanti giorni dopo l'invio chiederti se mandare un promemoria al cliente</Text>
+        <Text style={styles.label}>GIORNI PRIMA DEL REMINDER</Text>
+        <TextInput
+          style={styles.input}
+          value={String(form.reminder_firma_giorni)}
+          onChangeText={v => onPatchForm({ reminder_firma_giorni: Math.max(1, Number(v) || 3) })}
+          keyboardType="number-pad"
+          placeholder="3"
+          placeholderTextColor="#9CA3AF"
+        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+          <Text style={{ flex: 1, fontSize: 13, color: '#6B7280', marginRight: 12 }}>
+            Disabilita reminder firma (tutti i preventivi)
+          </Text>
+          <Switch
+            value={form.reminder_firma_globale_disabilitato}
+            onValueChange={v => onPatchForm({ reminder_firma_globale_disabilitato: v })}
+            trackColor={{ false: '#D1D5DB', true: '#0E9F8E' }}
+            thumbColor="#fff"
+          />
+        </View>
       </View>
     </>
   )

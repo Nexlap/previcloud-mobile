@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import {
-  ActivityIndicator, Alert, Linking, Platform, Pressable, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Alert, Linking, Platform, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View,
   type DimensionValue,
 } from 'react-native'
+import { LongPressAwarePressable } from '../LongPressAwarePressable'
+import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
 import { sessioneClienteDettaglio } from '../../api/clienteDettaglio'
 import { creaLinkPagamentoRata } from '../../api/pdf'
 import { MESI_BREVI } from '../../constants'
@@ -109,6 +111,7 @@ export type PianoRateCardProps = {
   modificaImportoPianoRate: (abbonamentoId: string, importo: number) => Promise<boolean>
   salvaImportiRatePersonalizzati: (abbonamentoId: string, importi: Record<string, number>) => Promise<boolean>
   eliminaAbbonamento: (abbonamentoId: string) => Promise<void>
+  onRename?: () => void
   selezionePianoAttiva?: boolean
   pianoSelezionato?: boolean
   onAvviaSelezionePiano?: (abbonamentoId: string) => void
@@ -127,6 +130,7 @@ export function PianoRateCard({
   modificaImportoPianoRate,
   salvaImportiRatePersonalizzati,
   eliminaAbbonamento,
+  onRename,
   selezionePianoAttiva = false,
   pianoSelezionato = false,
   onAvviaSelezionePiano,
@@ -144,6 +148,7 @@ export function PianoRateCard({
   const [nuovoImportoTotale, setNuovoImportoTotale] = useState('')
   const [salvaImportoLoading, setSalvaImportoLoading] = useState(false)
   const [salvaPersonalizzaLoading, setSalvaPersonalizzaLoading] = useState(false)
+  const [menuAperto, setMenuAperto] = useState(false)
 
   const rateOrdinate = useMemo(() => [...rate].sort(ordinaRate), [rate])
   const rateFuture = useMemo(
@@ -319,9 +324,18 @@ export function PianoRateCard({
     )
   }
 
+  function vociMenu(): VoceMenuAzione[] {
+    return [
+      { label: 'Rinomina', onPress: () => onRename?.(), hidden: !onRename },
+      { label: 'Modifica importo', onPress: apriModificaImporto },
+      { label: 'Personalizza rate', onPress: apriPersonalizzaRate, hidden: rateFuture.length === 0 },
+      { label: 'Elimina piano', onPress: confermaEliminaPiano, danger: true },
+    ]
+  }
+
   return (
     <View style={styles.container}>
-      <Pressable
+      <LongPressAwarePressable
         style={[
           styles.pianoHeader,
           pianoSelezionato && styles.pianoHeaderSelected,
@@ -341,7 +355,6 @@ export function PianoRateCard({
           })
         }}
         onLongPress={() => onAvviaSelezionePiano?.(abbonamento.id)}
-        delayLongPress={400}
       >
         {selezionePianoAttiva ? (
           <View style={[styles.checkCircle, pianoSelezionato && styles.checkCircleActive]}>
@@ -367,9 +380,20 @@ export function PianoRateCard({
           ) : null}
         </View>
         {!selezionePianoAttiva ? (
-          <Text style={styles.sectionArrow}>{pianoEspanso ? '\u25B2' : '\u25BC'}</Text>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <TouchableOpacity hitSlop={8} onPress={() => setMenuAperto(true)}>
+              <Text style={styles.menuPuntini}>{'\u22EE'}</Text>
+            </TouchableOpacity>
+            <Text style={styles.sectionArrow}>{pianoEspanso ? '\u25B2' : '\u25BC'}</Text>
+          </View>
         ) : null}
-      </Pressable>
+      </LongPressAwarePressable>
+
+      <MenuAzioniSheet
+        visible={menuAperto}
+        voci={vociMenu()}
+        onClose={() => setMenuAperto(false)}
+      />
 
       {pianoEspanso && !selezionePianoAttiva ? (
         <View style={styles.pianoBody}>
@@ -536,23 +560,7 @@ export function PianoRateCard({
                 </TouchableOpacity>
               </View>
             </View>
-          ) : (
-            <View style={{ gap: 8 }}>
-              {rateFuture.length > 0 ? (
-                <TouchableOpacity style={styles.personalizzaBtn} onPress={apriPersonalizzaRate}>
-                  <Text style={styles.personalizzaBtnText}>Personalizza rate</Text>
-                </TouchableOpacity>
-              ) : null}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity style={styles.abAzioneBtn} onPress={apriModificaImporto}>
-                  <Text style={styles.abAzioneBtnText}>{'\u270F\uFE0F'} Modifica importo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.abAzioneBtn, { borderColor: '#FCA5A5' }]} onPress={confermaEliminaPiano}>
-                  <Text style={[styles.abAzioneBtnText, { color: '#EF4444' }]}>{'\uD83D\uDDD1'} Elimina piano</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -590,6 +598,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#F7F8FA' },
   sectionTitle: { fontSize: 12, fontWeight: '600', color: '#6B7280', letterSpacing: 0.6, textTransform: 'uppercase' },
   sectionArrow: { fontSize: 10, color: '#9CA3AF' },
+  menuPuntini: { fontSize: 22, color: '#9CA3AF', lineHeight: 24 },
   rataMiniTab: { borderTopWidth: 1, borderTopColor: '#F3F4F6', padding: 12 },
   rataMiniRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rataMiniTitolo: { fontSize: 13, fontWeight: '500', color: '#0D1B2A' },

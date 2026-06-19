@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TouchableOpacity, View, type DimensionValue } from 'react-native'
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View, type DimensionValue } from 'react-native'
+import { LongPressAwarePressable } from '../LongPressAwarePressable'
+import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
 import { MESI_BREVI } from '../../constants'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
 import { formatImportoEuro } from '../../utils/importo'
@@ -159,7 +161,7 @@ function RataStoricoRow({
 }: RataStoricoProps) {
   const badge = badgeCanone(rata.stato)
   return (
-    <Pressable
+    <LongPressAwarePressable
       style={[styles.rataMiniTab, selezioneAttiva && selezionata && styles.rataMiniTabSelected]}
       onPress={() => {
         if (selezionePianoAttiva) return
@@ -169,7 +171,6 @@ function RataStoricoRow({
         if (selezionePianoAttiva) return
         onLongPress()
       }}
-      delayLongPress={400}
     >
       <View style={styles.rataMiniRow}>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -195,7 +196,7 @@ function RataStoricoRow({
           />
         </View>
       ) : null}
-    </Pressable>
+    </LongPressAwarePressable>
   )
 }
 
@@ -259,6 +260,24 @@ function AbbonamentoPianoCard({
   onToggleSelezionePiano,
 }: AbbonamentoPianoCardProps) {
   const [storicoAperto, setStoricoAperto] = useState(false)
+  const [menuAperto, setMenuAperto] = useState(false)
+
+  function vociMenu(): VoceMenuAzione[] {
+    return [
+      { label: 'Rinomina', onPress: onRename },
+      { label: 'Modifica canone', onPress: onEditCanone },
+      {
+        label: 'Elimina',
+        onPress: () => {
+          Alert.alert('Elimina abbonamento', 'Le rate storiche resteranno salvate. Vuoi procedere?', [
+            { text: 'Annulla', style: 'cancel' },
+            { text: 'Elimina', style: 'destructive', onPress: onDeleteAbbonamento },
+          ])
+        },
+        danger: true,
+      },
+    ]
+  }
 
   const rataMeseCorrente = rate.find(r => r.mese === meseCorrente && r.anno === annoCorrente)
   const rateStoriche = rate.filter(r => !(r.mese === meseCorrente && r.anno === annoCorrente))
@@ -273,7 +292,7 @@ function AbbonamentoPianoCard({
 
   return (
     <View style={styles.pianoCard}>
-      <Pressable
+      <LongPressAwarePressable
         style={[
           styles.abHeader,
           pianoSelezionato && styles.pianoHeaderSelected,
@@ -287,7 +306,6 @@ function AbbonamentoPianoCard({
           onToggleEspanso()
         }}
         onLongPress={() => onAvviaSelezionePiano()}
-        delayLongPress={400}
       >
         {selezionePianoAttiva ? (
           <View style={[styles.checkCircle, pianoSelezionato && styles.checkCircleActive]}>
@@ -317,21 +335,27 @@ function AbbonamentoPianoCard({
           ) : null}
         </View>
         {!selezionePianoAttiva ? (
-          <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-            <TouchableOpacity onPress={onRename}>
-              <Text style={{ fontSize: 16 }}>{'\u270F\uFE0F'}</Text>
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <TouchableOpacity hitSlop={8} onPress={() => setMenuAperto(true)}>
+              <Text style={styles.menuPuntini}>{'\u22EE'}</Text>
             </TouchableOpacity>
             <Text style={styles.abHeaderArrow}>{espanso ? '\u25B2' : '\u25BC'}</Text>
           </View>
         ) : null}
-      </Pressable>
+      </LongPressAwarePressable>
+
+      <MenuAzioniSheet
+        visible={menuAperto}
+        voci={vociMenu()}
+        onClose={() => setMenuAperto(false)}
+      />
 
       {espanso && !selezionePianoAttiva ? (
         <View style={styles.abBody}>
           <PreventivoMadreLink preventivo={preventivoMadre} onPress={onApriPreventivoMadre} />
 
           {rataMeseCorrente ? (
-            <Pressable
+            <LongPressAwarePressable
               style={[
                 styles.rataCardCorrente,
                 !selezionePianoAttiva && selezioneAttiva && rateSelezionate.includes(rataMeseCorrente.id) && styles.rataCardSelected,
@@ -344,7 +368,6 @@ function AbbonamentoPianoCard({
                 if (selezionePianoAttiva) return
                 onAvviaSelezione(rataMeseCorrente.id)
               }}
-              delayLongPress={400}
             >
               <View style={styles.rataRow}>
                 <View style={{ flex: 1 }}>
@@ -379,7 +402,7 @@ function AbbonamentoPianoCard({
                   onAzzeraPagamento={onAzzeraPagamento}
                 />
               ) : null}
-            </Pressable>
+            </LongPressAwarePressable>
           ) : (
             <TouchableOpacity style={styles.abGeneraBtn} onPress={onOpenAddRata}>
               <Text style={styles.abGeneraBtnText}>
@@ -421,25 +444,9 @@ function AbbonamentoPianoCard({
           ) : null}
 
           {!selezioneAttiva && !selezionePianoAttiva ? (
-            <>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity style={styles.abAzioneBtn} onPress={onEditCanone}>
-                  <Text style={styles.abAzioneBtnText}>{'\u270F\uFE0F'} Modifica canone</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.abAzioneBtn, { borderColor: '#FCA5A5' }]} onPress={() => {
-                  Alert.alert('Elimina abbonamento', 'Le rate storiche resteranno salvate. Vuoi procedere?', [
-                    { text: 'Annulla', style: 'cancel' },
-                    { text: 'Elimina', style: 'destructive', onPress: onDeleteAbbonamento },
-                  ])
-                }}>
-                  <Text style={[styles.abAzioneBtnText, { color: '#EF4444' }]}>{'\uD83D\uDDD1'} Elimina</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity style={styles.abAggiungiBtn} onPress={onOpenAddRata}>
-                <Text style={styles.abAggiungiText}>+ Aggiungi canone (mese/anno)</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity style={styles.abAggiungiBtn} onPress={onOpenAddRata}>
+              <Text style={styles.abAggiungiText}>+ Aggiungi canone (mese/anno)</Text>
+            </TouchableOpacity>
           ) : null}
         </View>
       ) : null}
@@ -593,6 +600,7 @@ const styles = StyleSheet.create({
     marginBottom: -4,
   },
   abHeaderArrow: { fontSize: 12, color: '#9CA3AF' },
+  menuPuntini: { fontSize: 22, color: '#9CA3AF', lineHeight: 24 },
   abBody: { gap: 10, marginTop: 10 },
   rataCardCorrente: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: '#0E9F8E', padding: 14, gap: 10 },
   rataCardSelected: { backgroundColor: '#F0FDF4' },

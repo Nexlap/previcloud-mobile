@@ -5,15 +5,18 @@ import {
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { eliminaClienti } from '../../lib/api/clienti'
+import { ClienteModificaModal, clienteToModificaForm, type ClienteModificaForm } from '../../lib/components/clienti/ClienteModificaModal'
 import { ClienteNuovoModal } from '../../lib/components/clienti/ClienteNuovoModal'
-import { ClienteSelectionBar } from '../../lib/components/clienteDettaglio/ClienteOverview'
+import { MenuAzioniSheet } from '../../lib/components/MenuAzioniSheet'
+import { LongPressAwareTouchableOpacity } from '../../lib/components/LongPressAwarePressable'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { useClienti } from "../../lib/hooks/useClienti"
+import { Cliente } from '../../lib/types'
 import { formatImportoEuro } from '../../lib/utils/importo'
 import { trackEvento } from "../../lib/utils/analytics"
 
 export default function Clienti() {
-  const { clienti, loading, refreshing, onRefresh, aggiungiCliente } = useClienti()
+  const { clienti, loading, refreshing, onRefresh, aggiungiCliente, eliminaCliente, aggiornaCliente } = useClienti()
   const [cerca, setCerca] = useState('')
   const [mostraForm, setMostraForm] = useState(false)
   const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', note: '' })
@@ -21,6 +24,10 @@ export default function Clienti() {
   const [selezioneAttiva, setSelezioneAttiva] = useState(false)
   const [clientiSelezionati, setClientiSelezionati] = useState<string[]>([])
   const [clientiEliminati, setClientiEliminati] = useState<string[]>([])
+  const [menuCliente, setMenuCliente] = useState<Cliente | null>(null)
+  const [clienteModifica, setClienteModifica] = useState<Cliente | null>(null)
+  const [datiModifica, setDatiModifica] = useState<ClienteModificaForm>({ nome: '', telefono: '', email: '', note: '' })
+  const [salvandoModifica, setSalvandoModifica] = useState(false)
 
   useFocusEffect(useCallback(() => {
     trackEvento('clienti_aperti', 'clienti')
@@ -88,6 +95,29 @@ export default function Clienti() {
     ])
   }
 
+  function apriModificaCliente(c: Cliente) {
+    setClienteModifica(c)
+    setDatiModifica(clienteToModificaForm(c))
+  }
+
+  async function salvaModificaCliente() {
+    if (!clienteModifica) return
+    setSalvandoModifica(true)
+    const ok = await aggiornaCliente(clienteModifica.id, datiModifica)
+    setSalvandoModifica(false)
+    if (ok) setClienteModifica(null)
+  }
+
+  function eliminaSingoloCliente(c: Cliente) {
+    Alert.alert('Elimina', `Eliminare ${c.nome}? Verranno eliminati anche preventivi e dati collegati.`, [
+      { text: 'Annulla', style: 'cancel' },
+      { text: 'Elimina', style: 'destructive', onPress: async () => {
+        const ok = await eliminaCliente(c.id)
+        if (ok) setClientiEliminati(prev => [...prev, c.id])
+      }},
+    ])
+  }
+
   if (loading) return (
     <View style={styles.center}>
       <ActivityIndicator size="large" color="#0E9F8E" />
@@ -103,17 +133,9 @@ export default function Clienti() {
         </TouchableOpacity>
       </View>
 
-      {selezioneAttiva && (
-        <ClienteSelectionBar
-          count={clientiSelezionati.length}
-          onCancel={annullaSelezione}
-          onDelete={eliminaClientiSelezionati}
-        />
-      )}
-
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={{ padding: 16, gap: 10 }}
+        contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: selezioneAttiva ? 120 : 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}
       >
         {/* Barra ricerca */}
@@ -140,7 +162,7 @@ export default function Clienti() {
           clientiFiltrati.map(c => {
             const selezionato = clientiSelezionati.includes(c.id)
             return (
-            <TouchableOpacity
+            <LongPressAwareTouchableOpacity
               key={c.id}
               style={[styles.clienteCard, selezionato && styles.clienteCardSelected]}
               onLongPress={() => avviaSelezione(c.id)}
@@ -163,7 +185,16 @@ export default function Clienti() {
                   <Text style={styles.clienteStatImporto}>€{formatImportoEuro(c.totale_preventivi ?? 0, 0)}</Text>
                 )}
               </View>
-            </TouchableOpacity>
+              {!selezioneAttiva ? (
+                <TouchableOpacity
+                  style={styles.menuBtn}
+                  hitSlop={8}
+                  onPress={() => setMenuCliente(c)}
+                >
+                  <Text style={styles.menuPuntini}>{'\u22EE'}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </LongPressAwareTouchableOpacity>
             )
           })
         )}
@@ -178,6 +209,35 @@ export default function Clienti() {
         onClose={chiudiModalNuovoCliente}
         onChange={setNuovoCliente}
         onSalva={handleAggiungi}
+      />
+
+      <ClienteModificaModal
+        visible={clienteModifica !== null}
+        dati={datiModifica}
+        salvando={salvandoModifica}
+        onClose={() => setClienteModifica(null)}
+        onChange={updater => setDatiModifica(prev => updater(prev))}
+        onSalva={salvaModificaCliente}
+      />
+
+      <MenuAzioniSheet
+        variant="dock"
+        visible={menuCliente !== null}
+        onClose={() => setMenuCliente(null)}
+        voci={menuCliente ? [
+          { label: 'Modifica', onPress: () => apriModificaCliente(menuCliente) },
+          { label: 'Elimina', onPress: () => eliminaSingoloCliente(menuCliente), danger: true },
+        ] : []}
+      />
+
+      <MenuAzioniSheet
+        variant="dock"
+        visible={selezioneAttiva}
+        titolo={`${clientiSelezionati.length} selezionati`}
+        onClose={annullaSelezione}
+        voci={[
+          { label: 'Elimina', onPress: eliminaClientiSelezionati, danger: true },
+        ]}
       />
     </View>
   )
@@ -209,4 +269,6 @@ const styles = StyleSheet.create({
   clienteStatLabel: { fontSize: 10, color: '#9CA3AF' },
   clienteStatImporto: { fontSize: 12, color: '#0E9F8E', fontWeight: '600', marginTop: 2 },
   clienteCardSelected: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
+  menuBtn: { paddingHorizontal: 4, paddingVertical: 8 },
+  menuPuntini: { fontSize: 22, color: '#9CA3AF', lineHeight: 24 },
 })

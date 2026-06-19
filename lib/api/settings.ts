@@ -11,9 +11,23 @@ type SettingsProfile = {
   note_pagamento?: string | null
   firma_nome?: string | null
   logo_url?: string | null
+  reminder_firma_giorni?: number | null
+  reminder_firma_globale_disabilitato?: boolean | null
 }
 
-export type SettingsForm = ReturnType<typeof normalizzaFormProfilo>
+export type SettingsForm = {
+  nome_azienda: string
+  categoria: string
+  citta: string
+  piva: string
+  telefono: string
+  tono: string
+  colore_brand: string
+  note_pagamento: string
+  firma_nome: string
+  reminder_firma_giorni: number
+  reminder_firma_globale_disabilitato: boolean
+}
 
 type SegnalazioneSettings = {
   tipo: string
@@ -22,7 +36,7 @@ type SegnalazioneSettings = {
   schermata: string
 }
 
-export function normalizzaFormProfilo(data: SettingsProfile) {
+export function normalizzaFormProfilo(data: SettingsProfile): SettingsForm {
   return {
     nome_azienda: data.nome_azienda || '',
     categoria: data.categoria || 'videomaker',
@@ -33,6 +47,8 @@ export function normalizzaFormProfilo(data: SettingsProfile) {
     colore_brand: data.colore_brand || '0D1B2A',
     note_pagamento: data.note_pagamento || '',
     firma_nome: data.firma_nome || '',
+    reminder_firma_giorni: typeof data.reminder_firma_giorni === 'number' ? data.reminder_firma_giorni : 3,
+    reminder_firma_globale_disabilitato: Boolean(data.reminder_firma_globale_disabilitato),
   }
 }
 

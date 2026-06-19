@@ -17,6 +17,8 @@ import { MESI_BREVI } from '../../lib/constants'
 import { creaLinkPagamentoRata } from '../../lib/api/pdf'
 import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, caricaCronologiaCliente, eliminaClienteDettaglio, eliminaPreventiviCliente, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
 import { ripristinaVersionePreventivo } from '../../lib/api/storico'
+import { caricaInviiFirma, type PreventivoInvio } from '../../lib/api/firma'
+import { caricaSettingsData } from '../../lib/api/settings'
 import { eventBus } from '../../lib/eventBus'
 import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
@@ -28,17 +30,18 @@ import { errorMessage } from '../../lib/utils/errors'
 import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
 import { useModificaPreventivoScelta } from '../../lib/features/modificaPreventivo/useModificaPreventivoScelta'
 import { ClienteAbbonamentoTab } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoTab'
-import { AbbonamentoRateSelectionBar } from '../../lib/components/clienteDettaglio/AbbonamentoRateSelectionBar'
 import { ClienteAbbonamentoModals } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoModals'
+import { MenuAzioniSheet } from '../../lib/components/MenuAzioniSheet'
 import {
   ClienteDettaglioHeader,
   ClienteInfoCard,
-  ClienteSelectionBar,
   ClienteStats,
   ClienteTabs,
 } from '../../lib/components/clienteDettaglio/ClienteOverview'
 import { ClientePreventivoModals } from '../../lib/components/clienteDettaglio/ClientePreventivoModals'
 import { ClientePreventiviList } from '../../lib/components/clienteDettaglio/ClientePreventiviList'
+import { InviaFirmaModal } from '../../lib/components/firma/InviaFirmaModal'
+import { FirmaDettaglioModal } from '../../lib/components/firma/FirmaDettaglioModal'
 import { ClientePagamentoRateTab } from '../../lib/components/clienteDettaglio/ClientePagamentoRateTab'
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
@@ -121,6 +124,10 @@ export default function ClienteDettaglio() {
   const [pianoSelezioneAttiva, setPianoSelezioneAttiva] = useState(false)
   const [pianiSelezionati, setPianiSelezionati] = useState<string[]>([])
   const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
+  const [inviiFirma, setInviiFirma] = useState<Record<string, PreventivoInvio>>({})
+  const [firmaModalPreventivo, setFirmaModalPreventivo] = useState<Preventivo | null>(null)
+  const [firmaDettaglioPreventivo, setFirmaDettaglioPreventivo] = useState<Preventivo | null>(null)
+  const [nomeAzienda, setNomeAzienda] = useState('')
 
   const {
     preventivi, totaleValore,
@@ -141,6 +148,7 @@ export default function ClienteDettaglio() {
   const {
     creaPianoRate,
     eliminaAbbonamento: eliminaPianoRate,
+    rinominaAbbonamento: rinominaPianoRate,
     carica: caricaAbRate,
   } = useAbbonamento(id, { soloTipo: 'rate' })
 
@@ -159,6 +167,17 @@ export default function ClienteDettaglio() {
       setTab(tabIniziale)
     }
   }, [tabIniziale])
+
+  useEffect(() => {
+    const ids = preventivi.map(p => p.id)
+    if (ids.length === 0) { setInviiFirma({}); return }
+    void caricaInviiFirma(ids).then(setInviiFirma)
+  }, [preventivi.map(p => p.id).join(',')])
+
+  function ricaricaInviiFirma() {
+    const ids = preventivi.map(x => x.id)
+    if (ids.length) void caricaInviiFirma(ids).then(setInviiFirma)
+  }
 
   useEffect(() => {
     setPianoSelezioneAttiva(false)
@@ -197,13 +216,17 @@ export default function ClienteDettaglio() {
   }, [mostraModalRinominaCliente, modificheNonSalvate])
 
   async function carica() {
-    const [{ cliente, trascrizioni }, collegamenti] = await Promise.all([
+    const [{ cliente, trascrizioni }, collegamenti, settings] = await Promise.all([
       caricaClienteDettaglio(id),
       caricaCollegamentiPianoPreventivo(id),
+      caricaSettingsData(),
     ])
     if (cliente) setCliente(cliente)
     setTrascrizioni(trascrizioni)
     setCollegamentiPiano(collegamenti)
+    if (settings?.form?.nome_azienda) {
+      setNomeAzienda(settings.form.nome_azienda.split(' ')[0] || settings.form.nome_azienda)
+    }
     setLoading(false)
   }
 
@@ -486,7 +509,8 @@ export default function ClienteDettaglio() {
 
   async function salvaRinominaAbbonamento() {
     if (!abbonamentoSelezionatoId) return
-    await rinominaAbbonamento(abbonamentoSelezionatoId, nomeAbTemp)
+    const rinomina = tab === 'pagamento_rate' ? rinominaPianoRate : rinominaAbbonamento
+    await rinomina(abbonamentoSelezionatoId, nomeAbTemp)
     setMostraModalRinominaAb(false)
   }
 
@@ -625,7 +649,20 @@ export default function ClienteDettaglio() {
   const annoCorrente = ora.getFullYear()
   const barraSelezionePianiVisibile = pianoSelezioneAttiva && (tab === 'abbonamento' || tab === 'pagamento_rate')
   const barraSelezioneRateVisibile = rateSelezioneAttiva && tab === 'abbonamento'
-  const barraSelezioneVisibile = barraSelezionePianiVisibile || barraSelezioneRateVisibile
+  const barraSelezioneVisibile = modalitaSelezione || barraSelezionePianiVisibile || barraSelezioneRateVisibile
+
+  function annullaSelezioneBulk() {
+    if (modalitaSelezione) annullaSelezione()
+    else if (barraSelezionePianiVisibile) annullaSelezionePiani()
+    else if (barraSelezioneRateVisibile) annullaSelezioneRate()
+  }
+
+  function titoloSelezioneBulk() {
+    if (modalitaSelezione) return `${selezione.length} selezionati`
+    if (barraSelezionePianiVisibile) return `${pianiSelezionati.length} selezionati`
+    if (barraSelezioneRateVisibile) return `${rateSelezionate.length} selezionate`
+    return ''
+  }
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>
   if (!cliente) return <View style={styles.center}><ActivityIndicator size="large" color="#0E9F8E" /></View>
@@ -638,15 +675,6 @@ export default function ClienteDettaglio() {
         onEdit={apriModificaCliente}
         onDelete={eliminaCliente}
       />
-
-      {modalitaSelezione && (
-        <ClienteSelectionBar
-          count={selezione.length}
-          onCancel={annullaSelezione}
-          onMove={async () => { await caricaClientiDisponibili(); setMostraModalSposta('multi') }}
-          onDelete={eliminaSelezionati}
-        />
-      )}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -699,6 +727,9 @@ export default function ClienteDettaglio() {
             onModificaUltimo={(preventivo) => apriDaPreventivo(preventivo)}
             onSposta={async (preventivoId) => { await caricaClientiDisponibili(); setMostraModalSposta(preventivoId) }}
             onRinomina={(preventivo) => { setNuovoTitolo(preventivo.titolo || ''); setMostraModalRinomina(preventivo.id) }}
+            inviiFirma={inviiFirma}
+            onInviaFirma={setFirmaModalPreventivo}
+            onApriFirmaDettaglio={setFirmaDettaglioPreventivo}
           />
         )}
 
@@ -708,6 +739,11 @@ export default function ClienteDettaglio() {
             onApriPreventivoMadre={apriPreventivoMadre}
             onPianoAggiornato={aggiornaCollegamentiPiano}
             onCampoFocus={scrollCampoInVista}
+            onRename={(abbonamentoId, defaultNome) => {
+              setAbbonamentoSelezionatoId(abbonamentoId)
+              setNomeAbTemp(defaultNome)
+              setMostraModalRinominaAb(true)
+            }}
             selezionePianoAttiva={pianoSelezioneAttiva}
             pianiSelezionati={pianiSelezionati}
             onAvviaSelezionePiano={avviaSelezionePiano}
@@ -771,22 +807,22 @@ export default function ClienteDettaglio() {
       </ScrollView>
       </KeyboardAvoidingView>
 
-      {barraSelezionePianiVisibile && (
-        <AbbonamentoRateSelectionBar
-          count={pianiSelezionati.length}
-          countLabel="selezionati"
-          onCancel={annullaSelezionePiani}
-          onDelete={confermaEliminaPianiSelezionati}
-        />
-      )}
-
-      {barraSelezioneRateVisibile && (
-        <AbbonamentoRateSelectionBar
-          count={rateSelezionate.length}
-          onCancel={annullaSelezioneRate}
-          onDelete={confermaEliminaRateSelezionate}
-        />
-      )}
+      <MenuAzioniSheet
+        variant="dock"
+        visible={barraSelezioneVisibile}
+        titolo={titoloSelezioneBulk()}
+        onClose={annullaSelezioneBulk}
+        voci={
+          modalitaSelezione
+            ? [
+                { label: 'Sposta', onPress: async () => { await caricaClientiDisponibili(); setMostraModalSposta('multi') } },
+                { label: 'Elimina', onPress: eliminaSelezionati, danger: true },
+              ]
+            : barraSelezionePianiVisibile
+              ? [{ label: 'Elimina', onPress: confermaEliminaPianiSelezionati, danger: true }]
+              : [{ label: 'Elimina', onPress: confermaEliminaRateSelezionate, danger: true }]
+        }
+      />
 
       {/* Pulsante fondo: azione contestuale per tab */}
       {!barraSelezioneVisibile && (
@@ -836,6 +872,34 @@ export default function ClienteDettaglio() {
         input={modificaInput}
         onClose={chiudiSceltaModifica}
       />
+
+      {firmaDettaglioPreventivo ? (
+        <FirmaDettaglioModal
+          visible
+          preventivo={firmaDettaglioPreventivo}
+          invio={inviiFirma[firmaDettaglioPreventivo.id]}
+          nomeAzienda={nomeAzienda}
+          onClose={() => setFirmaDettaglioPreventivo(null)}
+          onInviaNuovo={() => setFirmaModalPreventivo(firmaDettaglioPreventivo)}
+        />
+      ) : null}
+
+      {firmaModalPreventivo ? (
+        <InviaFirmaModal
+          visible
+          preventivoId={firmaModalPreventivo.id}
+          nomeCliente={firmaModalPreventivo.nome_cliente || cliente?.nome || 'Cliente'}
+          telefonoCliente={cliente?.telefono}
+          emailCliente={cliente?.email}
+          nomeAzienda={nomeAzienda}
+          onClose={() => setFirmaModalPreventivo(null)}
+          onInviato={() => {
+            ricaricaInviiFirma()
+            cambiaStato(firmaModalPreventivo.id, 'inviato')
+            eventBus.emit('aggiorna-home')
+          }}
+        />
+      ) : null}
 
       <ClienteAbbonamentoModals
         mostraNuovo={mostraModalNuovoAb}

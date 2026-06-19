@@ -12,6 +12,7 @@ export function ClientePagamentoRateTab({
   onApriPreventivoMadre,
   onPianoAggiornato,
   onCampoFocus,
+  onRename,
   selezionePianoAttiva = false,
   pianiSelezionati = [],
   onAvviaSelezionePiano,
@@ -20,6 +21,7 @@ export function ClientePagamentoRateTab({
   onApriPreventivoMadre?: (preventivoId: string) => void
   onPianoAggiornato?: () => void | Promise<void>
   onCampoFocus?: () => void
+  onRename?: (abbonamentoId: string, defaultNome: string) => void
   selezionePianoAttiva?: boolean
   pianiSelezionati?: string[]
   onAvviaSelezionePiano?: (abbonamentoId: string) => void
@@ -77,6 +79,7 @@ export function ClientePagamentoRateTab({
         modificaImportoPianoRate={modificaImportoPianoRate}
         salvaImportiRatePersonalizzati={salvaImportiRatePersonalizzati}
         eliminaAbbonamento={eliminaAbbonamento}
+        onRename={onRename ? () => onRename(abbonamento.id, abbonamento.nome || 'Piano a rate') : undefined}
         selezionePianoAttiva={selezionePianoAttiva}
         pianoSelezionato={pianiSelezionati.includes(abbonamento.id)}
         onAvviaSelezionePiano={onAvviaSelezionePiano}

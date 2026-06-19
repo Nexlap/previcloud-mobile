@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TextInput, View } from 'react-native'
+import { PLACEHOLDER } from '../../placeholders'
 
 type Props = {
   noteExtra: string
@@ -13,7 +14,7 @@ export function NoteAggiuntiveCard({ noteExtra, setNoteExtra, onInputFocus }: Pr
       <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
         value={noteExtra} onChangeText={setNoteExtra}
         onFocus={onInputFocus}
-        placeholder="es. Incluso trasferta, pagamento 50% anticipato..."
+        placeholder={PLACEHOLDER.notePreventivo}
         placeholderTextColor="#9CA3AF" multiline />
     </View>
   )

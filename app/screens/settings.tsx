@@ -28,6 +28,8 @@ export default function Settings() {
     colore_brand: '0D1B2A',
     note_pagamento: '',
     firma_nome: '',
+    reminder_firma_giorni: 3,
+    reminder_firma_globale_disabilitato: false,
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -112,6 +114,11 @@ export default function Settings() {
     setModificheNonSalvate(true)
   }
 
+  function patchForm(patch: Partial<SettingsForm>) {
+    setForm(f => ({ ...f, ...patch }))
+    setModificheNonSalvate(true)
+  }
+
   async function scegliLogo() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla galleria.'); return }
@@ -159,6 +166,7 @@ export default function Settings() {
           logoUrl={logoUrl}
           uploadingLogo={uploadingLogo}
           onSetField={set}
+          onPatchForm={patchForm}
           onScegliLogo={scegliLogo}
         />
 

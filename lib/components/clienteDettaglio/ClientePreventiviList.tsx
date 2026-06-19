@@ -1,7 +1,13 @@
+import { useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { LongPressAwarePressable } from '../LongPressAwarePressable'
+import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
 import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPreventivo/constants'
-import { PreventivoStatoBadge } from '../preventivo/PreventivoStatoBadge'
+import type { PreventivoInvio } from '../../api/firma'
+import { PreventivoCardAzioni } from '../preventivo/PreventivoCardAzioni'
 import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
+import { FirmaStatoBadge, mostraPulsanteInviaFirma } from '../firma/FirmaStatoBadge'
+import { statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
 import { formatImportoDb } from '../../utils/importo'
 
@@ -25,6 +31,9 @@ type Props = {
   onModificaUltimo: (preventivo: Preventivo) => void
   onSposta: (preventivoId: string) => void
   onRinomina: (preventivo: Preventivo) => void
+  inviiFirma?: Record<string, PreventivoInvio>
+  onInviaFirma?: (preventivo: Preventivo) => void
+  onApriFirmaDettaglio?: (preventivo: Preventivo) => void
 }
 
 export function ClientePreventiviList({
@@ -47,7 +56,20 @@ export function ClientePreventiviList({
   onSposta,
   onRinomina,
   collegamentiPiano = {},
+  inviiFirma = {},
+  onInviaFirma,
+  onApriFirmaDettaglio,
 }: Props) {
+  const [menuPreventivo, setMenuPreventivo] = useState<Preventivo | null>(null)
+
+  function vociMenu(p: Preventivo): VoceMenuAzione[] {
+    return [
+      { label: 'Rinomina', onPress: () => onRinomina(p) },
+      { label: 'Sposta', onPress: () => onSposta(p.id) },
+      { label: 'Elimina', onPress: () => onElimina(p.id), danger: true },
+    ]
+  }
+
   if (preventivi.length === 0) {
     return (
       <View style={styles.empty}>
@@ -58,8 +80,12 @@ export function ClientePreventiviList({
 
   return (
     <>
-      {preventivi.map(p => (
-        <TouchableOpacity
+      {preventivi.map(p => {
+        const invio = inviiFirma[p.id]
+        const sfFirma = statoFirmaInvio(invio)
+        const mostraInvia = mostraPulsanteInviaFirma(p.pdf_url, invio)
+        return (
+        <LongPressAwarePressable
           key={p.id}
           style={[styles.prevCard, !p.is_ultimo && styles.prevCardOld, selezione.includes(p.id) && styles.prevCardSelected]}
           onPress={() => onToggleCard(p.id)}
@@ -81,27 +107,34 @@ export function ClientePreventiviList({
                   {collegamentiPiano[p.id] === 'rate' ? '\uD83D\uDCC5 Piano a rate collegato' : '\uD83D\uDCB0 Abbonamento collegato'}
                 </Text>
               ) : null}
+              <FirmaStatoBadge
+                invio={invio}
+                onPress={
+                  modalitaSelezione
+                    ? () => onToggleCard(p.id)
+                    : sfFirma !== 'nessuno' && onApriFirmaDettaglio
+                      ? () => onApriFirmaDettaglio(p)
+                      : undefined
+                }
+                onLongPress={!modalitaSelezione ? () => onLongPress(p.id) : undefined}
+              />
             </View>
-            <View style={[styles.prevRightRow, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
-              <TouchableOpacity style={styles.prevRight} onPress={() => onStatoPress(p.id)}>
-                <Text style={styles.prevImporto}>{p.importo_totale ? `\u20AC${formatImportoDb(p.importo_totale)}` : '—'}</Text>
-                <PreventivoStatoBadge
-                  stato={p.stato}
-                  pagato={p.pagato}
-                  pagamentoGestitoDalPiano={!!collegamentiPiano[p.id]}
-                  showArrow
-                />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onScaricaPdf(p)}>
-                <Text style={{ fontSize: 16 }}>{p.pdf_url ? '\uD83D\uDCC4' : '\uD83D\uDD04'}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onElimina(p.id)}>
-                <Text style={{ fontSize: 16 }}>{'\uD83D\uDDD1'}</Text>
-              </TouchableOpacity>
-            </View>
+            <PreventivoCardAzioni
+              preventivo={p}
+              collegamentoPiano={!!collegamentiPiano[p.id]}
+              mostraInvia={mostraInvia}
+              modalitaSelezione={modalitaSelezione}
+              selezionato={selezione.includes(p.id)}
+              onStatoPress={() => onStatoPress(p.id)}
+              onToggleSelezione={() => onToggleCard(p.id)}
+              onLongPress={() => onLongPress(p.id)}
+              onScaricaPdf={() => onScaricaPdf(p)}
+              onInviaFirma={onInviaFirma ? () => onInviaFirma(p) : undefined}
+              onMenu={() => setMenuPreventivo(p)}
+            />
           </View>
 
-          {aperto === p.id && p.testo_preventivo && (
+          {aperto === p.id && p.testo_preventivo && !modalitaSelezione && (
             <View style={styles.prevDetail}>
               <Text style={styles.prevTesto}>{p.testo_preventivo}</Text>
               {p.versione && p.versione > 1 && (
@@ -134,16 +167,17 @@ export function ClientePreventiviList({
                   <Text style={styles.editBtnText}>{`\u270F\uFE0F ${MODIFICA_VERSIONE_ALTERNATIVA_LABEL}`}</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={styles.spostaBtn} onPress={() => onSposta(p.id)}>
-                <Text style={styles.postaBtnText}>{'\u2197'} Sposta ad altro cliente</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.spostaBtn} onPress={() => onRinomina(p)}>
-                <Text style={styles.postaBtnText}>{'\u270F\uFE0F'} Rinomina preventivo</Text>
-              </TouchableOpacity>
             </View>
           )}
-        </TouchableOpacity>
-      ))}
+        </LongPressAwarePressable>
+        )
+      })}
+
+      <MenuAzioniSheet
+        visible={menuPreventivo !== null}
+        voci={menuPreventivo ? vociMenu(menuPreventivo) : []}
+        onClose={() => setMenuPreventivo(null)}
+      />
     </>
   )
 }
@@ -154,20 +188,15 @@ const styles = StyleSheet.create({
   prevCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
   prevCardOld: { opacity: 0.6 },
   prevCardSelected: { borderColor: '#0E9F8E', borderWidth: 2 },
-  prevRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
-  prevLeft: { flex: 1 },
+  prevRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 14 },
+  prevLeft: { flex: 1, minWidth: 0, paddingRight: 8 },
   prevVersione: { fontSize: 13, fontWeight: '700', color: '#0D1B2A' },
   prevData: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   prevPianoBadge: { fontSize: 11, color: '#0E9F8E', fontWeight: '600', marginTop: 4 },
-  prevRightRow: { alignItems: 'flex-end', gap: 6 },
-  prevRight: { alignItems: 'flex-end', gap: 4 },
-  prevImporto: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
   prevDetail: { padding: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
   prevTesto: { fontSize: 12, color: '#6B7280', lineHeight: 18, fontFamily: 'monospace' },
   editBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' },
   editBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  spostaBtn: { borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  postaBtnText: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
   cronologiaBtn: { paddingVertical: 8, alignItems: 'center' },
   cronologiaBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' },
   cronologiaItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F7F8FA', borderRadius: 8, padding: 10 },

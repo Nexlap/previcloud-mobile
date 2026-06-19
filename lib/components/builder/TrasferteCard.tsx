@@ -2,6 +2,7 @@ import { Dispatch, SetStateAction } from 'react'
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { TrasfertaBuilder } from '../../builder/types'
 import { formatImportoEuroVisuale } from '../../utils/importo'
+import { PLACEHOLDER } from '../../placeholders'
 
 type Props = {
   trasferte: TrasfertaBuilder[]
@@ -77,7 +78,7 @@ export function TrasferteCard({
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <TextInput
                     style={[styles.input, { flex: 1 }]}
-                    placeholder="Km percorsi"
+                    placeholder={PLACEHOLDER.kmRimborso}
                     placeholderTextColor="#9CA3AF"
                     keyboardType="decimal-pad"
                     value={nuoviKm}
@@ -106,14 +107,14 @@ export function TrasferteCard({
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <TextInput
                     style={[styles.input, { flex: 2 }]}
-                    placeholder="es. Treno Milano"
+                    placeholder={PLACEHOLDER.spesaVivaNome}
                     placeholderTextColor="#9CA3AF"
                     value={nuovaSpesaNome}
                     onChangeText={setNuovaSpesaNome}
                   />
                   <TextInput
                     style={[styles.input, { flex: 1 }]}
-                    placeholder="€"
+                    placeholder={PLACEHOLDER.importoEuro}
                     placeholderTextColor="#9CA3AF"
                     keyboardType="decimal-pad"
                     value={nuovaSpesaImporto}
