@@ -11,6 +11,7 @@ import { trackEvento } from '../../lib/utils/analytics';
 import { formatImportoEuroVisuale } from 'preventivoai-shared';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
 import { caricaClientiBuilder, caricaMetodiPagamentoBuilder, caricaProfiloFiscaleBuilder, caricaServiziBuilder, creaClienteBuilder, metodoContantiDefault } from '../../lib/builder/data';
+import { statoAccount } from '../../lib/api/stripeConnect';
 import { calcolaFiscalePreventivo, calcolaLordoDaNetto as calcolaLordoDaNettoBuilder, calcolaTotaleTrasferte, calcolaTotaleVoci } from '../../lib/builder/fiscale';
 import { parsePreventivoTesto, collegaVociAlListino, trovaMetodoPagamentoDaNome, vociParsedConServizioId } from '../../lib/builder/parsePreventivoText';
 import { risolviModifica } from '../../lib/features/modificaPreventivo/modificaSession';
@@ -51,6 +52,7 @@ export default function Builder() {
   const [salvandoCliente, setSalvandoCliente] = useState(false)
   const [metodiPagamento, setMetodiPagamento] = useState<any[]>([metodoContantiDefault])
   const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<any | null>(null)
+  const [stripeChargesEnabled, setStripeChargesEnabled] = useState(false)
   const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
   const [nettoDesiderato, setNettoDesiderato] = useState('')
   const [lordomCalcolato, setLordoCalcolato] = useState<number | null>(null)
@@ -107,12 +109,22 @@ export default function Builder() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), Platform.OS === 'ios' ? 100 : 250)
   }
 
+  async function caricaStripeStato() {
+    try {
+      const s = await statoAccount()
+      setStripeChargesEnabled(s.stripe_charges_enabled)
+    } catch {
+      setStripeChargesEnabled(false)
+    }
+  }
+
   useEffect(() => {
     trackEvento('builder_aperto', 'builder')
     caricaServizi()
     caricaProfiloFiscale()
     caricaClienti()
     caricaMetodiPagamento()
+    void caricaStripeStato()
     if (params.cliente_id && params.cliente_nome) {
       setClienteSelezionato({ id: params.cliente_id, nome: params.cliente_nome, telefono: null, email: null, indirizzo: null })
     }
@@ -532,6 +544,7 @@ export default function Builder() {
         visible={mostraModalPagamento}
         metodiPagamento={metodiPagamento}
         metodoPagamentoSelezionato={metodoPagamentoSelezionato}
+        stripeChargesEnabled={stripeChargesEnabled}
         onClose={() => setMostraModalPagamento(false)}
         onSelect={(metodo) => { setMetodoPagamentoSelezionato(metodo); setMostraModalPagamento(false) }}
       />

@@ -6,6 +6,7 @@ type PagamentoModalProps = {
   visible: boolean
   metodiPagamento: MetodoPagamento[]
   metodoSelezionato: MetodoPagamento | null
+  stripeChargesEnabled?: boolean
   onClose: () => void
   onSelect: (metodo: MetodoPagamento | null) => void
 }
@@ -14,6 +15,7 @@ export function PreventivoPdfPagamentoModal({
   visible,
   metodiPagamento,
   metodoSelezionato,
+  stripeChargesEnabled = false,
   onClose,
   onSelect,
 }: PagamentoModalProps) {
@@ -43,21 +45,32 @@ export function PreventivoPdfPagamentoModal({
               </TouchableOpacity>
             </View>
           ) : (
-            metodiPagamento.map(m => (
+            metodiPagamento.map(m => {
+              const stripeDisabilitato = m.tipo === 'stripe' && !stripeChargesEnabled
+              return (
               <TouchableOpacity
                 key={m.id}
-                style={[styles.clienteItem, metodoSelezionato?.id === m.id && styles.clienteItemActive]}
-                onPress={() => { onSelect(m); onClose() }}
+                style={[
+                  styles.clienteItem,
+                  metodoSelezionato?.id === m.id && styles.clienteItemActive,
+                  stripeDisabilitato && styles.clienteItemDisabled,
+                ]}
+                onPress={() => { if (!stripeDisabilitato) { onSelect(m); onClose() } }}
+                disabled={stripeDisabilitato}
               >
                 <Text style={{ fontSize: 12, color: '#6B7280', width: 44 }}>{m.tipo.toUpperCase().slice(0, 4)}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.clienteItemNome}>{m.nome}</Text>
                   {m.tipo === 'bonifico' && m.dati?.iban && <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{m.dati.iban}</Text>}
                   {m.tipo === 'paypal' && m.dati?.email && <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{m.dati.email}</Text>}
+                  {stripeDisabilitato && (
+                    <Text style={styles.stripeDisabled}>Completa la verifica Stripe in Impostazioni</Text>
+                  )}
                 </View>
-                {metodoSelezionato?.id === m.id && <Text style={{ color: '#0E9F8E', fontSize: 13, fontWeight: '700' }}>OK</Text>}
+                {metodoSelezionato?.id === m.id && !stripeDisabilitato && <Text style={{ color: '#0E9F8E', fontSize: 13, fontWeight: '700' }}>OK</Text>}
               </TouchableOpacity>
-            ))
+              )
+            })
           )}
         </ScrollView>
       </View>
@@ -232,6 +245,8 @@ const styles = StyleSheet.create({
   modalEmptyLink: { fontSize: 14, color: '#0E9F8E', marginTop: 8, fontWeight: '600' },
   clienteItem: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB' },
   clienteItemActive: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
+  clienteItemDisabled: { opacity: 0.55 },
+  stripeDisabled: { fontSize: 11, color: '#B45309', marginTop: 4, fontWeight: '600' },
   clienteItemAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
   clienteItemAvatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   clienteItemNome: { flex: 1, fontSize: 14, fontWeight: '500', color: '#0D1B2A' },

@@ -41,6 +41,7 @@ import {
   segnaPreventivoInviato,
   tokenPreventivoPdf,
 } from '../../lib/api/preventivoPdf'
+import { statoAccount } from '../../lib/api/stripeConnect'
 import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo'
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
@@ -102,6 +103,7 @@ export default function PreventivoPDF() {
   const [caricandoPreview, setCaricandoPreview] = useState(false)
   const [metodiPagamento, setMetodiPagamento] = useState<MetodoPagamento[]>([])
   const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<MetodoPagamento | null>(null)
+  const [stripeChargesEnabled, setStripeChargesEnabled] = useState(false)
   const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
   const [abbonamentoAttivo, setAbbonamentoAttivo] = useState(false)
   const [abImporto, setAbImporto] = useState('')
@@ -122,12 +124,22 @@ export default function PreventivoPDF() {
     invio: PdfSuccessInvio
   } | null>(null)
 
+  async function caricaStripeStato() {
+    try {
+      const s = await statoAccount()
+      setStripeChargesEnabled(s.stripe_charges_enabled)
+    } catch {
+      setStripeChargesEnabled(false)
+    }
+  }
+
   useEffect(() => {
     trackEvento('preview_pdf_aperta', 'preventivo-pdf')
     tokenPreventivoPdf().then(setToken)
     caricaTemplatePref()
     caricaClienti()
     caricaMetodiPagamento()
+    void caricaStripeStato()
   }, [])
 
   useEffect(() => {
@@ -429,6 +441,7 @@ export default function PreventivoPDF() {
         visible={mostraModalPagamento}
         metodiPagamento={metodiPagamento}
         metodoSelezionato={metodoPagamentoSelezionato}
+        stripeChargesEnabled={stripeChargesEnabled}
         onClose={() => setMostraModalPagamento(false)}
         onSelect={setMetodoPagamentoSelezionato}
       />

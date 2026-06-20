@@ -13,7 +13,7 @@ import {
 } from 'react-native'
 import { MESI_BREVI } from '../../lib/constants'
 import { creaLinkPagamentoRata, scaricaECondividiPdfPreventivo } from '../../lib/api/pdf'
-import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, caricaCronologiaCliente, eliminaClienteDettaglio, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
+import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, caricaCronologiaCliente, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
 import { ripristinaVersionePreventivo } from '../../lib/api/storico'
 import { caricaContattiCliente } from '../../lib/api/firma'
 import { useInviiFirma } from '../../lib/hooks/useInviiFirma'
@@ -277,17 +277,6 @@ export default function ClienteDettaglio() {
           eventBus.emit('aggiorna-home')
         },
       },
-    ])
-  }
-
-  async function eliminaCliente() {
-    Alert.alert('Elimina cliente', 'Verranno eliminati anche preventivi, abbonamenti e rate collegati. Continuare?', [
-      { text: 'Annulla', style: 'cancel' },
-      { text: 'Elimina', style: 'destructive', onPress: async () => {
-        const { error } = await eliminaClienteDettaglio(id)
-        if (error) { Alert.alert('Errore', error.message); return }
-        router.back()
-      }}
     ])
   }
 
@@ -691,7 +680,6 @@ export default function ClienteDettaglio() {
         title={cliente.nome || nome}
         onBack={() => router.back()}
         onEdit={apriModificaCliente}
-        onDelete={eliminaCliente}
       />
 
       <KeyboardAvoidingView

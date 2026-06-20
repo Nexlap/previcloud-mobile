@@ -1,18 +1,42 @@
-import { router } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { eliminaMetodoPagamento, caricaMetodiPagamento, MetodoPagamento, MetodoPagamentoForm, salvaMetodoPagamento, TipoPagamento } from '../../lib/api/pagamenti'
+import { statoAccount, StripeAccountStato } from '../../lib/api/stripeConnect'
+import { StripeConnectCard } from '../../lib/components/settings/StripeConnectCard'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 export default function Pagamenti() {
   const { colors, isDark, s } = useScreenTheme()
+  const { stripeRefresh } = useLocalSearchParams<{ stripeRefresh?: string }>()
   const [metodi, setMetodi] = useState<MetodoPagamento[]>([])
+  const [stripeStato, setStripeStato] = useState<StripeAccountStato | null>(null)
+  const [caricandoStripe, setCaricandoStripe] = useState(true)
   const [modal, setModal] = useState(false)
   const [edit, setEdit] = useState<MetodoPagamento | null>(null)
   const [form, setForm] = useState<MetodoPagamentoForm>({ tipo: 'bonifico', nome: '', dati: {}, predefinito: false })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { carica() }, [])
+
+  const caricaStripeStato = useCallback(async () => {
+    setCaricandoStripe(true)
+    try {
+      setStripeStato(await statoAccount())
+    } catch {
+      setStripeStato(null)
+    } finally {
+      setCaricandoStripe(false)
+    }
+  }, [])
+
+  useFocusEffect(useCallback(() => {
+    void caricaStripeStato()
+  }, [caricaStripeStato]))
+
+  useEffect(() => {
+    if (stripeRefresh === '1') void caricaStripeStato()
+  }, [stripeRefresh, caricaStripeStato])
 
   async function carica() {
     setMetodi(await caricaMetodiPagamento())
@@ -63,6 +87,13 @@ export default function Pagamenti() {
         <TouchableOpacity onPress={nuovo}><Text style={styles.add}>+</Text></TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
+        <StripeConnectCard
+          stato={stripeStato}
+          loading={caricandoStripe}
+          onRefresh={caricaStripeStato}
+          colors={colors}
+          isDark={isDark}
+        />
         {metodi.length === 0 ? (
           <TouchableOpacity style={[styles.empty, s.card]} onPress={nuovo}>
             <Text style={styles.emptyIcon}>💳</Text>

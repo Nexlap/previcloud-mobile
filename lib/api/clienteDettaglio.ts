@@ -2,7 +2,6 @@ import { spostaPreventiviInCestino } from '../cestino'
 import { queryConFiltroCestino } from 'preventivoai-shared'
 import { Cliente, Preventivo, Trascrizione } from '../types'
 import { supabase } from '../supabase'
-import { eliminaClienti } from './clienti'
 
 export async function caricaClienteDettaglio(clienteId: string) {
   const [{ data: cliente }, { data: trascrizioni }] = await Promise.all([
@@ -14,10 +13,6 @@ export async function caricaClienteDettaglio(clienteId: string) {
     cliente: cliente as Cliente | null,
     trascrizioni: (trascrizioni || []) as Trascrizione[],
   }
-}
-
-export async function eliminaClienteDettaglio(clienteId: string) {
-  return eliminaClienti([clienteId])
 }
 
 type ClienteAggiornamento = Partial<Pick<Cliente, 'nome' | 'telefono' | 'email' | 'indirizzo' | 'note'>>

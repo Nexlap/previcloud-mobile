@@ -10,10 +10,9 @@ type HeaderProps = {
   title: string
   onBack: () => void
   onEdit: () => void
-  onDelete: () => void
 }
 
-export function ClienteDettaglioHeader({ title, onBack, onEdit, onDelete }: HeaderProps) {
+export function ClienteDettaglioHeader({ title, onBack, onEdit }: HeaderProps) {
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onBack} style={styles.backBtn}>
@@ -23,9 +22,6 @@ export function ClienteDettaglioHeader({ title, onBack, onEdit, onDelete }: Head
       <View style={styles.headerActions}>
         <TouchableOpacity onPress={onEdit}>
           <AppIcon name="edit-2" size={18} color="#6B7280" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onDelete}>
-          <AppIcon name="trash-2" size={18} color="#EF4444" />
         </TouchableOpacity>
       </View>
     </View>
