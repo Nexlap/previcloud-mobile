@@ -5,11 +5,12 @@ import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
 import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPreventivo/constants'
 import type { PreventivoInvio } from '../../api/firma'
 import { PreventivoCardAzioni } from '../preventivo/PreventivoCardAzioni'
+import { preventivoCardRowStyles } from '../preventivo/preventivoCardStyles'
 import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { FirmaStatoBadge, mostraPulsanteInviaFirma } from '../firma/FirmaStatoBadge'
 import { statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
-import { formatImportoDb } from '../../utils/importo'
+import { formatImportoDb } from 'preventivoai-shared'
 import { useStoricoTheme } from '../../hooks/useStoricoTheme'
 import { IconLabel } from '../icons/IconLabel'
 import { AppIcon } from '../icons/AppIcon'
@@ -93,11 +94,11 @@ export function StoricoPreventiviList({
         return (
           <View key={p.id} style={[styles.card, th.card, selezionato && th.cardSelected]}>
             <LongPressAwarePressable
-              style={styles.cardRow}
+              style={preventivoCardRowStyles.row}
               onPress={() => onCardPress(p)}
               onLongPress={() => onLongPress(p.id)}
             >
-              <View style={styles.cardLeft}>
+              <View style={preventivoCardRowStyles.left}>
                 <Text style={[styles.cardCliente, th.text]}>{p.nome_cliente || 'Senza cliente'}</Text>
                 {p.titolo ? <Text style={[styles.cardTitolo, th.textMuted]}>{p.titolo}</Text> : null}
                 <Text style={[styles.cardData, th.textMuted]}>{dataFormattata}</Text>

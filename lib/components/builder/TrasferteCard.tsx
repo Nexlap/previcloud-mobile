@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction } from 'react'
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { TrasfertaBuilder } from '../../builder/types'
-import { formatImportoEuroVisuale } from '../../utils/importo'
+import { formatImportoEuroVisuale } from 'preventivoai-shared'
 import { PLACEHOLDER } from '../../placeholders'
 import { AppIcon } from '../icons/AppIcon'
 

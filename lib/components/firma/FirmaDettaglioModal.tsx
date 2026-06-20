@@ -1,5 +1,5 @@
 import { Alert, Image, Linking, Modal, Text, TouchableOpacity, View } from 'react-native'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as DocumentPicker from 'expo-document-picker'
 import * as FileSystem from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
@@ -17,9 +17,11 @@ import {
   isFirmaManuale,
   isFirmaOnline,
   ottieniUrlFirma,
+  ottieniUrlInvioFirma,
   registraFirmaManuale,
   statoFirmaInvio,
 } from '../../api/firma'
+import { CanaleCondivisioneButton } from './CanaleCondivisioneButton'
 
 type Props = {
   visible: boolean
@@ -52,6 +54,12 @@ export function FirmaDettaglioModal({
   const [loading, setLoading] = useState<string | null>(null)
   const [telefono, setTelefono] = useState<string | null>(null)
   const [email, setEmail] = useState<string | null>(null)
+  const [urlDocumentiFirma, setUrlDocumentiFirma] = useState<{
+    pdf: string | null
+    img: string | null
+    loading: boolean
+  }>({ pdf: null, img: null, loading: false })
+  const condivisioneInFlightRef = useRef(false)
   const nomeCliente = preventivo.nome_cliente || 'Cliente'
 
   useEffect(() => {
@@ -66,7 +74,36 @@ export function FirmaDettaglioModal({
     })
   }, [visible, preventivo.cliente_id])
 
+  useEffect(() => {
+    if (!visible || sf !== 'firmato' || !invio) {
+      setUrlDocumentiFirma({ pdf: null, img: null, loading: false })
+      return
+    }
+
+    let cancelled = false
+    setUrlDocumentiFirma({ pdf: null, img: null, loading: true })
+
+    void ottieniUrlInvioFirma(preventivo.id)
+      .then(res => {
+        if (cancelled) return
+        setUrlDocumentiFirma({
+          pdf: res.pdf_firmato_url,
+          img: res.firma_immagine_url,
+          loading: false,
+        })
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUrlDocumentiFirma({ pdf: null, img: null, loading: false })
+        }
+      })
+
+    return () => { cancelled = true }
+  }, [visible, sf, invio?.id, preventivo.id])
+
   async function condividi(tipo: 'whatsapp' | 'email' | 'link') {
+    if (condivisioneInFlightRef.current || loading) return
+    condivisioneInFlightRef.current = true
     setFeedback('')
     setLoading(tipo)
     try {
@@ -86,6 +123,7 @@ export function FirmaDettaglioModal({
     } catch (e) {
       setFeedback(e instanceof Error ? e.message : 'Errore')
     } finally {
+      condivisioneInFlightRef.current = false
       setLoading(null)
     }
   }
@@ -203,17 +241,23 @@ export function FirmaDettaglioModal({
               <Text style={{ fontWeight: '700', color: '#065F46' }}>
                 {firmatoManuale ? 'Firmato a mano' : 'Firmato online'} il {new Date(invio.firmato_at!).toLocaleDateString('it-IT')}
               </Text>
-              {invio.firma_immagine_url ? (
+              {urlDocumentiFirma.loading ? (
+                <Text style={{ marginTop: 8, fontSize: 13, color: '#047857' }}>Caricamento documenti…</Text>
+              ) : null}
+              {urlDocumentiFirma.img ? (
                 <Image
-                  source={{ uri: invio.firma_immagine_url }}
+                  source={{ uri: urlDocumentiFirma.img }}
                   style={{ marginTop: 8, height: 120, width: '100%', borderRadius: 8 }}
                   resizeMode="contain"
                 />
               ) : null}
-              {invio.pdf_firmato_url ? (
-                <TouchableOpacity onPress={() => void Linking.openURL(invio.pdf_firmato_url!)} style={{ marginTop: 8 }}>
+              {urlDocumentiFirma.pdf ? (
+                <TouchableOpacity onPress={() => void Linking.openURL(urlDocumentiFirma.pdf!)} style={{ marginTop: 8 }}>
                   <Text style={{ color: '#0E9F8E', fontWeight: '600' }}>Apri PDF firmato</Text>
                 </TouchableOpacity>
+              ) : null}
+              {!urlDocumentiFirma.loading && !urlDocumentiFirma.pdf && !urlDocumentiFirma.img && (invio.pdf_firmato_url || invio.firma_immagine_url) ? (
+                <Text style={{ marginTop: 8, fontSize: 13, color: '#047857' }}>Documenti non disponibili al momento.</Text>
               ) : null}
               {firmatoOnline ? (
                 <TouchableOpacity
@@ -235,16 +279,13 @@ export function FirmaDettaglioModal({
                 In attesa firma · valido fino al {new Date(invio.scade_at).toLocaleDateString('it-IT')}
               </Text>
               {(['whatsapp', 'email', 'link'] as const).map(c => (
-                <TouchableOpacity
+                <CanaleCondivisioneButton
                   key={c}
-                  disabled={!!loading}
+                  label={c === 'whatsapp' ? 'WhatsApp' : c === 'email' ? 'Email' : 'Copia link'}
+                  loading={loading === c}
+                  disabled={loading !== null && loading !== c}
                   onPress={() => void condividi(c)}
-                  style={{ marginTop: 10, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 14, alignItems: 'center' }}
-                >
-                  <Text style={{ fontWeight: '600', color: '#0D1B2A' }}>
-                    {loading === c ? '...' : c === 'whatsapp' ? 'WhatsApp' : c === 'email' ? 'Email' : 'Copia link'}
-                  </Text>
-                </TouchableOpacity>
+                />
               ))}
             </>
           ) : null}

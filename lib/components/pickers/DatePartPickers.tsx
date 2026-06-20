@@ -10,7 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { COLORS, labelMese } from '../../constants'
-import { clampGiornoAlMese, giorniInMese, giornoValidoPerMese } from '../../utils/giornoScadenza'
+import { clampGiornoAlMese, giorniInMese, giornoValidoPerMese } from 'preventivoai-shared'
 import { AppIcon } from '../icons/AppIcon'
 
 const MESI = Array.from({ length: 12 }, (_, i) => i + 1)

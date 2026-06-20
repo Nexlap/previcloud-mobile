@@ -1,4 +1,7 @@
+import { queryConFiltroCestino } from 'preventivoai-shared'
+import { caricaIncassiPerCliente } from './incassi'
 import { supabase } from '../supabase'
+import { Cliente } from '../types'
 
 async function eliminaDatiCollegatiClienti(clienteIds: string[]) {
   if (clienteIds.length === 0) return null
@@ -45,4 +48,58 @@ export async function eliminaClienti(ids: string[]) {
   if (cleanupError) return { data: null, error: cleanupError }
 
   return supabase.from('clienti').delete().in('id', ids)
+}
+
+export async function caricaClientiConStats(): Promise<Cliente[] | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data } = await supabase
+    .from('clienti')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('nome', { ascending: true })
+
+  if (!data) return []
+
+  const incassiPerCliente = await caricaIncassiPerCliente(user.id)
+
+  return Promise.all(data.map(async (c) => {
+    const base = () =>
+      supabase
+        .from('preventivi')
+        .select('id', { count: 'exact', head: true })
+        .eq('cliente_id', c.id)
+        .eq('is_ultimo', true)
+    const { count } = await queryConFiltroCestino(
+      () => base().is('deleted_at', null),
+      () => base(),
+    )
+
+    return {
+      ...c,
+      totale_preventivi: incassiPerCliente[c.id] || 0,
+      num_preventivi: count || 0,
+    }
+  }))
+}
+
+export async function creaCliente(dati: {
+  nome: string
+  telefono: string
+  email: string
+  note: string
+}) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: new Error('Non autenticato') }
+
+  return supabase
+    .from('clienti')
+    .insert({ ...dati, user_id: user.id })
+    .select()
+    .single()
+}
+
+export async function aggiornaCliente(id: string, dati: Partial<Cliente>) {
+  return supabase.from('clienti').update(dati).eq('id', id)
 }

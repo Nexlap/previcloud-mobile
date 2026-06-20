@@ -1,4 +1,7 @@
+import * as FileSystem from 'expo-file-system/legacy'
+import * as Sharing from 'expo-sharing'
 import { BACKEND_URL } from '../constants'
+import { sessionToken } from './settings'
 
 // ── API calls per la generazione PDF ─────────────────────────────
 
@@ -99,4 +102,26 @@ export async function convertiRecap(recap: string, token: string): Promise<strin
   const data = await res.json()
   if (data.error) throw new Error(data.error)
   return data.preventivo
+}
+
+export async function ottieniUrlPdfPreventivo(preventivoId: string, token?: string): Promise<string> {
+  const auth = token || (await sessionToken())
+  const res = await fetch(`${BACKEND_URL}/api/preventivi/${preventivoId}/pdf-url`, {
+    headers: { Authorization: `Bearer ${auth}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Errore server (${res.status})`)
+  if (!data.pdf_url) throw new Error('PDF non disponibile')
+  return data.pdf_url as string
+}
+
+export async function scaricaECondividiPdfPreventivo(preventivoId: string): Promise<void> {
+  const url = await ottieniUrlPdfPreventivo(preventivoId)
+  const fileName = `${FileSystem.cacheDirectory}preventivo_${preventivoId}.pdf`
+  const { uri } = await FileSystem.downloadAsync(url, fileName)
+  await Sharing.shareAsync(uri, {
+    mimeType: 'application/pdf',
+    dialogTitle: 'Apri preventivo',
+    UTI: 'com.adobe.pdf',
+  })
 }

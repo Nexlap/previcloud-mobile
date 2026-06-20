@@ -1,5 +1,5 @@
 import { BuilderMemoryState } from './types'
-import { meseCorrenteString } from '../utils/giornoScadenza'
+import { meseCorrenteString } from 'preventivoai-shared'
 
 export const builderState: BuilderMemoryState = {
   voci: [],

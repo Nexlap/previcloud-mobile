@@ -8,7 +8,7 @@ import { eventBus } from "../../lib/eventBus"
 import { caricaHomeData } from '../../lib/api/home'
 import { Preventivo, Profile } from "../../lib/types"
 import { trackEvento } from "../../lib/utils/analytics"
-import { formatImportoEuro, formatImportoDb } from '../../lib/utils/importo'
+import { formatImportoEuro, formatImportoDb } from 'preventivoai-shared'
 import { PreventivoStatoBadge } from '../../lib/components/preventivo/PreventivoStatoBadge'
 import { NotificheBell } from '../../lib/components/firma/NotificheBell'
 import { ProfileMenuButton } from '../../lib/components/ProfileMenuButton'
@@ -30,6 +30,8 @@ export default function Home() {
   const [preventivi, setPreventivi] = useState<Preventivo[]>([])
   const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
   const [pagamentiIncassati, setPagamentiIncassati] = useState(0)
+  const [preventiviTotali, setPreventiviTotali] = useState(0)
+  const [minutiRisparmiati, setMinutiRisparmiati] = useState(0)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -60,6 +62,8 @@ export default function Home() {
     setPreventivi(data.preventivi)
     setCollegamentiPiano(data.collegamentiPiano)
     setPagamentiIncassati(data.pagamentiIncassati)
+    setPreventiviTotali(data.preventiviTotali)
+    setMinutiRisparmiati(data.minutiRisparmiati)
     setLoading(false)
   }
 
@@ -93,8 +97,8 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0E9F8E" colors={["#0E9F8E"]} />}
       >
         <View style={styles.statsRow}>
-          <View style={[s.card, styles.statCard]}>
-            <Text style={[styles.statVal, { color: colors.text }]}>{preventivi.length}</Text>
+          <View style={[styles.statCard, s.card]}>
+            <Text style={[styles.statVal, { color: colors.text }]}>{preventiviTotali}</Text>
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>Preventivi</Text>
           </View>
           <View style={[styles.statCard, styles.statCardAccent]}>
@@ -106,11 +110,11 @@ export default function Home() {
             >
               {`€${formatImportoEuro(pagamentiIncassati)}`}
             </Text>
-            <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.7)' }]}>Pagamenti incassati</Text>
+            <Text style={[styles.statLabel, styles.statLabelOnDark]}>Pagamenti incassati</Text>
           </View>
-          <View style={[s.card, styles.statCard]}>
-            <Text style={[styles.statVal, { color: colors.text }]}>{preventivi.length * 23}</Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Min. risparmiate</Text>
+          <View style={[styles.statCard, s.card]}>
+            <Text style={[styles.statVal, { color: colors.text }]}>{minutiRisparmiati}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Minuti* risparmiati</Text>
           </View>
         </View>
 
@@ -194,11 +198,12 @@ const styles = StyleSheet.create({
   nome: { fontSize: 22, fontWeight: '700', color: '#fff', marginTop: 2 },
   scroll: { flex: 1 },
   statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: { flex: 1, padding: 14, alignItems: 'center', minWidth: 0 },
-  statCardAccent: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A' },
+  statCard: { flex: 1, padding: 14, alignItems: 'center', minWidth: 0, borderRadius: 16 },
+  statCardAccent: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A', borderWidth: 1 },
   statVal: { fontSize: 20, fontWeight: '700' },
   statValCompact: { width: '100%', textAlign: 'center' },
   statLabel: { fontSize: 10, marginTop: 3, textAlign: 'center' },
+  statLabelOnDark: { color: 'rgba(255,255,255,0.7)' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   sectionLink: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' },
   emptyBox: { padding: 32, alignItems: 'center', gap: 8 },

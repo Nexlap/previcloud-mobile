@@ -8,11 +8,11 @@ import { creaServizioListino } from '../../lib/api/servizi';
 import { Cliente, ProfiloFiscale, Servizio, VocePreventivo } from '../../lib/types';
 import { eventBus } from '../../lib/eventBus';
 import { trackEvento } from '../../lib/utils/analytics';
-import { formatImportoEuroVisuale } from '../../lib/utils/importo';
+import { formatImportoEuroVisuale } from 'preventivoai-shared';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
 import { caricaClientiBuilder, caricaMetodiPagamentoBuilder, caricaProfiloFiscaleBuilder, caricaServiziBuilder, creaClienteBuilder, metodoContantiDefault } from '../../lib/builder/data';
 import { calcolaFiscalePreventivo, calcolaLordoDaNetto as calcolaLordoDaNettoBuilder, calcolaTotaleTrasferte, calcolaTotaleVoci } from '../../lib/builder/fiscale';
-import { parsePreventivoTesto, collegaVociAlListino, trovaMetodoPagamentoDaNome } from '../../lib/builder/parsePreventivoText';
+import { parsePreventivoTesto, collegaVociAlListino, trovaMetodoPagamentoDaNome, vociParsedConServizioId } from '../../lib/builder/parsePreventivoText';
 import { risolviModifica } from '../../lib/features/modificaPreventivo/modificaSession';
 import { generaTestoPreventivoBuilder } from '../../lib/builder/preventivoText';
 import { TrasfertaBuilder } from '../../lib/builder/types';
@@ -31,7 +31,7 @@ import { BuilderPagamentoRateCard } from '../../lib/components/builder/BuilderPa
 import { AnalisiFiscaleCard } from '../../lib/components/builder/AnalisiFiscaleCard';
 import { PreventivoPdfAbbonamentoCard } from '../../lib/components/preventivoPdf/PreventivoPdfOptionsCards';
 import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo';
-import { giornoScadenzaValido, meseCorrenteString, meseInizioValido } from '../../lib/utils/giornoScadenza';
+import { meseCorrenteString, validaPianiPagamento } from 'preventivoai-shared';
 
 export { resetBuilderState };
 
@@ -122,7 +122,7 @@ export default function Builder() {
     if (!testoModifica) return
 
     const parsed = parsePreventivoTesto(testoModifica)
-    setVoci(collegaVociAlListino(parsed.voci, servizi))
+    setVoci(vociParsedConServizioId(collegaVociAlListino(parsed.voci, servizi)))
 
     if (modificaCaricata.current) return
     modificaCaricata.current = true
@@ -330,23 +330,18 @@ export default function Builder() {
 
   function generaPDF() {
     if (voci.length === 0) { Alert.alert('Preventivo vuoto', 'Aggiungi almeno un servizio.'); return }
-    if (pagamentoRateAttivo && !clienteBuilderCollegato()) {
-      Alert.alert('Seleziona un cliente', 'Associa un cliente al preventivo per il pagamento a rate.')
-      return
-    }
-    if (abbonamentoAttivo && !clienteBuilderCollegato()) {
-      Alert.alert('Seleziona un cliente', 'Associa un cliente al preventivo per l\'abbonamento mensile.')
-      return
-    }
-    if (pagamentoRateAttivo) {
-      const num = parseInt(rateNumero, 10)
-      if (!(num >= 2 && giornoScadenzaValido(rateGiornoScadenza) && meseInizioValido(rateMeseInizio))) {
-        Alert.alert('Pagamento a rate', 'Inserisci numero di rate (minimo 2), giorno scadenza (1-31) e mese inizio (1-12).')
-        return
-      }
-    }
-    if (abbonamentoAttivo && !(giornoScadenzaValido(abGiorno) && meseInizioValido(abMeseInizio))) {
-      Alert.alert('Abbonamento mensile', 'Inserisci giorno scadenza (1-31) e mese inizio (1-12).')
+    const errPiani = validaPianiPagamento({
+      pagamentoRateAttivo,
+      abbonamentoAttivo,
+      clienteCollegato: clienteBuilderCollegato(),
+      rateNumero,
+      rateGiornoScadenza,
+      rateMeseInizio,
+      abGiorno,
+      abMeseInizio,
+    })
+    if (errPiani) {
+      Alert.alert('Attenzione', errPiani)
       return
     }
     const testo = generaTestoPreventivo()

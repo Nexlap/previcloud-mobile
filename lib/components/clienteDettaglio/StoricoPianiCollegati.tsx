@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Abbonamento, PreventivoMadre } from '../../types'
-import { dataPreventivoMadre, rimuoviDataDaNomePiano, titoloPreventivoMadre } from '../../utils/preventivoMadre'
+import { dataPreventivoMadre, rimuoviDataDaNomePiano, titoloPreventivoMadre } from 'preventivoai-shared'
 import { TitoloConData } from './TitoloConData'
 
 type Props = {

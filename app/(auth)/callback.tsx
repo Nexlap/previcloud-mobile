@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect } from 'react'
 import { ActivityIndicator, View } from 'react-native'
-import { setAuthSession } from '../../lib/api/auth'
+import { currentUserId, hasCompletedProfile, setAuthSession } from '../../lib/api/auth'
 
 export default function AuthCallback() {
   const params = useLocalSearchParams()
@@ -13,7 +13,13 @@ export default function AuthCallback() {
 
       if (access_token && refresh_token) {
         await setAuthSession(access_token, refresh_token)
-        router.replace('/(tabs)')
+        const userId = await currentUserId()
+        if (!userId) {
+          router.replace('/(auth)/login')
+          return
+        }
+        const profiloCompleto = await hasCompletedProfile(userId)
+        router.replace(profiloCompleto ? '/(tabs)' : '/onboarding')
       } else {
         router.replace('/(auth)/login')
       }

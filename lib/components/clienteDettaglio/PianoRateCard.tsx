@@ -8,11 +8,11 @@ import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
 import { sessioneClienteDettaglio } from '../../api/clienteDettaglio'
 import { creaLinkPagamentoRata } from '../../api/pdf'
 import { MESI_BREVI } from '../../constants'
+import { eventBus } from '../../eventBus'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
 import { errorMessage } from '../../utils/errors'
-import { formatImportoEuro, parseImportoEuro, ricalcolaImportiRateLibere } from '../../utils/importo'
-import { titoloHeaderPiano } from '../../utils/preventivoMadre'
-import { analizzaStatoPiano } from '../../utils/statoPiano'
+import { formatImportoEuro, parseImportoEuro, ricalcolaImportiRateLibere } from 'preventivoai-shared'
+import { titoloHeaderPiano, analizzaStatoPiano } from 'preventivoai-shared'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
 
@@ -110,7 +110,7 @@ export type PianoRateCardProps = {
   segnaRataPagata: (rataId: string, pagata: boolean) => void
   modificaImportoPianoRate: (abbonamentoId: string, importo: number) => Promise<boolean>
   salvaImportiRatePersonalizzati: (abbonamentoId: string, importi: Record<string, number>) => Promise<boolean>
-  eliminaAbbonamento: (abbonamentoId: string) => Promise<void>
+  eliminaAbbonamento: (abbonamentoId: string) => Promise<void | boolean>
   onRename?: () => void
   selezionePianoAttiva?: boolean
   pianoSelezionato?: boolean
@@ -316,6 +316,7 @@ export function PianoRateCard({
           onPress: async () => {
             await eliminaAbbonamento(abbonamento.id)
             await onPianoAggiornato?.()
+            eventBus.emit('aggiorna-piano-cliente')
             setModificaImporto(false)
             setPianoEspanso(false)
           },

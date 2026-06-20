@@ -12,7 +12,7 @@ import { LongPressAwareTouchableOpacity } from '../../lib/components/LongPressAw
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { useClienti } from "../../lib/hooks/useClienti"
 import { Cliente } from '../../lib/types'
-import { formatImportoEuro } from '../../lib/utils/importo'
+import { formatImportoEuro } from 'preventivoai-shared'
 import { trackEvento } from "../../lib/utils/analytics"
 import { AppIcon } from '../../lib/components/icons/AppIcon'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'

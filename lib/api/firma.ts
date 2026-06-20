@@ -23,6 +23,34 @@ export type PreventivoInvio = {
 
 const FIRMA_WEB_BASE_URL = 'https://preventivoai-web.vercel.app'
 
+export type InvioFirmaUrlResponse = {
+  invio_id: string
+  pdf_firmato_url: string | null
+  firma_immagine_url: string | null
+  expires_in: number
+  firmato_at: string | null
+  metodo_firma: MetodoFirma | null
+}
+
+export async function ottieniUrlInvioFirma(preventivoId: string, token?: string): Promise<InvioFirmaUrlResponse> {
+  const auth = token || (await sessionToken())
+  const res = await fetch(`${BACKEND_URL}/api/preventivi/${preventivoId}/invio-firma-url`, {
+    headers: { Authorization: `Bearer ${auth}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Errore server (${res.status})`)
+  return data as InvioFirmaUrlResponse
+}
+
+/** Apre il PDF firmato usando signed URL freschi (ignora path/URL scaduti nel payload). */
+export async function apriPdfFirmatoDaNotifica(preventivoId: string): Promise<void> {
+  const res = await ottieniUrlInvioFirma(preventivoId)
+  if (!res.pdf_firmato_url) throw new Error('PDF firmato non disponibile')
+  const can = await Linking.canOpenURL(res.pdf_firmato_url)
+  if (!can) throw new Error('Impossibile aprire il PDF')
+  await Linking.openURL(res.pdf_firmato_url)
+}
+
 export async function inviaPreventivoPerFirma(preventivoId: string, canale: CanaleFirma, token?: string) {
   const auth = token || (await sessionToken())
   const res = await fetch(`${BACKEND_URL}/api/preventivi/${preventivoId}/invia-firma`, {
@@ -142,8 +170,8 @@ export {
   buildOggettoFirmaInvio,
   buildOggettoFirmaReminder,
   testoInvioFirma,
-  caricaMessaggiCliente,
-} from '../messaggiCliente'
+} from 'preventivoai-shared'
+export { caricaMessaggiCliente } from '../messaggiCliente'
 
 export async function apriWhatsAppFirma(telefono: string | null | undefined, testo: string) {
   const phone = telefono?.replace(/\s/g, '').replace(/^\+/, '') || ''

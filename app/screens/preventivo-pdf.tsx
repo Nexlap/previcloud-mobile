@@ -23,8 +23,8 @@ import { PreventivoPdfPreviewCard } from '../../lib/components/preventivoPdf/Pre
 import { PreventivoPdfSuccessModal, type PdfSuccessInvio } from '../../lib/components/preventivoPdf/PreventivoPdfSuccessModal'
 import { PreventivoPdfTemplatePicker } from '../../lib/components/preventivoPdf/PreventivoPdfTemplatePicker'
 import { eventBus } from '../../lib/eventBus'
-import { importoDaTesto, scalaHtmlPreview, testoConPagamento } from '../../lib/features/preventivoPdf/text'
-import { parseImportoEuro } from '../../lib/utils/importo'
+import { scalaHtmlPreview, testoConPagamento } from '../../lib/features/preventivoPdf/text'
+import { importoDaTesto, meseCorrenteString, parseImportoEuro } from 'preventivoai-shared'
 import {
   aggiornaTitoloPreventivo,
   caricaClientePreventivo,
@@ -42,7 +42,6 @@ import {
   tokenPreventivoPdf,
 } from '../../lib/api/preventivoPdf'
 import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo'
-import { meseCorrenteString } from '../../lib/utils/giornoScadenza'
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
 import { resetBuilderState } from './builder'

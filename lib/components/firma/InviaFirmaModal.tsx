@@ -1,5 +1,5 @@
 import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CanaleFirma } from '../../api/firma'
 import {
   apriWhatsAppFirma,
@@ -11,6 +11,7 @@ import {
   buildOggettoFirmaInvio,
 } from '../../api/firma'
 import { sessionToken } from '../../api/settings'
+import { CanaleCondivisioneButton } from './CanaleCondivisioneButton'
 
 type Props = {
   visible: boolean
@@ -23,6 +24,15 @@ type Props = {
   onClose: () => void
   onInviato?: () => void
   onFirmaManuale?: () => void
+}
+
+const CANALI: CanaleFirma[] = ['whatsapp', 'email', 'link']
+
+const LABEL: Record<CanaleFirma, string> = {
+  whatsapp: 'WhatsApp',
+  email: 'Email',
+  link: 'Copia link',
+  manuale: 'Manuale',
 }
 
 export function InviaFirmaModal({
@@ -40,12 +50,15 @@ export function InviaFirmaModal({
   const [loading, setLoading] = useState<CanaleFirma | null>(null)
   const [feedback, setFeedback] = useState('')
   const [errore, setErrore] = useState('')
+  const inFlightRef = useRef(false)
 
   useEffect(() => {
     if (visible) void caricaMessaggiCliente(true)
   }, [visible])
 
   async function esegui(canale: CanaleFirma) {
+    if (inFlightRef.current || loading) return
+    inFlightRef.current = true
     setErrore('')
     setFeedback('')
     setLoading(canale)
@@ -74,6 +87,7 @@ export function InviaFirmaModal({
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore invio')
     } finally {
+      inFlightRef.current = false
       setLoading(null)
     }
   }
@@ -88,27 +102,28 @@ export function InviaFirmaModal({
             Il cliente <Text style={styles.bold}>{nomeCliente}</Text> potrà firmare online (30 giorni).
             {haStripe ? ' Il pagamento Stripe è già nella pagina — non serve inviarlo a parte.' : ''}
           </Text>
-          {(['whatsapp', 'email', 'link'] as CanaleFirma[]).map((c) => (
-            <TouchableOpacity
+          {CANALI.map((c) => (
+            <CanaleCondivisioneButton
               key={c}
-              disabled={!!loading}
-              activeOpacity={0.85}
+              label={LABEL[c]}
+              loading={loading === c}
+              disabled={loading !== null && loading !== c}
               onPress={() => void esegui(c)}
-              style={styles.canaleBtn}
-            >
-              <Text style={styles.canaleBtnText}>
-                {loading === c ? '...' : c === 'whatsapp' ? 'WhatsApp' : c === 'email' ? 'Email' : 'Copia link'}
-              </Text>
-            </TouchableOpacity>
+            />
           ))}
           {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
           {errore ? <Text style={styles.errore}>{errore}</Text> : null}
           {onFirmaManuale ? (
-            <TouchableOpacity onPress={() => { onClose(); onFirmaManuale() }} style={styles.firmaManuale}>
+            <TouchableOpacity
+              onPress={() => { onClose(); onFirmaManuale() }}
+              style={styles.firmaManuale}
+              activeOpacity={0.65}
+              disabled={!!loading}
+            >
               <Text style={styles.firmaManualeText}>Il cliente ha firmato a mano</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity onPress={onClose} style={styles.annulla} activeOpacity={0.85}>
+          <TouchableOpacity onPress={onClose} style={styles.annulla} activeOpacity={0.65} disabled={!!loading}>
             <Text style={styles.annullaText}>Annulla</Text>
           </TouchableOpacity>
         </View>
@@ -135,15 +150,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '700', color: '#0D1B2A' },
   subtitle: { marginTop: 8, color: '#6B7280', fontSize: 14, lineHeight: 20 },
   bold: { fontWeight: '600', color: '#0D1B2A' },
-  canaleBtn: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-  },
-  canaleBtnText: { fontWeight: '600', color: '#0D1B2A' },
   feedback: { marginTop: 10, color: '#0E9F8E', fontSize: 13 },
   errore: { marginTop: 10, color: '#DC2626', fontSize: 13 },
   firmaManuale: { marginTop: 14, alignItems: 'center' },

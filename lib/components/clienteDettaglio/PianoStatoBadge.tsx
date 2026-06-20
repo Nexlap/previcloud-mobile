@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { AnalisiPiano } from '../../utils/statoPiano'
+import type { AnalisiPiano } from 'preventivoai-shared'
 
 type Props = {
   analisi: AnalisiPiano

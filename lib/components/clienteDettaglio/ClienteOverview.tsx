@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Cliente } from '../../types'
-import { formatImportoEuro } from '../../utils/importo'
+import { formatImportoEuro } from 'preventivoai-shared'
 import { AppIcon } from '../icons/AppIcon'
 import { IconLabel } from '../icons/IconLabel'
 

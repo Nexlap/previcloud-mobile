@@ -1,14 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Modal, Pressable, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import * as Sharing from 'expo-sharing'
 import { caricaContattiCliente } from '../../api/firma'
 import { caricaSettingsData } from '../../api/settings'
 import { trackEvento } from '../../utils/analytics'
-import {
-  buildMessaggioCondividiPdf,
-  caricaMessaggiCliente,
-} from '../../messaggiCliente'
+import { buildMessaggioCondividiPdf } from 'preventivoai-shared'
+import { caricaMessaggiCliente } from '../../messaggiCliente'
 import { InviaFirmaModal } from '../firma/InviaFirmaModal'
+import { CanaleCondivisioneButton } from '../firma/CanaleCondivisioneButton'
 
 export type PdfSuccessInvio = {
   preventivoId?: string | null
@@ -31,6 +30,8 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
   const [nomeAzienda, setNomeAzienda] = useState('')
   const [emailCliente, setEmailCliente] = useState<string | null | undefined>()
   const [telefonoCliente, setTelefonoCliente] = useState<string | null | undefined>()
+  const [condivisionePdf, setCondivisionePdf] = useState(false)
+  const condivisionePdfRef = useRef(false)
 
   useEffect(() => {
     if (!visible) {
@@ -76,31 +77,38 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
   }
 
   async function condividiPdf() {
-    if (!pdfUri) return
-    if (!(await Sharing.isAvailableAsync())) {
-      Alert.alert('Condivisione non disponibile', 'Non è possibile condividere il PDF da questo dispositivo.')
-      return
-    }
-    const templates = await caricaMessaggiCliente()
-    const nomeAziendaSettings = (await caricaSettingsData())?.form?.nome_azienda?.split(' ')[0]
-      || nomeAzienda
-      || 'Il tuo artigiano'
-    const messaggio = buildMessaggioCondividiPdf(
-      invio?.nomeCliente || 'Cliente',
-      nomeAziendaSettings,
-      templates,
-    )
+    if (!pdfUri || condivisionePdfRef.current) return
+    condivisionePdfRef.current = true
+    setCondivisionePdf(true)
     try {
-      await Share.share({ message: messaggio })
-    } catch {
-      // l'utente può annullare il foglio testo
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('Condivisione non disponibile', 'Non è possibile condividere il PDF da questo dispositivo.')
+        return
+      }
+      const templates = await caricaMessaggiCliente()
+      const nomeAziendaSettings = (await caricaSettingsData())?.form?.nome_azienda?.split(' ')[0]
+        || nomeAzienda
+        || 'Il tuo artigiano'
+      const messaggio = buildMessaggioCondividiPdf(
+        invio?.nomeCliente || 'Cliente',
+        nomeAziendaSettings,
+        templates,
+      )
+      try {
+        await Share.share({ message: messaggio })
+      } catch {
+        // l'utente può annullare il foglio testo
+      }
+      await Sharing.shareAsync(pdfUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Invia preventivo',
+        UTI: 'com.adobe.pdf',
+      })
+      trackEvento('pdf_condiviso', 'preventivo-pdf')
+    } finally {
+      condivisionePdfRef.current = false
+      setCondivisionePdf(false)
     }
-    await Sharing.shareAsync(pdfUri, {
-      mimeType: 'application/pdf',
-      dialogTitle: 'Invia preventivo',
-      UTI: 'com.adobe.pdf',
-    })
-    trackEvento('pdf_condiviso', 'preventivo-pdf')
   }
 
   return (
@@ -148,12 +156,18 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
             )}
 
             {pdfUri ? (
-              <TouchableOpacity style={styles.btnPdf} activeOpacity={0.85} onPress={() => void condividiPdf()}>
-                <Text style={styles.btnPdfTitle}>Condividi solo PDF</Text>
+              <>
+                <CanaleCondivisioneButton
+                  label="Condividi solo PDF"
+                  loading={condivisionePdf}
+                  disabled={condivisionePdf}
+                  onPress={() => void condividiPdf()}
+                  style={styles.btnPdf}
+                />
                 <Text style={styles.btnPdfSub}>
                   {`Allegato PDF classico.${haStripe ? ' Il link Stripe è già in fondo al documento.' : ''}`}
                 </Text>
-              </TouchableOpacity>
+              </>
             ) : null}
 
             <TouchableOpacity style={styles.btnChiudi} activeOpacity={0.85} onPress={onClose}>
@@ -244,12 +258,9 @@ const styles = StyleSheet.create({
   btnPdf: {
     marginTop: 10,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
     padding: 14,
   },
-  btnPdfTitle: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
-  btnPdfSub: { marginTop: 4, fontSize: 12, color: '#6B7280', lineHeight: 16 },
+  btnPdfSub: { marginTop: 4, paddingHorizontal: 2, fontSize: 12, color: '#6B7280', lineHeight: 16 },
   btnChiudi: { marginTop: 16, paddingVertical: 10, alignItems: 'center' },
   btnChiudiText: { fontSize: 14, fontWeight: '600', color: '#9CA3AF' },
 })

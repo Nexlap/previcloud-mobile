@@ -1,4 +1,4 @@
-import { formatImportoEuro } from '../../utils/importo'
+import { formatImportoEuro } from 'preventivoai-shared'
 
 type VoceDemo = { nome: string; dettagli: [string, string]; prezzo: number }
 type DemoPreventivo = {

@@ -1,5 +1,5 @@
 import { Linking, Text, TouchableOpacity, View } from 'react-native'
-import { APP_VERSION } from '../../features/profilo/constants'
+import { APP_VERSION, WEB_PRIVACY_URL, WEB_TERMINI_URL } from '../../features/profilo/constants'
 import { AppIcon } from '../icons/AppIcon'
 import { profiloStyles as styles } from './profiloStyles'
 
@@ -9,7 +9,7 @@ export function ProfiloAppCard() {
       <Text style={styles.cardTitle}>App</Text>
       <TouchableOpacity
         style={styles.settingBtn}
-        onPress={() => void Linking.openURL('https://preventivoai.it/termini')}
+        onPress={() => void Linking.openURL(WEB_TERMINI_URL)}
       >
         <View style={styles.settingBtnInner}>
           <AppIcon name="file-text" size={16} />
@@ -19,7 +19,7 @@ export function ProfiloAppCard() {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.settingBtn}
-        onPress={() => void Linking.openURL('https://preventivoai.it/privacy')}
+        onPress={() => void Linking.openURL(WEB_PRIVACY_URL)}
       >
         <View style={styles.settingBtnInner}>
           <AppIcon name="shield" size={16} />

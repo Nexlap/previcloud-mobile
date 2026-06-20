@@ -1,6 +1,6 @@
 import { StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { calcolaImportiRate, calcolaScadenzeRate, formatImportoEuro, labelScadenzaRata } from '../../utils/importo'
-import { giornoScadenzaValido, meseInizioValido } from '../../utils/giornoScadenza'
+import { calcolaImportiRate, calcolaScadenzeRate, formatImportoEuro, labelScadenzaRata } from 'preventivoai-shared'
+import { giornoScadenzaValido, meseInizioValido } from 'preventivoai-shared'
 import { GiornoScadenzaPicker, MeseInizioPicker } from '../pickers/DatePartPickers'
 
 type Props = {

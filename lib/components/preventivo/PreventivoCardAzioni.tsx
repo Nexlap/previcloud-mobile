@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons'
 import { InviaFirmaChip } from '../firma/InviaFirmaChip'
 import { PreventivoStatoBadge } from './PreventivoStatoBadge'
 import type { Preventivo } from '../../types'
-import { formatImportoDb } from '../../utils/importo'
+import { formatImportoDb } from 'preventivoai-shared'
 
 type Props = {
   preventivo: Preventivo

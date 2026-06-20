@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { VocePreventivo } from '../../types'
-import { formatImportoEuroVisuale } from '../../utils/importo'
+import { formatImportoEuroVisuale } from 'preventivoai-shared'
 
 type Props = {
   voci: VocePreventivo[]

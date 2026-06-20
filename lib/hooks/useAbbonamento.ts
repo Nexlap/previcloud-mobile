@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Alert } from 'react-native'
 import { MESI_BREVI } from '../constants'
+import { spostaAbbonamentiInCestino } from '../cestino'
+import { erroreColonnaDeletedAt } from 'preventivoai-shared'
 import { supabase } from '../supabase'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../types'
-import { calcolaImportiRate, calcolaScadenzeRate, formatImportoEuro } from '../utils/importo'
-import { nomePianoDaPreventivo } from '../utils/preventivoMadre'
+import { calcolaImportiRate, calcolaScadenzeRate, formatImportoEuro } from 'preventivoai-shared'
+import { nomePianoDaPreventivo } from 'preventivoai-shared'
 
 type UseAbbonamentoOpts = {
   soloTipo?: 'canone' | 'rate'
@@ -22,12 +24,24 @@ async function nomeDaPreventivoId(preventivoId: string, tipo: 'canone' | 'rate')
 }
 
 async function pianoAttivoSuPreventivo(preventivoId: string) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('abbonamenti')
     .select('id, tipo')
     .eq('preventivo_id', preventivoId)
     .eq('attivo', true)
+    .is('deleted_at', null)
     .maybeSingle()
+
+  if (error && erroreColonnaDeletedAt(error)) {
+    const { data: fallback } = await supabase
+      .from('abbonamenti')
+      .select('id, tipo')
+      .eq('preventivo_id', preventivoId)
+      .eq('attivo', true)
+      .maybeSingle()
+    return fallback?.tipo as 'canone' | 'rate' | undefined
+  }
+
   return data?.tipo as 'canone' | 'rate' | undefined
 }
 
@@ -108,7 +122,7 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     if (opts?.soloTipo) query = query.eq('tipo', opts.soloTipo)
     const { data: tutti } = await query
 
-    const lista = tutti || []
+    const lista = (tutti || []).filter(a => !(a as { deleted_at?: string | null }).deleted_at)
     const attivi = lista.filter(a => a.attivo)
     const storico = lista.filter(a => !a.attivo)
     const preventiviMap = await caricaPreventiviMadreMap(lista)
@@ -377,13 +391,30 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     return true
   }
 
+  function rimuoviAbbonamentoLocale(abbonamentoId: string) {
+    setAbbonamentiAttivi(lista => lista.filter(a => a.id !== abbonamentoId))
+    setAbbonamentiStorico(lista => lista.filter(a => a.id !== abbonamentoId))
+    setRatePerPiano(prev => {
+      const next = { ...prev }
+      delete next[abbonamentoId]
+      return next
+    })
+  }
+
+  async function eliminaAbbonamenti(abbonamentoIds: string[]) {
+    if (abbonamentoIds.length === 0) return true
+    const { error } = await spostaAbbonamentiInCestino(abbonamentoIds)
+    if (error) {
+      Alert.alert('Errore', error.message)
+      await carica()
+      return false
+    }
+    for (const id of abbonamentoIds) rimuoviAbbonamentoLocale(id)
+    return true
+  }
+
   async function eliminaAbbonamento(abbonamentoId: string) {
-    const { error } = await supabase
-      .from('abbonamenti')
-      .update({ attivo: false })
-      .eq('id', abbonamentoId)
-    if (error) { Alert.alert('Errore', error.message); return }
-    await carica()
+    return eliminaAbbonamenti([abbonamentoId])
   }
 
   async function registraPagamento(rataId: string, importoPagato: number, nota?: string) {
@@ -644,6 +675,7 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     creaPianoRate,
     aggiornaAbbonamento,
     eliminaAbbonamento,
+    eliminaAbbonamenti,
     modificaImportoPianoRate,
     registraPagamento,
     azzeraPagamento,

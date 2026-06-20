@@ -5,11 +5,12 @@ import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
 import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPreventivo/constants'
 import type { PreventivoInvio } from '../../api/firma'
 import { PreventivoCardAzioni } from '../preventivo/PreventivoCardAzioni'
+import { preventivoCardRowStyles } from '../preventivo/preventivoCardStyles'
 import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { FirmaStatoBadge, mostraPulsanteInviaFirma } from '../firma/FirmaStatoBadge'
 import { statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
-import { formatImportoDb } from '../../utils/importo'
+import { formatImportoDb } from 'preventivoai-shared'
 import { IconLabel } from '../icons/IconLabel'
 import { AppIcon } from '../icons/AppIcon'
 
@@ -93,13 +94,13 @@ export function ClientePreventiviList({
           onPress={() => onToggleCard(p.id)}
           onLongPress={() => onLongPress(p.id)}
         >
-          <View style={styles.prevRow}>
+          <View style={preventivoCardRowStyles.row}>
             {modalitaSelezione && (
               <View style={[styles.checkCircle, selezione.includes(p.id) && styles.checkCircleActive]}>
                 {selezione.includes(p.id) && <Text style={styles.checkMark}>{'\u2713'}</Text>}
               </View>
             )}
-            <View style={styles.prevLeft}>
+            <View style={preventivoCardRowStyles.left}>
               <Text style={styles.prevVersione}>{p.titolo || 'Preventivo'}</Text>
               <Text style={styles.prevData}>
                 {`${new Date(p.created_at).toLocaleDateString('it-IT')}${p.is_ultimo ? ' · attivo' : ''}`}
@@ -198,8 +199,6 @@ const styles = StyleSheet.create({
   prevCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
   prevCardOld: { opacity: 0.6 },
   prevCardSelected: { borderColor: '#0E9F8E', borderWidth: 2 },
-  prevRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 14 },
-  prevLeft: { flex: 1, minWidth: 0, paddingRight: 8 },
   prevVersione: { fontSize: 13, fontWeight: '700', color: '#0D1B2A' },
   prevData: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   prevPianoBadge: { marginTop: 4 },

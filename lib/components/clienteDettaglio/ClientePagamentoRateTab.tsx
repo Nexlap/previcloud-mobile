@@ -1,23 +1,20 @@
-import { useLocalSearchParams } from 'expo-router'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
-import { eventBus } from '../../eventBus'
-import { useAbbonamento } from '../../hooks/useAbbonamento'
-import { Abbonamento } from '../../types'
-import { analizzaStatoPiano, ordinaPianiPerStato } from '../../utils/statoPiano'
+import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
+import { analizzaStatoPiano, ordinaPianiPerStato } from 'preventivoai-shared'
 import { PianoRateCard } from './PianoRateCard'
 import { PianoVuotoState } from './PianoVuotoState'
 
-export function ClientePagamentoRateTab({
-  onApriPreventivoMadre,
-  onPianoAggiornato,
-  onCampoFocus,
-  onRename,
-  selezionePianoAttiva = false,
-  pianiSelezionati = [],
-  onAvviaSelezionePiano,
-  onToggleSelezionePiano,
-}: {
+type ClientePagamentoRateTabProps = {
+  clienteNome: string
+  loading: boolean
+  abbonamentiAttivi: Abbonamento[]
+  ratePerPiano: Record<string, RataAbbonamento[]>
+  preventiviMadreStorico: Record<string, PreventivoMadre>
+  segnaRataPagata: (rataId: string, pagata: boolean) => void
+  modificaImportoPianoRate: (abbonamentoId: string, importo: number) => Promise<boolean>
+  salvaImportiRatePersonalizzati: (abbonamentoId: string, importi: Record<string, number>) => Promise<boolean>
+  eliminaAbbonamento: (abbonamentoId: string) => Promise<void | boolean>
   onApriPreventivoMadre?: (preventivoId: string) => void
   onPianoAggiornato?: () => void | Promise<void>
   onCampoFocus?: () => void
@@ -26,26 +23,27 @@ export function ClientePagamentoRateTab({
   pianiSelezionati?: string[]
   onAvviaSelezionePiano?: (abbonamentoId: string) => void
   onToggleSelezionePiano?: (abbonamentoId: string) => void
-}) {
-  const { id: clienteId, nome: clienteNome } = useLocalSearchParams<{ id: string; nome?: string }>()
-  const {
-    abbonamentiAttivi,
-    ratePerPiano,
-    preventiviMadreStorico,
-    loading: loadingAb,
-    segnaRataPagata,
-    modificaImportoPianoRate,
-    salvaImportiRatePersonalizzati,
-    eliminaAbbonamento,
-    carica,
-  } = useAbbonamento(clienteId || '', { soloTipo: 'rate' })
+}
 
-  useEffect(() => {
-    const aggiorna = () => { carica() }
-    eventBus.on('aggiorna-piano-cliente', aggiorna)
-    return () => { eventBus.off('aggiorna-piano-cliente', aggiorna) }
-  }, [carica])
-
+export function ClientePagamentoRateTab({
+  clienteNome,
+  loading,
+  abbonamentiAttivi,
+  ratePerPiano,
+  preventiviMadreStorico,
+  segnaRataPagata,
+  modificaImportoPianoRate,
+  salvaImportiRatePersonalizzati,
+  eliminaAbbonamento,
+  onApriPreventivoMadre,
+  onPianoAggiornato,
+  onCampoFocus,
+  onRename,
+  selezionePianoAttiva = false,
+  pianiSelezionati = [],
+  onAvviaSelezionePiano,
+  onToggleSelezionePiano,
+}: ClientePagamentoRateTabProps) {
   const pianiOrdinati = useMemo(
     () => ordinaPianiPerStato(abbonamentiAttivi, ratePerPiano, id => abbonamentiAttivi.find(a => a.id === id)),
     [abbonamentiAttivi, ratePerPiano],
@@ -71,7 +69,7 @@ export function ClientePagamentoRateTab({
             ? preventiviMadreStorico[abbonamento.preventivo_id] ?? null
             : null
         }
-        clienteNome={clienteNome || ''}
+        clienteNome={clienteNome}
         onApriPreventivoMadre={onApriPreventivoMadre}
         onCampoFocus={onCampoFocus}
         onPianoAggiornato={onPianoAggiornato}
@@ -88,7 +86,7 @@ export function ClientePagamentoRateTab({
     )
   }
 
-  if (loadingAb) {
+  if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#0E9F8E" />

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
-import { formatImportoEuroVisuale } from '../../utils/importo'
+import { formatImportoEuroVisuale } from 'preventivoai-shared'
 import { AppIcon } from '../icons/AppIcon'
 
 type Props = {

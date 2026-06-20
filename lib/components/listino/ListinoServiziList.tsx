@@ -2,7 +2,7 @@ import { Text, TouchableOpacity, View } from 'react-native'
 import { LongPressAwareTouchableOpacity } from '../LongPressAwarePressable'
 import { useScreenTheme } from '../../hooks/useScreenTheme'
 import { ServizioForm } from '../../types'
-import { formatImportoEuroVisuale } from '../../utils/importo'
+import { formatImportoEuroVisuale } from 'preventivoai-shared'
 import { AppIcon } from '../icons/AppIcon'
 import { listinoStyles as styles } from './listinoStyles'
 

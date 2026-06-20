@@ -6,7 +6,7 @@ import {
   anteprimaMessaggio,
   type MessaggiClienteTemplates,
   type ScenarioMessaggio,
-} from '../../messaggiCliente'
+} from 'preventivoai-shared'
 import { useSettingsTheme } from '../../hooks/useSettingsTheme'
 import { FirmaReminderPanel } from './FirmaReminderPanel'
 import { MessaggioTemplateEditor } from './MessaggioTemplateEditor'

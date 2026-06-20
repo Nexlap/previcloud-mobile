@@ -7,7 +7,7 @@ import {
   proteggiModificaMessaggio,
   serializzaMessaggioSegmenti,
   type TipoMessaggioCliente,
-} from '../../messaggiCliente'
+} from 'preventivoai-shared'
 import { useSettingsTheme } from '../../hooks/useSettingsTheme'
 import { settingsStyles as styles } from './settingsStyles'
 

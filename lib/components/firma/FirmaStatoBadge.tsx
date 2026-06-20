@@ -1,6 +1,7 @@
-import { Text, TouchableOpacity } from 'react-native'
+import { Text } from 'react-native'
 import type { PreventivoInvio } from '../../api/firma'
 import { labelFirmaFirmata, statoFirmaInvio } from '../../api/firma'
+import { LongPressAwareTouchableOpacity } from '../LongPressAwarePressable'
 
 type Props = {
   invio?: PreventivoInvio
@@ -27,14 +28,15 @@ export function FirmaStatoBadge({ invio, onPress, onLongPress }: Props) {
 
   if (onPress || onLongPress) {
     return (
-      <TouchableOpacity
-        onPress={onPress}
+      <LongPressAwareTouchableOpacity
+        onPress={onPress ?? (() => {})}
         onLongPress={onLongPress}
         delayLongPress={400}
         hitSlop={8}
+        activeOpacity={0.7}
       >
         <Text style={style}>{label}</Text>
-      </TouchableOpacity>
+      </LongPressAwareTouchableOpacity>
     )
   }
 

@@ -3,6 +3,7 @@ import PreviewPaginata from '../PreviewPaginata'
 import { PREVIEW_HEIGHT, PREVIEW_WIDTH } from './onboardingStyles'
 import { OnboardingStepper } from './OnboardingStepper'
 import { onboardingStyles as styles } from './onboardingStyles'
+import { TEMPLATES } from '../../constants'
 
 type Props = {
   stepMassimoRaggiunto: number
@@ -15,14 +16,6 @@ type Props = {
   canNavigate: (s: number) => boolean
   onComplete: () => void
 }
-
-const TEMPLATES = [
-  { id: 'pulito', nome: 'Pulito', emoji: '⬜' },
-  { id: 'classico', nome: 'Classico', emoji: '📋' },
-  { id: 'bold', nome: 'Bold', emoji: '🎨' },
-  { id: 'minimal_dark', nome: 'Dark', emoji: '🌙' },
-  { id: 'artigiano', nome: 'Artigiano', emoji: '🪵' },
-]
 
 export function OnboardingTemplateStep({
   stepMassimoRaggiunto,

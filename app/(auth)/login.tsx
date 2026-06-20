@@ -8,11 +8,10 @@ import {
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { currentUserId, hasCompletedProfile, resetPassword, signInWithEmail, signUpWithEmail } from '../../lib/api/auth'
+import { WEB_BASE_URL, WEB_TERMINI_URL } from '../../lib/features/profilo/constants'
 import { errorMessage } from '../../lib/utils/errors'
 
 WebBrowser.maybeCompleteAuthSession()
-
-const WEB_HOMEPAGE_URL = 'https://preventivoai-web.vercel.app'
 
 export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -110,7 +109,7 @@ export default function Login() {
             await SecureStore.deleteItemAsync('biometrico_attivato')
             setBiometricoAttivato(false)
           } else {
-            router.replace('/(tabs)')
+            await controllaOnboarding()
           }
         }
       }
@@ -146,8 +145,12 @@ export default function Login() {
     Alert.alert('Email inviata', 'Controlla la tua email e segui il link per reimpostare la password.')
   }
 
+  async function apriTerminiWeb() {
+    await WebBrowser.openBrowserAsync(WEB_TERMINI_URL)
+  }
+
   async function apriHomepageWeb() {
-    await WebBrowser.openBrowserAsync(WEB_HOMEPAGE_URL)
+    await WebBrowser.openBrowserAsync(WEB_BASE_URL)
   }
 
   return (
@@ -208,7 +211,7 @@ export default function Login() {
               </TouchableOpacity>
               <Text style={styles.terminiText}>
                 Accetto i{' '}
-                <Text style={styles.terminiLink} onPress={apriHomepageWeb}>termini e condizioni</Text>
+                <Text style={styles.terminiLink} onPress={apriTerminiWeb}>termini e condizioni</Text>
                 .{' '}
                 <Text style={styles.terminiLink} onPress={apriHomepageWeb}>Scopri di più</Text>
               </Text>

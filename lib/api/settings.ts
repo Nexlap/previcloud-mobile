@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
-import { invalidaCacheMessaggiCliente, mergeMessaggiCliente, type MessaggiClienteTemplates } from '../messaggiCliente'
+import { mergeMessaggiCliente, type MessaggiClienteTemplates } from 'preventivoai-shared'
+import { invalidaCacheMessaggiCliente } from '../messaggiCliente'
 
 type SettingsProfile = {
   nome_azienda?: string | null

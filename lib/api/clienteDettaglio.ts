@@ -1,3 +1,5 @@
+import { spostaPreventiviInCestino } from '../cestino'
+import { queryConFiltroCestino } from 'preventivoai-shared'
 import { Cliente, Preventivo, Trascrizione } from '../types'
 import { supabase } from '../supabase'
 import { eliminaClienti } from './clienti'
@@ -55,7 +57,7 @@ export async function caricaCronologiaCliente(padreId: string | null): Promise<P
 }
 
 export async function eliminaPreventiviCliente(ids: string[]) {
-  await Promise.all(ids.map(id => supabase.from('preventivi').delete().eq('id', id)))
+  return spostaPreventiviInCestino(ids)
 }
 
 export async function spostaPreventiviCliente(ids: string[], nuovoClienteId: string, nuovoClienteNome: string) {
@@ -65,13 +67,19 @@ export async function spostaPreventiviCliente(ids: string[], nuovoClienteId: str
 }
 
 export async function caricaCollegamentiPianoPreventivo(clienteId: string) {
-  const { data } = await supabase
-    .from('abbonamenti')
-    .select('preventivo_id, tipo, attivo, created_at')
-    .eq('cliente_id', clienteId)
-    .eq('attivo', true)
-    .not('preventivo_id', 'is', null)
-    .order('created_at', { ascending: false })
+  const build = (conFiltro: boolean) => {
+    let q = supabase
+      .from('abbonamenti')
+      .select('preventivo_id, tipo, attivo, created_at')
+      .eq('cliente_id', clienteId)
+      .eq('attivo', true)
+      .not('preventivo_id', 'is', null)
+      .order('created_at', { ascending: false })
+    if (conFiltro) q = q.is('deleted_at', null)
+    return q
+  }
+
+  const { data } = await queryConFiltroCestino(() => build(true), () => build(false))
 
   const map: Record<string, 'canone' | 'rate'> = {}
   for (const row of data || []) {

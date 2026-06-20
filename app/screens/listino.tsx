@@ -8,7 +8,7 @@ import { creaServizioListino } from '../../lib/api/servizi'
 import { sessionToken } from '../../lib/api/auth'
 import { trackEvento } from '../../lib/utils/analytics'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
-import { aggiornaServizioListino, caricaServiziListino, eliminaServiziListino, eliminaServizioListino, normalizzaServizioListino } from '../../lib/api/listino'
+import { aggiornaServizioListino, caricaServiziListino, eliminaServiziListino, eliminaServizioListino, normalizzaServizioListino, parseCostoServizioManuale } from '../../lib/api/listino'
 import { avviaRegistrazioneListinoSmart, elaboraListinoDaTestoSmart, fermaRegistrazioneListinoSmart, scattaFotoListinoSmart, scegliFotoListinoSmart } from '../../lib/features/listino/media'
 import { ListinoEmpty } from '../../lib/components/listino/ListinoEmpty'
 import { ListinoHeader } from '../../lib/components/listino/ListinoHeader'
@@ -68,16 +68,21 @@ export default function Listino() {
   async function salvaServizio() {
     if (!nuovoServizio.nome.trim()) { Alert.alert('Errore', 'Inserisci almeno il nome del servizio'); return }
     setSalvandoServizio(true)
+    const costoParsed = parseCostoServizioManuale(nuovoServizio.costo)
     const payload = {
       nome: nuovoServizio.nome.trim(),
       descrizione: nuovoServizio.descrizione.trim() || null,
-      costo: nuovoServizio.costo ? parseFloat(nuovoServizio.costo) : null,
+      costo: costoParsed,
       unita: nuovoServizio.unita,
       ordine: servizi.length,
     }
     if (servizioInEdit) {
       const { error } = await aggiornaServizioListino(servizioInEdit.id, payload)
-      if (!error) setServizi(s => s.map(x => x.id === servizioInEdit.id ? { ...x, ...nuovoServizio } : x))
+      if (!error) {
+        setServizi(s => s.map(x => x.id === servizioInEdit.id
+          ? { ...x, ...nuovoServizio, costo: costoParsed != null ? String(costoParsed) : '' }
+          : x))
+      }
     } else {
       const { data, error } = await creaServizioListino({ ...nuovoServizio, ordine: servizi.length })
       if (!error && data) setServizi(s => [...s, normalizzaServizioListino(data)])

@@ -2,7 +2,7 @@ import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { COLORS, MESI_BREVI } from '../../constants'
 import { AnnoPicker, GiornoScadenzaPicker, MeseInizioPicker } from '../pickers/DatePartPickers'
 import { Preventivo, RataAbbonamento } from '../../types'
-import { formatImportoEuro } from '../../utils/importo'
+import { formatImportoEuro } from 'preventivoai-shared'
 import { PreventivoPicker } from './PreventivoPicker'
 
 type Props = {

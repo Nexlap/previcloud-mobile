@@ -1,4 +1,4 @@
-export const UNITA_OPTIONS = ['cad', 'ora', 'giorno', 'mq', 'ml', 'set', 'progetto'] as const
+export { UNITA_MISURA as UNITA_OPTIONS } from 'preventivoai-shared'
 
 export const LISTINO_TABS = [
   ['testo', '📋 Testo'],

@@ -1,11 +1,10 @@
-import * as FileSystem from 'expo-file-system/legacy'
 import { router, useFocusEffect } from 'expo-router'
-import * as Sharing from 'expo-sharing'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator, Alert, Modal, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View,
 } from 'react-native'
 import { caricaContattiCliente } from '../../lib/api/firma'
+import { scaricaECondividiPdfPreventivo } from '../../lib/api/pdf'
 import { useInviiFirma } from '../../lib/hooks/useInviiFirma'
 import { caricaSettingsData } from '../../lib/api/settings'
 import { InviaFirmaModal } from '../../lib/components/firma/InviaFirmaModal'
@@ -15,7 +14,8 @@ import { eventBus } from '../../lib/eventBus'
 import type { Notifica } from '../../lib/hooks/useNotifiche'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
-import { caricaClientiPerSposta, caricaCollegamentiPianoPreventivi, caricaCronologiaPreventivo, eliminaPreventivi, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
+import { caricaClientiPerSposta, caricaCollegamentiPianoPreventivi, caricaCronologiaPreventivo, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
+import { conteggioCestino } from '../../lib/cestino'
 import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
 import { useModificaPreventivoScelta } from '../../lib/features/modificaPreventivo/useModificaPreventivoScelta'
 import { StoricoEmpty } from '../../lib/components/storico/StoricoEmpty'
@@ -30,7 +30,7 @@ import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 export default function Storico() {
   const { s } = useScreenTheme()
-  const { preventivi, loading, refreshing, onRefresh, cambiaStato, segnaPagato, eliminaPreventivo, rinominaPreventivo, patchPreventivoLocal } = usePreventivi()
+  const { preventivi, loading, refreshing, onRefresh, cambiaStato, segnaPagato, eliminaPreventivo, eliminaPreventiviIds, rinominaPreventivo, patchPreventivoLocal } = usePreventivi()
   const { modificaInput, apriDaPreventivo, chiudiSceltaModifica } = useModificaPreventivoScelta()
   const [aperto, setAperto] = useState<string | null>(null)
   const [modalStato, setModalStato] = useState<string | null>(null)
@@ -48,6 +48,7 @@ export default function Storico() {
   const [preventiviEliminati, setPreventiviEliminati] = useState<string[]>([])
   const [preventiviSpostati, setPreventiviSpostati] = useState<{ [id: string]: { cliente_id: string, nome_cliente: string } }>({})
   const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
+  const [vociCestino, setVociCestino] = useState(0)
   const [firmaModalPreventivo, setFirmaModalPreventivo] = useState<Preventivo | null>(null)
   const [firmaDettaglioPreventivo, setFirmaDettaglioPreventivo] = useState<Preventivo | null>(null)
   const [firmaTelefono, setFirmaTelefono] = useState<string | null>(null)
@@ -68,9 +69,14 @@ export default function Storico() {
     },
   })
 
+  async function caricaConteggioCestino() {
+    setVociCestino(await conteggioCestino())
+  }
+
   useFocusEffect(useCallback(() => {
     trackEvento('storico_aperto', 'storico')
     caricaCollegamentiPianoPreventivi().then(setCollegamentiPiano)
+    void caricaConteggioCestino()
     void caricaSettingsData().then(d => {
       if (d?.form?.nome_azienda) setNomeAzienda(d.form.nome_azienda.split(' ')[0] || d.form.nome_azienda)
     })
@@ -100,9 +106,7 @@ export default function Storico() {
   async function scaricaPDF(p: Preventivo) {
     if (p.pdf_url) {
       try {
-        const fileName = `${FileSystem.cacheDirectory}preventivo_${p.id}.pdf`
-        const { uri } = await FileSystem.downloadAsync(p.pdf_url, fileName)
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Apri preventivo', UTI: 'com.adobe.pdf' })
+        await scaricaECondividiPdfPreventivo(p.id)
       } catch {
         Alert.alert('Errore', 'Impossibile aprire il PDF')
       }
@@ -114,7 +118,17 @@ export default function Storico() {
   async function elimina(id: string) {
     Alert.alert('Elimina', 'Vuoi eliminare questo preventivo?', [
       { text: 'Annulla', style: 'cancel' },
-      { text: 'Elimina', style: 'destructive', onPress: () => eliminaPreventivo(id) },
+      {
+        text: 'Elimina',
+        style: 'destructive',
+        onPress: async () => {
+          const ok = await eliminaPreventivo(id)
+          if (!ok) return
+          setCollegamentiPiano(await caricaCollegamentiPianoPreventivi())
+          await caricaConteggioCestino()
+          eventBus.emit('aggiorna-home')
+        },
+      },
     ])
   }
 
@@ -142,6 +156,7 @@ export default function Storico() {
   async function handleRefresh() {
     await onRefresh()
     setCollegamentiPiano(await caricaCollegamentiPianoPreventivi())
+    await caricaConteggioCestino()
   }
 
   async function eliminaSelezionati() {
@@ -153,10 +168,12 @@ export default function Storico() {
         text: 'Elimina',
         style: 'destructive',
         onPress: async () => {
-          const { error } = await eliminaPreventivi(ids)
-          if (error) { Alert.alert('Errore', error.message); return }
+          const ok = await eliminaPreventiviIds(ids)
+          if (!ok) return
           setPreventiviEliminati(prev => [...prev, ...ids])
           annullaSelezione()
+          setCollegamentiPiano(await caricaCollegamentiPianoPreventivi())
+          await caricaConteggioCestino()
           eventBus.emit('aggiorna-home')
         },
       },
@@ -279,6 +296,18 @@ export default function Storico() {
         contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: selezioneAttiva ? 120 : 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#0E9F8E" colors={['#0E9F8E']} />}
       >
+        <TouchableOpacity
+          style={styles.cestinoLink}
+          onPress={() => router.push('/screens/cestino')}
+        >
+          <Text style={styles.cestinoLinkText}>Elementi eliminati</Text>
+          {vociCestino > 0 ? (
+            <View style={styles.cestinoBadge}>
+              <Text style={styles.cestinoBadgeText}>{vociCestino}</Text>
+            </View>
+          ) : null}
+        </TouchableOpacity>
+
         {preventiviVisibili.length === 0 ? (
           <StoricoEmpty onGeneraPrimo={() => router.push('/(tabs)/nuovo')} />
         ) : (

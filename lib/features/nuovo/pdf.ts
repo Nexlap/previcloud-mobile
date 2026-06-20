@@ -1,5 +1,5 @@
 import { MetodoPagamento } from '../../api/preventivoPdf'
-import { importoDaTesto } from '../preventivoPdf/text'
+import { importoDaTesto } from 'preventivoai-shared'
 
 type ParametriPDFInput = {
   testo: string

@@ -18,7 +18,7 @@ import { SettingsDropdown } from '../../lib/components/settings/SettingsDropdown
 import { settingsStyles as styles } from '../../lib/components/settings/settingsStyles'
 import { useTheme } from '../../lib/theme/ThemeContext'
 import { TONI } from '../../lib/features/settings/constants'
-import { MESSAGGI_CLIENTE_DEFAULT } from '../../lib/messaggiCliente'
+import { MESSAGGI_CLIENTE_DEFAULT } from 'preventivoai-shared'
 import { errorMessage } from '../../lib/utils/errors'
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
@@ -188,6 +188,12 @@ export default function Settings() {
               subtitle: 'Bonifico, PayPal, contanti, carta e Stripe',
               icon: 'credit-card',
               onPress: () => router.push('/screens/pagamenti'),
+            },
+            {
+              title: 'Regime fiscale',
+              subtitle: 'Analisi fiscale e calcolo del netto nel builder',
+              icon: 'pie-chart',
+              onPress: () => router.push('/screens/fiscale'),
             },
             {
               title: 'Comunicazione cliente',

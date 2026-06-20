@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Servizio, VocePreventivo } from '../../types'
-import { formatImportoEuroVisuale } from '../../utils/importo'
+import { formatImportoEuroVisuale } from 'preventivoai-shared'
 
 type Props = {
   servizi: Servizio[]

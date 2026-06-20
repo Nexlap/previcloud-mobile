@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { dataPreventivoMadre, titoloPreventivoMadre } from '../../utils/preventivoMadre'
+import { dataPreventivoMadre, titoloPreventivoMadre } from 'preventivoai-shared'
 import { TitoloConData } from './TitoloConData'
 
 export type PreventivoMadreInfo = {

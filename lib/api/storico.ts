@@ -1,9 +1,11 @@
 import type { PostgrestError } from '@supabase/supabase-js'
+import { spostaPreventiviInCestino } from '../cestino'
+import { queryConFiltroCestino } from 'preventivoai-shared'
 import { Cliente, Preventivo } from '../types'
 import { supabase } from '../supabase'
 
 export async function eliminaPreventivi(ids: string[]) {
-  return supabase.from('preventivi').delete().in('id', ids)
+  return spostaPreventiviInCestino(ids)
 }
 
 export async function cambiaStatoPreventivi(ids: string[], stato: string) {
@@ -39,13 +41,19 @@ export async function caricaCollegamentiPianoPreventivi(): Promise<Record<string
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return {}
 
-  const { data } = await supabase
-    .from('abbonamenti')
-    .select('preventivo_id, tipo, created_at')
-    .eq('user_id', user.id)
-    .eq('attivo', true)
-    .not('preventivo_id', 'is', null)
-    .order('created_at', { ascending: false })
+  const build = (conFiltro: boolean) => {
+    let q = supabase
+      .from('abbonamenti')
+      .select('preventivo_id, tipo, created_at')
+      .eq('user_id', user.id)
+      .eq('attivo', true)
+      .not('preventivo_id', 'is', null)
+      .order('created_at', { ascending: false })
+    if (conFiltro) q = q.is('deleted_at', null)
+    return q
+  }
+
+  const { data } = await queryConFiltroCestino(() => build(true), () => build(false))
 
   const map: Record<string, 'canone' | 'rate'> = {}
   for (const row of data || []) {

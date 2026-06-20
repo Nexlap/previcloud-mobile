@@ -47,5 +47,5 @@ export async function hasCompletedProfile(userId: string) {
     .select('nome_azienda')
     .eq('id', userId)
     .single()
-  return !!profile?.nome_azienda
+  return Boolean(profile?.nome_azienda?.trim())
 }

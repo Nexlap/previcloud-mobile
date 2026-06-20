@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Preventivo } from '../../types'
-import { formatImportoEuro } from '../../utils/importo'
+import { formatImportoEuro } from 'preventivoai-shared'
 
 type Props = {
   preventivi: Preventivo[]

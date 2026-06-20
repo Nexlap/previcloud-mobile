@@ -1,18 +1,5 @@
 import { VocePreventivo } from '../types'
-
-export interface RisultatoFiscale {
-  regime: string
-  lordo: number
-  netto: number
-  rivalsa: number
-  totaleCliente: number
-  imponibile: number
-  contributi: number
-  imposta: number
-  iva: number
-  irpef: number
-  ritenuta: number
-}
+export type { RisultatoFiscale } from 'preventivoai-shared'
 
 export type TrasfertaBuilder = {
   id: string

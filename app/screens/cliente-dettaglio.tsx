@@ -1,6 +1,4 @@
-import * as FileSystem from 'expo-file-system/legacy'
 import { router, useLocalSearchParams, useNavigation } from 'expo-router'
-import * as Sharing from 'expo-sharing'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { EventArg, NavigationAction } from '@react-navigation/native'
 import {
@@ -14,8 +12,8 @@ import {
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { MESI_BREVI } from '../../lib/constants'
-import { creaLinkPagamentoRata } from '../../lib/api/pdf'
-import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, caricaCronologiaCliente, eliminaClienteDettaglio, eliminaPreventiviCliente, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
+import { creaLinkPagamentoRata, scaricaECondividiPdfPreventivo } from '../../lib/api/pdf'
+import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, caricaCronologiaCliente, eliminaClienteDettaglio, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
 import { ripristinaVersionePreventivo } from '../../lib/api/storico'
 import { caricaContattiCliente } from '../../lib/api/firma'
 import { useInviiFirma } from '../../lib/hooks/useInviiFirma'
@@ -25,7 +23,7 @@ import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
-import { formatImportoEuro } from '../../lib/utils/importo'
+import { formatImportoEuro } from 'preventivoai-shared'
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
 import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
@@ -131,7 +129,7 @@ export default function ClienteDettaglio() {
 
   const {
     preventivi, totaleValore,
-    cambiaStato, segnaPagato, eliminaPreventivo: eliminaPrev, rinominaPreventivo, spostaPreventivo,
+    cambiaStato, segnaPagato, eliminaPreventivo: eliminaPrev, eliminaPreventiviIds, rinominaPreventivo, spostaPreventivo,
     onRefresh: onRefreshPreventivi, patchPreventivoLocal,
   } = usePreventivi({ clienteId: id })
 
@@ -146,18 +144,32 @@ export default function ClienteDettaglio() {
 
   const {
     abbonamentiAttivi, preventiviMadreStorico, ratePerPiano, loading: loadingAb,
-    creaAbbonamento, aggiornaAbbonamento, eliminaAbbonamento,
+    creaAbbonamento, aggiornaAbbonamento, eliminaAbbonamento, eliminaAbbonamenti,
     registraPagamento, azzeraPagamento,
     aggiungiRataMese, eliminaRate, rinominaAbbonamento, modificaImportoRata,
     totaleIncassato, totaleParziale, carica: caricaAb
   } = useAbbonamento(id, { soloTipo: 'canone' })
 
   const {
+    abbonamentiAttivi: abbonamentiRateAttivi,
+    ratePerPiano: ratePerPianoRate,
+    preventiviMadreStorico: preventiviMadreStoricoRate,
+    loading: loadingAbRate,
     creaPianoRate,
     eliminaAbbonamento: eliminaPianoRate,
+    eliminaAbbonamenti: eliminaPianiRate,
     rinominaAbbonamento: rinominaPianoRate,
+    segnaRataPagata: segnaRataPagataRate,
+    modificaImportoPianoRate,
+    salvaImportiRatePersonalizzati,
     carica: caricaAbRate,
   } = useAbbonamento(id, { soloTipo: 'rate' })
+
+  useEffect(() => {
+    const aggiorna = () => { caricaAbRate() }
+    eventBus.on('aggiorna-piano-cliente', aggiorna)
+    return () => { eventBus.off('aggiorna-piano-cliente', aggiorna) }
+  }, [caricaAbRate])
 
   const preventiviSenzaPiano = useMemo(
     () => preventivi.filter(p => p.is_ultimo && !collegamentiPiano[p.id]),
@@ -228,7 +240,7 @@ export default function ClienteDettaglio() {
 
   async function onRefresh() {
     setRefreshing(true)
-    await Promise.all([carica(), onRefreshPreventivi(), caricaAb()])
+    await Promise.all([carica(), onRefreshPreventivi(), caricaAb(), caricaAbRate()])
     setRefreshing(false)
   }
 
@@ -246,14 +258,25 @@ export default function ClienteDettaglio() {
   }
 
   async function eliminaAbbonamentoCliente(abbonamentoId: string) {
-    await eliminaAbbonamento(abbonamentoId)
+    const ok = await eliminaAbbonamento(abbonamentoId)
+    if (!ok) return
     await aggiornaCollegamentiPiano()
+    eventBus.emit('aggiorna-piano-cliente')
   }
 
   async function eliminaPreventivo(prevId: string) {
     Alert.alert('Elimina', 'Vuoi eliminare questo preventivo?', [
       { text: 'Annulla', style: 'cancel' },
-      { text: 'Elimina', style: 'destructive', onPress: () => eliminaPrev(prevId) }
+      {
+        text: 'Elimina',
+        style: 'destructive',
+        onPress: async () => {
+          const ok = await eliminaPrev(prevId)
+          if (!ok) return
+          await aggiornaCollegamentiPiano()
+          eventBus.emit('aggiorna-home')
+        },
+      },
     ])
   }
 
@@ -339,8 +362,11 @@ export default function ClienteDettaglio() {
     Alert.alert('Elimina', `Vuoi eliminare ${selezione.length} preventivi?`, [
       { text: 'Annulla', style: 'cancel' },
       { text: 'Elimina', style: 'destructive', onPress: async () => {
-        await eliminaPreventiviCliente(selezione)
+        const ok = await eliminaPreventiviIds(selezione)
+        if (!ok) return
         annullaSelezione()
+        await aggiornaCollegamentiPiano()
+        eventBus.emit('aggiorna-home')
       }}
     ])
   }
@@ -355,9 +381,7 @@ export default function ClienteDettaglio() {
   async function scaricaPDF(p: Preventivo) {
     if (p.pdf_url) {
       try {
-        const fileName = `${FileSystem.cacheDirectory}preventivo_${p.id}.pdf`
-        const { uri } = await FileSystem.downloadAsync(p.pdf_url, fileName)
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Apri preventivo', UTI: 'com.adobe.pdf' })
+        await scaricaECondividiPdfPreventivo(p.id)
       } catch {
         Alert.alert('Errore', 'Impossibile aprire il PDF')
       }
@@ -582,13 +606,11 @@ export default function ClienteDettaglio() {
         text: 'Elimina',
         style: 'destructive',
         onPress: async () => {
-          if (tab === 'pagamento_rate') {
-            for (const pianoId of ids) await eliminaPianoRate(pianoId)
-            eventBus.emit('aggiorna-piano-cliente')
-          } else {
-            for (const pianoId of ids) await eliminaAbbonamento(pianoId)
-            await caricaAb()
-          }
+          const ok = tab === 'pagamento_rate'
+            ? await eliminaPianiRate(ids)
+            : await eliminaAbbonamenti(ids)
+          if (!ok) return
+          eventBus.emit('aggiorna-piano-cliente')
           await aggiornaCollegamentiPiano()
           annullaSelezionePiani()
         },
@@ -732,6 +754,15 @@ export default function ClienteDettaglio() {
         {/* Tab Pagamento a rate */}
         {tab === 'pagamento_rate' && (
           <ClientePagamentoRateTab
+            clienteNome={cliente.nome || nome || ''}
+            loading={loadingAbRate}
+            abbonamentiAttivi={abbonamentiRateAttivi}
+            ratePerPiano={ratePerPianoRate}
+            preventiviMadreStorico={preventiviMadreStoricoRate}
+            segnaRataPagata={segnaRataPagataRate}
+            modificaImportoPianoRate={modificaImportoPianoRate}
+            salvaImportiRatePersonalizzati={salvaImportiRatePersonalizzati}
+            eliminaAbbonamento={eliminaPianoRate}
             onApriPreventivoMadre={apriPreventivoMadre}
             onPianoAggiornato={aggiornaCollegamentiPiano}
             onCampoFocus={scrollCampoInVista}

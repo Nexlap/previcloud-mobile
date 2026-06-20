@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
 import 'react-native-url-polyfill/auto'
 import { currentUserId, hasCompletedProfile, onSignedOut } from '../lib/api/auth'
+import { purgeCestinoScaduto } from '../lib/cestino'
 import { ThemeProvider, useTheme } from '../lib/theme/ThemeContext'
 import { ThemedStatusBar } from '../lib/theme/ThemedStatusBar'
 import { trackSessione } from '../lib/utils/analytics'
@@ -54,6 +55,7 @@ export default function RootLayout() {
     const userId = await currentUserId()
     if (!userId) { completaSplash(); router.replace('/(auth)/login'); return }
     trackSessione()
+    void purgeCestinoScaduto()
     await redirectBasedOnProfile(userId)
   }
 

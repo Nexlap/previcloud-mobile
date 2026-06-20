@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { RisultatoFiscale } from '../../builder/types'
 import { ProfiloFiscale, VocePreventivo } from '../../types'
-import { formatImportoEuroVisuale } from '../../utils/importo'
+import { formatImportoEuroVisuale } from 'preventivoai-shared'
 
 type Props = {
   profiloFiscale: ProfiloFiscale | null

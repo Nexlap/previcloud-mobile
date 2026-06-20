@@ -17,9 +17,9 @@ import { MessaggiClienteEditor } from '../../lib/components/settings/MessaggiCli
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 import {
   MESSAGGI_CLIENTE_DEFAULT,
-  caricaMessaggiCliente,
   type MessaggiClienteTemplates,
-} from '../../lib/messaggiCliente'
+} from 'preventivoai-shared'
+import { caricaMessaggiCliente } from '../../lib/messaggiCliente'
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 

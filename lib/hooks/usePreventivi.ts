@@ -1,9 +1,15 @@
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { Alert } from 'react-native'
-import { calcolaIncassoCliente } from '../api/incassi'
+import {
+  cambiaStatoPreventivo,
+  caricaPreventivi,
+  ricaricaIncassoCliente,
+  rinominaPreventivo as rinominaPreventivoApi,
+  spostaPreventivo as spostaPreventivoApi,
+} from '../api/preventivi'
+import { eliminaPreventivi } from '../api/storico'
 import { segnaPreventivoPagato } from '../api/preventivoPdf'
-import { supabase } from '../supabase'
 import { Preventivo } from '../types'
 
 // ── Hook riutilizzabile per la gestione preventivi ────────────────
@@ -16,38 +22,11 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
   // Ricarica automaticamente ogni volta che la schermata torna in focus
   useFocusEffect(useCallback(() => { carica() }, [opts?.clienteId]))
 
-  async function caricaIncasso(userId: string, clienteId: string) {
-    const incasso = await calcolaIncassoCliente(userId, clienteId)
-    setTotaleIncasso(incasso)
-  }
-
   async function carica() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    let query = supabase
-      .from('preventivi')
-      .select('*, clienti(nome)')
-      .eq('user_id', user.id)
-      .eq('is_ultimo', true)
-      .order('created_at', { ascending: false })
-
-    if (opts?.clienteId) query = query.eq('cliente_id', opts.clienteId)
-    if (opts?.limit) query = query.limit(opts.limit)
-
-    const incassoPromise = opts?.clienteId
-      ? calcolaIncassoCliente(user.id, opts.clienteId)
-      : Promise.resolve(0)
-
-    const [{ data }, incasso] = await Promise.all([query, incassoPromise])
-
-    if (data) {
-      setPreventivi(data.map((p: Preventivo & { clienti?: { nome?: string } | null }) => ({
-        ...p,
-        nome_cliente: p.clienti?.nome || p.nome_cliente || 'Senza cliente'
-      })))
-    }
-    setTotaleIncasso(incasso)
+    const result = await caricaPreventivi(opts)
+    if (!result) return
+    setPreventivi(result.preventivi)
+    setTotaleIncasso(result.totaleIncasso)
     setLoading(false)
   }
 
@@ -57,15 +36,25 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
     setRefreshing(false)
   }
 
-  async function eliminaPreventivo(id: string) {
-    const { error } = await supabase.from('preventivi').delete().eq('id', id)
-    if (error) { Alert.alert('Errore', error.message); return false }
-    setPreventivi(p => p.filter(x => x.id !== id))
+  async function eliminaPreventiviIds(ids: string[]) {
+    if (ids.length === 0) return true
+    const rimossi = new Set(ids)
+    const { error } = await eliminaPreventivi(ids)
+    if (error) {
+      Alert.alert('Errore', error.message)
+      await carica()
+      return false
+    }
+    setPreventivi(p => p.filter(x => !rimossi.has(x.id)))
     if (opts?.clienteId) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) await caricaIncasso(user.id, opts.clienteId)
+      const incasso = await ricaricaIncassoCliente(opts.clienteId)
+      if (incasso !== null) setTotaleIncasso(incasso)
     }
     return true
+  }
+
+  async function eliminaPreventivo(id: string) {
+    return eliminaPreventiviIds([id])
   }
 
   async function cambiaStato(id: string, stato: string) {
@@ -85,7 +74,7 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
       ...(resetPagato ? { pagato: false, data_pagamento: null } : {}),
     } : x))
 
-    const { error } = await supabase.from('preventivi').update(aggiornamento).eq('id', id)
+    const { error } = await cambiaStatoPreventivo(id, aggiornamento)
     if (error) {
       Alert.alert('Errore', error.message)
       setPreventivi(p => p.map(x => x.id === id ? prev : x))
@@ -93,8 +82,8 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
     }
 
     if (opts?.clienteId && resetPagato) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) await caricaIncasso(user.id, opts.clienteId)
+      const incasso = await ricaricaIncassoCliente(opts.clienteId)
+      if (incasso !== null) setTotaleIncasso(incasso)
     }
     return true
   }
@@ -107,14 +96,14 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
       data_pagamento: pagato ? new Date().toISOString() : null,
     } : x))
     if (opts?.clienteId) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) await caricaIncasso(user.id, opts.clienteId)
+      const incasso = await ricaricaIncassoCliente(opts.clienteId)
+      if (incasso !== null) setTotaleIncasso(incasso)
     }
     return true
   }
 
   async function rinominaPreventivo(id: string, titolo: string) {
-    const { error } = await supabase.from('preventivi').update({ titolo }).eq('id', id)
+    const { error } = await rinominaPreventivoApi(id, titolo)
     if (error) { Alert.alert('Errore', error.message); return false }
     setPreventivi(p => p.map(x => x.id === id ? { ...x, titolo } : x))
     return true
@@ -125,14 +114,12 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
   }
 
   async function spostaPreventivo(id: string, nuovoClienteId: string, nuovoClienteNome: string) {
-    const { error } = await supabase.from('preventivi')
-      .update({ cliente_id: nuovoClienteId, nome_cliente: nuovoClienteNome })
-      .eq('id', id)
+    const { error } = await spostaPreventivoApi(id, nuovoClienteId, nuovoClienteNome)
     if (error) { Alert.alert('Errore', error.message); return false }
     setPreventivi(p => p.filter(x => x.id !== id))
     if (opts?.clienteId) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) await caricaIncasso(user.id, opts.clienteId)
+      const incasso = await ricaricaIncassoCliente(opts.clienteId)
+      if (incasso !== null) setTotaleIncasso(incasso)
     }
     return true
   }
@@ -142,6 +129,6 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
   return {
     preventivi, loading, refreshing, totaleValore,
     onRefresh, carica,
-    eliminaPreventivo, cambiaStato, segnaPagato, rinominaPreventivo, spostaPreventivo, patchPreventivoLocal
+    eliminaPreventivo, eliminaPreventiviIds, cambiaStato, segnaPagato, rinominaPreventivo, spostaPreventivo, patchPreventivoLocal
   }
 }
