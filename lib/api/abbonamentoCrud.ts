@@ -1,3 +1,4 @@
+import { inputDateToIso, oggiInputDate } from 'preventivoai-shared'
 import { spostaAbbonamentiInCestino } from '../cestino'
 import { supabase } from '../supabase'
 import { RataAbbonamento } from '../types'
@@ -32,6 +33,7 @@ export async function registraPagamentoRata(
   rata: RataAbbonamento,
   importoPagato: number,
   nota?: string,
+  dataIncasso?: string,
 ) {
   const nuovoAcconto = Math.min(rata.acconto + importoPagato, rata.importo)
   const nuovoSaldo = rata.importo - nuovoAcconto
@@ -43,7 +45,7 @@ export async function registraPagamentoRata(
     note: nota || rata.note || null,
   }
   if (nuovoStato === 'incassato') {
-    aggiornamento.data_incasso = new Date().toISOString()
+    aggiornamento.data_incasso = dataIncasso ?? inputDateToIso(oggiInputDate())
   }
 
   const { error } = await supabase

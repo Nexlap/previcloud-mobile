@@ -119,9 +119,9 @@ export async function caricaInfoPagamentoPreventivo(preventivoId: string) {
   }
 }
 
-export async function segnaPreventivoPagato(preventivoId: string, pagato: boolean) {
+export async function segnaPreventivoPagato(preventivoId: string, pagato: boolean, dataPagamento?: string) {
   const update = pagato
-    ? { pagato: true, data_pagamento: new Date().toISOString() }
+    ? { pagato: true, data_pagamento: dataPagamento || new Date().toISOString() }
     : { pagato: false, data_pagamento: null }
   await supabase.from('preventivi').update(update).eq('id', preventivoId)
 }

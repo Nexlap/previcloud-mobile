@@ -1,8 +1,10 @@
+import { useMemo } from 'react'
 import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { COLORS, MESI_BREVI } from '../../constants'
 import { AnnoPicker, GiornoScadenzaPicker, MeseInizioPicker } from '../pickers/DatePartPickers'
+import { InputDatePicker } from '../pickers/InputDatePicker'
 import { Preventivo, RataAbbonamento } from '../../types'
-import { formatImportoEuro } from 'preventivoai-shared'
+import { formatImportoEuro, parseImportoEuro } from 'preventivoai-shared'
 import { PreventivoPicker } from './PreventivoPicker'
 
 type Props = {
@@ -44,6 +46,8 @@ type Props = {
   onChangeRataImporto: (v: string) => void
   pagamentoImporto: string
   onChangePagamentoImporto: (v: string) => void
+  pagamentoDataIncasso: string
+  onChangePagamentoDataIncasso: (v: string) => void
   pagamentoNota: string
   onChangePagamentoNota: (v: string) => void
   onConfermaPagamento: () => void
@@ -101,6 +105,8 @@ export function ClienteAbbonamentoModals({
   onChangeRataImporto,
   pagamentoImporto,
   onChangePagamentoImporto,
+  pagamentoDataIncasso,
+  onChangePagamentoDataIncasso,
   pagamentoNota,
   onChangePagamentoNota,
   onConfermaPagamento,
@@ -119,6 +125,14 @@ export function ClienteAbbonamentoModals({
   onChangeNuovaRataImporto,
   onConfermaAggiungiRata,
 }: Props) {
+  const pagamentoSaldaRata = useMemo(() => {
+    if (!rataSelezionata) return false
+    const importo = parseImportoEuro(pagamentoImporto)
+    const importoRata = parseImportoEuro(rataImporto) || rataSelezionata.importo
+    if (!importo || importo <= 0) return false
+    return importoRata - ((rataSelezionata.acconto || 0) + importo) <= 0
+  }, [rataSelezionata, pagamentoImporto, rataImporto])
+
   return (
     <>
       <Modal visible={mostraNuovo} transparent animationType="fade" onRequestClose={onCloseNuovo}>
@@ -234,6 +248,17 @@ export function ClienteAbbonamentoModals({
                 />
                 <Text style={styles.modalFieldLabel}>IMPORTO RICEVUTO ORA ({'\u20AC'})</Text>
                 <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={pagamentoImporto} onChangeText={onChangePagamentoImporto} keyboardType="decimal-pad" autoFocus />
+                {pagamentoSaldaRata ? (
+                  <>
+                    <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>DATA INCASSO</Text>
+                    <InputDatePicker
+                      value={pagamentoDataIncasso}
+                      onChange={onChangePagamentoDataIncasso}
+                      style={{ marginTop: 6 }}
+                      maximumDate={new Date()}
+                    />
+                  </>
+                ) : null}
                 <Text style={[styles.modalFieldLabel, { marginTop: 8 }]}>NOTA (opzionale)</Text>
                 <TextInput style={[styles.modalInput, { marginTop: 6 }]} value={pagamentoNota} onChangeText={onChangePagamentoNota} placeholder="es. Bonifico 10 giugno" placeholderTextColor={COLORS.textMuted} />
                 <TouchableOpacity style={[styles.modalSaveBtn, { backgroundColor: COLORS.accent }]} onPress={onConfermaPagamento}>

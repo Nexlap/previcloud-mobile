@@ -88,12 +88,12 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
     return true
   }
 
-  async function segnaPagato(id: string, pagato: boolean) {
-    await segnaPreventivoPagato(id, pagato)
+  async function segnaPagato(id: string, pagato: boolean, dataPagamento?: string) {
+    await segnaPreventivoPagato(id, pagato, dataPagamento)
     setPreventivi(p => p.map(x => x.id === id ? {
       ...x,
       pagato,
-      data_pagamento: pagato ? new Date().toISOString() : null,
+      data_pagamento: pagato ? (dataPagamento ?? new Date().toISOString()) : null,
     } : x))
     if (opts?.clienteId) {
       const incasso = await ricaricaIncassoCliente(opts.clienteId)

@@ -134,11 +134,16 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     return true
   }
 
-  async function segnaRataPagata(rataId: string, pagata: boolean) {
+  async function segnaRataPagata(rataId: string, pagata: boolean, dataIncasso?: string) {
     const found = trovaRata(rataId)
     if (!found) return
     if (pagata) {
-      await registraPagamento(rataId, found.rata.importo - (found.rata.acconto || 0))
+      await registraPagamento(
+        rataId,
+        found.rata.importo - (found.rata.acconto || 0),
+        undefined,
+        dataIncasso,
+      )
     } else {
       await azzeraPagamento(rataId)
     }
@@ -198,12 +203,23 @@ export function useAbbonamento(clienteId: string, opts?: UseAbbonamentoOpts) {
     return eliminaAbbonamenti([abbonamentoId])
   }
 
-  async function registraPagamento(rataId: string, importoPagato: number, nota?: string) {
+  async function registraPagamento(
+    rataId: string,
+    importoPagato: number,
+    nota?: string,
+    dataIncasso?: string,
+  ) {
     const found = trovaRata(rataId)
     if (!found) return
     const { rata, abbonamentoId } = found
 
-    const { error, aggiornamento, nuovoSaldo } = await registraPagamentoRata(rataId, rata, importoPagato, nota)
+    const { error, aggiornamento, nuovoSaldo } = await registraPagamentoRata(
+      rataId,
+      rata,
+      importoPagato,
+      nota,
+      dataIncasso,
+    )
     if (error) { Alert.alert('Errore', error.message); return }
     aggiornaRatePiano(abbonamentoId, rs =>
       rs.map(x => x.id === rataId ? { ...x, ...aggiornamento, saldo_residuo: nuovoSaldo } : x),

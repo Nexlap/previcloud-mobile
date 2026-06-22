@@ -11,7 +11,7 @@ type ClientePagamentoRateTabProps = {
   abbonamentiAttivi: Abbonamento[]
   ratePerPiano: Record<string, RataAbbonamento[]>
   preventiviMadreStorico: Record<string, PreventivoMadre>
-  segnaRataPagata: (rataId: string, pagata: boolean) => void
+  segnaRataPagata: (rataId: string, pagata: boolean, dataIncasso?: string) => void | Promise<void>
   modificaImportoPianoRate: (abbonamentoId: string, importo: number) => Promise<boolean>
   salvaImportiRatePersonalizzati: (abbonamentoId: string, importi: Record<string, number>) => Promise<boolean>
   eliminaAbbonamento: (abbonamentoId: string) => Promise<void | boolean>

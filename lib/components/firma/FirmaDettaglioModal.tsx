@@ -35,7 +35,7 @@ type Props = {
 }
 
 async function uriToBase64(uri: string, mimeType: string) {
-  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as FileSystem.EncodingType })
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' })
   return `data:${mimeType};base64,${base64}`
 }
 

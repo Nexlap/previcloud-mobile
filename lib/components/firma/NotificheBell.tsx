@@ -4,6 +4,7 @@ import { Modal, Text, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { segnaPreventivoPagato } from '../../api/preventivoPdf'
 import { eventBus } from '../../eventBus'
+import { inputDateToIso, oggiInputDate } from 'preventivoai-shared'
 import {
   formatTempoNotifica,
   notificaInRimando,
@@ -120,7 +121,7 @@ export function NotificaAzioneStorico({
   const { segnaLetta, rimanda, ricarica } = useNotifiche()
 
   async function handleSegnaPagato(preventivoId: string) {
-    await segnaPreventivoPagato(preventivoId, true)
+    await segnaPreventivoPagato(preventivoId, true, inputDateToIso(oggiInputDate()))
     if (notifica && !notifica.letta) await segnaLetta(notifica.id)
     eventBus.emit('aggiorna-home')
     void ricarica()

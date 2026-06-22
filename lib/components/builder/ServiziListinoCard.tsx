@@ -26,7 +26,7 @@ export function ServiziListinoCard({ servizi, voci, onConfiguraServizi, onAggiun
         <View key={s.id} style={styles.servizioRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.servizioNome}>{s.nome}</Text>
-            {s.costo ? <Text style={styles.servizioCosto}>€{formatImportoEuroVisuale(parseFloat(s.costo) || 0)}/{s.unita}</Text> : null}
+            {s.costo ? <Text style={styles.servizioCosto}>€{formatImportoEuroVisuale(s.costo)}/{s.unita}</Text> : null}
           </View>
           <TouchableOpacity
             style={[styles.addBtn, aggiunto && styles.addBtnDone]}

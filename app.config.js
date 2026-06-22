@@ -19,7 +19,8 @@ export default {
     plugins: [
   "expo-router",
   "expo-secure-store",
-  "expo-web-browser"
+  "expo-web-browser",
+  "@react-native-community/datetimepicker"
     ],
 updates: {
   url: "https://u.expo.dev/a842ab0e-24f7-41b4-b93a-6b97a75b9621"

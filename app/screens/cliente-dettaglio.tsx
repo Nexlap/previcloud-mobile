@@ -23,7 +23,7 @@ import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
-import { formatImportoEuro } from 'preventivoai-shared'
+import { formatImportoEuro, inputDateToIso, meseCorrenteString, oggiInputDate } from 'preventivoai-shared'
 import {
   messaggioEliminaPreventiviMultipli,
   messaggioEliminaPreventivoSingolo,
@@ -110,6 +110,7 @@ export default function ClienteDettaglio() {
   const [rateMeseInizio, setRateMeseInizio] = useState('')
   const [rataSelezionata, setRataSelezionata] = useState<RataAbbonamento | null>(null)
   const [pagamentoImporto, setPagamentoImporto] = useState('')
+  const [pagamentoDataIncasso, setPagamentoDataIncasso] = useState(oggiInputDate())
   const [pagamentoNota, setPagamentoNota] = useState('')
   const [invioReminderLoading, setInvioReminderLoading] = useState<string | null>(null)
   const [pianoEspansoId, setPianoEspansoId] = useState<string | null>(null)
@@ -397,6 +398,7 @@ export default function ClienteDettaglio() {
     setRataSelezionata(rata)
     const residuo = rata.importo - (rata.acconto || 0)
     setPagamentoImporto(residuo.toString())
+    setPagamentoDataIncasso(oggiInputDate())
     setPagamentoNota('')
     setRataImporto(rata.importo.toString())
   }
@@ -517,7 +519,10 @@ export default function ClienteDettaglio() {
     if (nuovoImportoRata && nuovoImportoRata !== rataSelezionata.importo) {
       await modificaImportoRata(rataSelezionata.id, nuovoImportoRata)
     }
-    await registraPagamento(rataSelezionata.id, importo, pagamentoNota || undefined)
+    const importoRataEffettivo = nuovoImportoRata || rataSelezionata.importo
+    const saldoDopoPagamento = importoRataEffettivo - ((rataSelezionata.acconto || 0) + importo)
+    const dataIncasso = saldoDopoPagamento <= 0 ? inputDateToIso(pagamentoDataIncasso) : undefined
+    await registraPagamento(rataSelezionata.id, importo, pagamentoNota || undefined, dataIncasso)
     await onRefreshPreventivi()
     eventBus.emit('aggiorna-home')
     setRataSelezionata(null)
@@ -872,10 +877,11 @@ export default function ClienteDettaglio() {
         onChangeStato={(preventivoId, stato) => { cambiaStato(preventivoId, stato); eventBus.emit('aggiorna-home') }}
         preventivoStatoCorrente={preventivoModale?.stato}
         preventivoPagato={preventivoModale?.pagato ?? false}
+        preventivoDataPagamento={preventivoModale?.data_pagamento}
         mostraTogglePagato={!!modalStato && !collegamentiPiano[modalStato]}
-        onTogglePagato={async (pagato) => {
+        onTogglePagato={async (pagato, dataPagamento) => {
           if (!modalStato) return
-          await segnaPagato(modalStato, pagato)
+          await segnaPagato(modalStato, pagato, dataPagamento)
           eventBus.emit('aggiorna-home')
         }}
         mostraModalSposta={mostraModalSposta}
@@ -970,6 +976,8 @@ export default function ClienteDettaglio() {
         onChangeRataImporto={setRataImporto}
         pagamentoImporto={pagamentoImporto}
         onChangePagamentoImporto={setPagamentoImporto}
+        pagamentoDataIncasso={pagamentoDataIncasso}
+        onChangePagamentoDataIncasso={setPagamentoDataIncasso}
         pagamentoNota={pagamentoNota}
         onChangePagamentoNota={setPagamentoNota}
         onConfermaPagamento={confermaPagamentoRata}

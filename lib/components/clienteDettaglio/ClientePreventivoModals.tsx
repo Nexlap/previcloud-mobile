@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { AppIcon } from '../icons/AppIcon'
 import { StatoPreventivoIcon } from '../icons/StatoPreventivoIcon'
+import { PreventivoSegnaPagatoSection } from '../preventivo/PreventivoSegnaPagatoSection'
 
 type ClienteOpzione = { id: string; nome: string }
 
@@ -11,8 +11,9 @@ type Props = {
   onChangeStato: (preventivoId: string, stato: string) => void
   preventivoStatoCorrente?: string | null
   preventivoPagato?: boolean
+  preventivoDataPagamento?: string | null
   mostraTogglePagato?: boolean
-  onTogglePagato?: (pagato: boolean) => Promise<void> | void
+  onTogglePagato?: (pagato: boolean, dataPagamento?: string) => Promise<void> | void
   mostraModalSposta: string | null
   clientiDisponibili: ClienteOpzione[]
   onCloseSposta: () => void
@@ -32,6 +33,7 @@ export function ClientePreventivoModals({
   onChangeStato,
   preventivoStatoCorrente,
   preventivoPagato = false,
+  preventivoDataPagamento = null,
   mostraTogglePagato = false,
   onTogglePagato,
   mostraModalSposta,
@@ -44,18 +46,6 @@ export function ClientePreventivoModals({
   onCloseRinomina,
   onSaveRinomina,
 }: Props) {
-  const [salvandoPagato, setSalvandoPagato] = useState(false)
-
-  async function handleTogglePagato(value: boolean) {
-    if (!onTogglePagato) return
-    setSalvandoPagato(true)
-    try {
-      await onTogglePagato(value)
-    } finally {
-      setSalvandoPagato(false)
-    }
-  }
-
   return (
     <>
       <Modal visible={modalStato !== null} transparent animationType="fade" onRequestClose={onCloseStato}>
@@ -79,23 +69,12 @@ export function ClientePreventivoModals({
                 <Text style={styles.modalOptionText}>{stato}</Text>
               </TouchableOpacity>
             ))}
-            {mostraTogglePagato && preventivoStatoCorrente === 'accettato' ? (
-              <>
-                <View style={styles.pagatoDivider} />
-                <View style={styles.pagatoRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.pagatoLabel}>Segna come pagato</Text>
-                    <Text style={styles.pagatoSub}>Registra l&apos;incasso del preventivo accettato</Text>
-                  </View>
-                  <Switch
-                    value={preventivoPagato}
-                    onValueChange={handleTogglePagato}
-                    disabled={salvandoPagato}
-                    trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
-                    thumbColor="#fff"
-                  />
-                </View>
-              </>
+            {mostraTogglePagato && preventivoStatoCorrente === 'accettato' && onTogglePagato ? (
+              <PreventivoSegnaPagatoSection
+                pagato={preventivoPagato}
+                dataPagamento={preventivoDataPagamento}
+                onTogglePagato={onTogglePagato}
+              />
             ) : null}
             <TouchableOpacity style={styles.modalCancel} onPress={onCloseStato}>
               <Text style={styles.modalCancelText}>Annulla</Text>

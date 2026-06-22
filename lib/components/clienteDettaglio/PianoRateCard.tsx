@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  ActivityIndicator, Alert, Linking, Platform, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Alert, Linking, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View,
   type DimensionValue,
 } from 'react-native'
 import { LongPressAwarePressable } from '../LongPressAwarePressable'
@@ -15,6 +15,7 @@ import { formatImportoEuro, parseImportoEuro, ricalcolaImportiRateLibere } from 
 import { titoloHeaderPiano, analizzaStatoPiano } from 'preventivoai-shared'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
+import { RataSegnaPagataSection } from './RataSegnaPagataSection'
 
 const MESI_FULL = [
   'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -43,7 +44,7 @@ type RataMiniProps = {
   invioReminderLoading: string | null
   mostraReminder: boolean
   onToggle: () => void
-  onSegnaPagata: (pagata: boolean) => void
+  onSegnaPagata: (pagata: boolean, dataIncasso?: string) => void | Promise<void>
   onReminder: () => void
 }
 
@@ -73,15 +74,11 @@ function RataMiniRow({
       </TouchableOpacity>
       {aperta ? (
         <View style={styles.rataMiniDetail}>
-          <View style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>Segna come pagata</Text>
-            <Switch
-              value={pagata}
-              onValueChange={onSegnaPagata}
-              trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
-              thumbColor="#fff"
-            />
-          </View>
+          <RataSegnaPagataSection
+            pagata={pagata}
+            dataIncasso={rata.data_incasso}
+            onToggle={onSegnaPagata}
+          />
           {mostraReminder && !pagata ? (
             <TouchableOpacity
               style={styles.reminderBtn}
@@ -107,7 +104,7 @@ export type PianoRateCardProps = {
   onApriPreventivoMadre?: (preventivoId: string) => void
   onCampoFocus?: () => void
   onPianoAggiornato?: () => void | Promise<void>
-  segnaRataPagata: (rataId: string, pagata: boolean) => void
+  segnaRataPagata: (rataId: string, pagata: boolean, dataIncasso?: string) => void | Promise<void>
   modificaImportoPianoRate: (abbonamentoId: string, importo: number) => Promise<boolean>
   salvaImportiRatePersonalizzati: (abbonamentoId: string, importi: Record<string, number>) => Promise<boolean>
   eliminaAbbonamento: (abbonamentoId: string) => Promise<void | boolean>
@@ -430,7 +427,7 @@ export function PianoRateCard({
                     invioReminderLoading={invioReminderLoading}
                     mostraReminder={prossima?.id === rata.id}
                     onToggle={() => setRataMiniAperta(id => id === rata.id ? null : rata.id)}
-                    onSegnaPagata={v => segnaRataPagata(rata.id, v)}
+                    onSegnaPagata={(v, dataIncasso) => segnaRataPagata(rata.id, v, dataIncasso)}
                     onReminder={() => inviaReminder(rata)}
                   />
                 )
@@ -455,7 +452,7 @@ export function PianoRateCard({
                     invioReminderLoading={invioReminderLoading}
                     mostraReminder={false}
                     onToggle={() => setRataMiniAperta(id => id === rata.id ? null : rata.id)}
-                    onSegnaPagata={v => segnaRataPagata(rata.id, v)}
+                    onSegnaPagata={(v, dataIncasso) => segnaRataPagata(rata.id, v, dataIncasso)}
                     onReminder={() => inviaReminder(rata)}
                   />
                 )

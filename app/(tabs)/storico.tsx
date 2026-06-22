@@ -353,10 +353,11 @@ export default function Storico() {
         onChangeStato={(preventivoId, stato) => { cambiaStato(preventivoId, stato); eventBus.emit('aggiorna-home') }}
         preventivoStatoCorrente={preventivoModale?.stato}
         preventivoPagato={preventivoModale?.pagato ?? false}
+        preventivoDataPagamento={preventivoModale?.data_pagamento}
         mostraTogglePagato={!!modalStato && !collegamentiPiano[modalStato]}
-        onTogglePagato={async (pagato) => {
+        onTogglePagato={async (pagato, dataPagamento) => {
           if (!modalStato) return
-          await segnaPagato(modalStato, pagato)
+          await segnaPagato(modalStato, pagato, dataPagamento)
           eventBus.emit('aggiorna-home')
         }}
         modalClienti={modalClienti}
