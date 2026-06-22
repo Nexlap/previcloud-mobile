@@ -517,7 +517,10 @@ export default function Builder() {
   }
 
   function aggiungiVoce(s: Servizio) {
-    if (voci.find(v => v.servizio_id === s.id)) { Alert.alert('Già aggiunto', 'Questo servizio è già nel preventivo.'); return }
+    if (voci.find(v => v.servizio_id === s.id)) {
+      Alert.alert('Attenzione', 'Questo servizio è già nel preventivo.')
+      return
+    }
     setVoci(v => [...v, { servizio_id: s.id, nome: s.nome, descrizione: s.descrizione || '', costo: s.costo?.toString() || '', quantita: '1', unita: s.unita }])
   }
 

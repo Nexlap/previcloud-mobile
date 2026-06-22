@@ -24,6 +24,7 @@ export default function Login() {
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
   const [accettaTermini, setAccettaTermini] = useState(false)
+  const [errorePassword, setErrorePassword] = useState<string | null>(null)
 
   useEffect(() => {
     async function checkBiometrico() {
@@ -56,6 +57,11 @@ export default function Login() {
       Alert.alert('Termini richiesti', 'Accetta i termini e condizioni per continuare.')
       return
     }
+    if (mode === 'register' && password.length < 6) {
+      setErrorePassword('La password deve avere almeno 6 caratteri.')
+      return
+    }
+    setErrorePassword(null)
     setLoading(true)
     if (mode === 'register') {
       const { error } = await signUpWithEmail(email, password)
@@ -162,10 +168,10 @@ export default function Login() {
         </View>
         <View style={styles.card}>
           <View style={styles.toggle}>
-            <TouchableOpacity style={[styles.toggleBtn, mode === 'login' && styles.toggleActive]} onPress={() => { setMode('login'); setAccettaTermini(false) }}>
+            <TouchableOpacity style={[styles.toggleBtn, mode === 'login' && styles.toggleActive]} onPress={() => { setMode('login'); setAccettaTermini(false); setErrorePassword(null) }}>
               <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>Accedi</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.toggleBtn, mode === 'register' && styles.toggleActive]} onPress={() => setMode('register')}>
+            <TouchableOpacity style={[styles.toggleBtn, mode === 'register' && styles.toggleActive]} onPress={() => { setMode('register'); setErrorePassword(null) }}>
               <Text style={[styles.toggleText, mode === 'register' && styles.toggleTextActive]}>Registrati</Text>
             </TouchableOpacity>
           </View>
@@ -186,12 +192,18 @@ export default function Login() {
           <View style={styles.inputWrap}>
             <Text style={styles.label}>PASSWORD</Text>
             <View style={styles.passwordRow}>
-              <TextInput style={styles.passwordInput} value={password} onChangeText={setPassword}
+              <TextInput style={styles.passwordInput} value={password} onChangeText={(v) => {
+                setPassword(v)
+                if (errorePassword) setErrorePassword(null)
+              }}
                 placeholder="Minimo 6 caratteri" placeholderTextColor="#9CA3AF" secureTextEntry={!mostraPassword} />
               <TouchableOpacity style={styles.passwordToggle} onPress={() => setMostraPassword(v => !v)}>
                 <Text style={styles.passwordToggleText}>{mostraPassword ? 'Nascondi' : 'Mostra'}</Text>
               </TouchableOpacity>
             </View>
+            {mode === 'register' && errorePassword ? (
+              <Text style={styles.erroreInline}>{errorePassword}</Text>
+            ) : null}
             {mode === 'login' && (
               <TouchableOpacity style={styles.forgotBtn} onPress={recuperaPassword} disabled={resetLoading}>
                 <Text style={styles.forgotText}>{resetLoading ? 'Invio email...' : 'Password dimenticata?'}</Text>
@@ -269,6 +281,7 @@ const styles = StyleSheet.create({
   passwordToggleText: { fontSize: 12, color: '#0E9F8E', fontWeight: '600' },
   forgotBtn: { alignSelf: 'flex-end', marginTop: 8, paddingVertical: 4 },
   forgotText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600' },
+  erroreInline: { fontSize: 12, color: '#DC2626', marginTop: 6 },
   terminiRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
   terminiText: { flex: 1, fontSize: 13, color: '#6B7280', lineHeight: 19 },
   terminiLink: { color: '#0E9F8E', fontWeight: '600' },

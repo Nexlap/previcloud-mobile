@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '../supabase'
+import { builderState } from './state'
 import type { BuilderMemoryState } from './types'
 
 export const BUILDER_DRAFT_KEY = 'preventivoai-builder-draft'

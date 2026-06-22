@@ -13,6 +13,7 @@ import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSele
 import { useClienti } from "../../lib/hooks/useClienti"
 import { Cliente } from '../../lib/types'
 import { formatImportoEuro } from 'preventivoai-shared'
+import { inizialiCliente, labelPreventivi } from '../../lib/utils/cliente'
 import { trackEvento } from "../../lib/utils/analytics"
 import { AppIcon } from '../../lib/components/icons/AppIcon'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
@@ -179,15 +180,18 @@ export default function Clienti() {
               }}
             >
               <View style={styles.clienteAvatar}>
-                <Text style={styles.clienteAvatarText}>{c.nome.charAt(0).toUpperCase()}</Text>
+                <Text style={styles.clienteAvatarText}>{inizialiCliente(c.nome)}</Text>
               </View>
               <View style={styles.clienteBody}>
                 <Text style={[styles.clienteNome, { color: colors.text }]}>{c.nome}</Text>
                 <Text style={[styles.clienteInfo, { color: colors.textMuted }]}>{c.telefono || c.email || 'Nessun contatto'}</Text>
               </View>
               <View style={styles.clienteStats}>
-                <Text style={[styles.clienteStatVal, { color: colors.text }]}>{c.num_preventivi || 0}</Text>
-                <Text style={[styles.clienteStatLabel, { color: colors.textMuted }]}>preventivi</Text>
+                <View style={[styles.preventiviBadge, { borderColor: colors.border, backgroundColor: isDark ? colors.bg : '#F7F8FA' }]}>
+                  <Text style={[styles.preventiviBadgeText, { color: colors.textMuted }]}>
+                    {labelPreventivi(c.num_preventivi || 0)}
+                  </Text>
+                </View>
                 {(c.totale_preventivi || 0) > 0 && (
                   <Text style={styles.clienteStatImporto}>€{formatImportoEuro(c.totale_preventivi ?? 0, 0)}</Text>
                 )}
@@ -266,10 +270,15 @@ const styles = StyleSheet.create({
   clienteBody: { flex: 1 },
   clienteNome: { fontSize: 15, fontWeight: '600' },
   clienteInfo: { fontSize: 12, marginTop: 2 },
-  clienteStats: { alignItems: 'flex-end' },
-  clienteStatVal: { fontSize: 18, fontWeight: '700' },
-  clienteStatLabel: { fontSize: 10 },
-  clienteStatImporto: { fontSize: 12, color: '#0E9F8E', fontWeight: '600', marginTop: 2 },
+  clienteStats: { alignItems: 'flex-end', gap: 4 },
+  preventiviBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  preventiviBadgeText: { fontSize: 11, fontWeight: '600' },
+  clienteStatImporto: { fontSize: 12, color: '#0E9F8E', fontWeight: '600' },
   menuBtn: { paddingHorizontal: 4, paddingVertical: 8 },
   menuPuntini: { fontSize: 22, lineHeight: 24 },
 })
