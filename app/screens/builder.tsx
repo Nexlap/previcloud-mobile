@@ -820,7 +820,7 @@ export default function Builder() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, gap: 14 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, gap: 22 },
   avvisoBozza: {
     flexDirection: 'row',
     alignItems: 'center',

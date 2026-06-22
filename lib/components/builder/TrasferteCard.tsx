@@ -4,6 +4,7 @@ import { TrasfertaBuilder } from '../../builder/types'
 import { formatImportoEuroVisuale } from 'preventivoai-shared'
 import { PLACEHOLDER } from '../../placeholders'
 import { AppIcon } from '../icons/AppIcon'
+import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type Props = {
   trasferte: TrasfertaBuilder[]
@@ -32,19 +33,20 @@ export function TrasferteCard({
 }: Props) {
   return (
     <>
-        <View style={styles.card}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>Trasferte e rimborsi</Text>
-              <Text style={styles.cardSub}>Km e spese vive — esenti o imponibili</Text>
-            </View>
-            <Switch
-              value={mostraTrasferte}
-              onValueChange={setMostraTrasferte}
-              trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
-              thumbColor="#fff"
-            />
-          </View>
+        <View style={builderCardStyles.card}>
+          <BuilderSectionHeader
+            icon="map"
+            title="Trasferte e rimborsi"
+            subtitle="Km e spese vive — esenti o imponibili"
+            right={(
+              <Switch
+                value={mostraTrasferte}
+                onValueChange={setMostraTrasferte}
+                trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }}
+                thumbColor="#fff"
+              />
+            )}
+          />
 
           {mostraTrasferte && (
             <View style={{ gap: 10 }}>
@@ -155,8 +157,5 @@ export function TrasferteCard({
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
-  cardSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   input: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
 })

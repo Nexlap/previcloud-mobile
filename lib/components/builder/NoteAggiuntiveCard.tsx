@@ -1,5 +1,6 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native'
+import { StyleSheet, TextInput, View } from 'react-native'
 import { PLACEHOLDER } from '../../placeholders'
+import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type Props = {
   noteExtra: string
@@ -9,8 +10,12 @@ type Props = {
 
 export function NoteAggiuntiveCard({ noteExtra, setNoteExtra, onInputFocus }: Props) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Note aggiuntive</Text>
+    <View style={builderCardStyles.card}>
+      <BuilderSectionHeader
+        icon="edit-3"
+        title="Note"
+        subtitle="Dettagli aggiuntivi da inserire nel preventivo"
+      />
       <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
         value={noteExtra} onChangeText={setNoteExtra}
         onFocus={onInputFocus}
@@ -21,7 +26,5 @@ export function NoteAggiuntiveCard({ noteExtra, setNoteExtra, onInputFocus }: Pr
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   input: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
 })

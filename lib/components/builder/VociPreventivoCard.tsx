@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { VocePreventivo } from '../../types'
 import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type Props = {
   voci: VocePreventivo[]
@@ -16,9 +17,9 @@ export function VociPreventivoCard({ voci, includiIva, totale, totaleConIva, onT
   if (voci.length === 0) return null
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Preventivo</Text>
-      <Text style={styles.cardSub}>Modifica quantità e costo al volo</Text>
+    <View style={builderCardStyles.card}>
+      <Text style={builderCardStyles.cardTitle}>Preventivo</Text>
+      <Text style={builderCardStyles.cardSub}>Modifica quantità e costo al volo</Text>
       {voci.map(v => (
         <View key={v.servizio_id} style={styles.voceRow}>
           <View style={styles.voceHeader}>
@@ -54,19 +55,23 @@ export function VociPreventivoCard({ voci, includiIva, totale, totaleConIva, onT
       ))}
 
       {/* Toggle IVA */}
-      <View style={styles.ivaRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.ivaLabel}>Applica IVA 22%</Text>
-          <Text style={styles.ivaSub}>
-            {includiIva ? 'Regime ordinario' : 'Regime forfettario / esente IVA'}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.ivaToggle, includiIva && styles.ivaToggleActive]}
-          onPress={onToggleIva}
-        >
-          <Text style={styles.ivaToggleText}>{includiIva ? 'ON' : 'OFF'}</Text>
-        </TouchableOpacity>
+      <View style={styles.ivaSection}>
+        <BuilderSectionHeader
+          icon="percent"
+          title="IVA"
+          subtitle="Aggiunge l'IVA 22% al totale del preventivo"
+          right={(
+            <TouchableOpacity
+              style={[styles.ivaToggle, includiIva && styles.ivaToggleActive]}
+              onPress={onToggleIva}
+            >
+              <Text style={styles.ivaToggleText}>{includiIva ? 'ON' : 'OFF'}</Text>
+            </TouchableOpacity>
+          )}
+        />
+        <Text style={styles.ivaRegime}>
+          {includiIva ? 'Regime ordinario' : 'Regime forfettario / esente IVA'}
+        </Text>
       </View>
 
       {/* Riepilogo totali */}
@@ -94,9 +99,6 @@ export function VociPreventivoCard({ voci, includiIva, totale, totaleConIva, onT
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
-  cardSub: { fontSize: 12, color: '#9CA3AF', marginTop: -6 },
   voceRow: { borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 10, gap: 8 },
   voceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   voceNome: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
@@ -110,9 +112,13 @@ const styles = StyleSheet.create({
   voceUguale: { fontSize: 16, color: '#9CA3AF', marginTop: 12 },
   voceTotaleBox: { flex: 1, gap: 2 },
   voceTotale: { fontSize: 16, fontWeight: '700', color: '#0E9F8E', textAlign: 'center' as const, paddingVertical: 8 },
-  ivaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-  ivaLabel: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
-  ivaSub: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
+  ivaSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 12,
+    gap: 8,
+  },
+  ivaRegime: { fontSize: 11, color: '#9CA3AF', marginLeft: 52 },
   ivaToggle: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
   ivaToggleActive: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A' },
   ivaToggleText: { fontSize: 12, fontWeight: '700' as const, color: '#fff' },

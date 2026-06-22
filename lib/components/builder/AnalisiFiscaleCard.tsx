@@ -3,6 +3,7 @@ import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } fr
 import { RisultatoFiscale } from '../../builder/types'
 import { ProfiloFiscale, VocePreventivo } from '../../types'
 import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type Props = {
   profiloFiscale: ProfiloFiscale | null
@@ -44,12 +45,17 @@ export function AnalisiFiscaleCard({
   if (!profiloFiscale) return null
 
   return (
-    <View style={styles.card}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={styles.cardTitle}>💰 Analisi fiscale</Text>
-        <Switch value={mostraFiscale} onValueChange={setMostraFiscale}
-          trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }} thumbColor="#fff" />
-      </View>
+    <View style={builderCardStyles.card}>
+      <BuilderSectionHeader
+        icon="pie-chart"
+        title="Analisi fiscale"
+        subtitle="Stima netto, imposte e lordo necessario"
+        accent
+        right={(
+          <Switch value={mostraFiscale} onValueChange={setMostraFiscale}
+            trackColor={{ false: '#E5E7EB', true: '#0E9F8E' }} thumbColor="#fff" />
+        )}
+      />
       {mostraFiscale && f && (
         <View style={styles.fiscaleBox}>
           {f.regime === 'forfettario' && (
@@ -223,8 +229,6 @@ export function AnalisiFiscaleCard({
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   voceCostoInput: { backgroundColor: '#F7F8FA', borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', padding: 8, fontSize: 14, color: '#0D1B2A', textAlign: 'center' as const, fontWeight: '600' as const },
   generateBtn: { backgroundColor: '#0D1B2A', borderRadius: 16, padding: 16, alignItems: 'center' as const },
   generateBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
