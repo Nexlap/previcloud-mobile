@@ -103,8 +103,8 @@ export function StoricoPreventiviList({
               onLongPress={() => onLongPress(p.id)}
             >
               <View style={preventivoCardRowStyles.left}>
-                <Text style={[styles.cardCliente, th.text]}>{p.nome_cliente || 'Senza cliente'}</Text>
-                {p.titolo ? <Text style={[styles.cardTitolo, th.textMuted]}>{p.titolo}</Text> : null}
+                <Text style={[styles.cardPreventivo, th.text]}>{p.titolo || 'Senza titolo'}</Text>
+                <Text style={[styles.cardClienteNome, th.textMuted]}>{p.nome_cliente || 'Senza cliente'}</Text>
                 <Text style={[styles.cardData, th.textMuted]}>{dataFormattata}</Text>
                 {collegamentiPiano[p.id] ? (
                   <View style={styles.cardPianoBadge}>
