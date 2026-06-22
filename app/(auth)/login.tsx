@@ -7,7 +7,7 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { currentUserId, hasCompletedProfile, resetPassword, signInWithEmail, signUpWithEmail } from '../../lib/api/auth'
+import { currentUserId, resetPassword, resolvePostAuthRoute, signInWithEmail, signUpWithEmail } from '../../lib/api/auth'
 import { WEB_BASE_URL, WEB_TERMINI_URL } from '../../lib/features/profilo/constants'
 import { errorMessage } from '../../lib/utils/errors'
 
@@ -40,12 +40,7 @@ export default function Login() {
   async function controllaOnboarding() {
     const userId = await currentUserId()
     if (!userId) return
-    const profiloCompleto = await hasCompletedProfile(userId)
-    if (!profiloCompleto) {
-      router.replace('/onboarding')
-    } else {
-      router.replace('/(tabs)')
-    }
+    router.replace(await resolvePostAuthRoute(userId))
   }
 
   async function handleSubmit() {

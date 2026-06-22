@@ -2,7 +2,7 @@ import { router, Stack } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
 import 'react-native-url-polyfill/auto'
-import { currentUserId, hasCompletedProfile, onSignedOut } from '../lib/api/auth'
+import { currentUserId, onSignedOut, resolvePostAuthRoute } from '../lib/api/auth'
 import { purgeCestinoScaduto } from '../lib/cestino'
 import { ThemeProvider, useTheme } from '../lib/theme/ThemeContext'
 import { ThemedStatusBar } from '../lib/theme/ThemedStatusBar'
@@ -61,13 +61,8 @@ export default function RootLayout() {
   }
 
   async function redirectBasedOnProfile(userId: string) {
-    const profiloCompleto = await hasCompletedProfile(userId)
     completaSplash()
-    if (!profiloCompleto) {
-      router.replace('/onboarding')
-    } else {
-      router.replace('/(tabs)')
-    }
+    router.replace(await resolvePostAuthRoute(userId))
   }
 
   return (

@@ -1,4 +1,7 @@
+import { usePathname } from 'expo-router'
+import { useEffect, useRef } from 'react'
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { etichettaSchermata } from '../../api/segnalazioni'
 import { SEGNALAZIONE_TIPI } from '../../features/settings/constants'
 import { settingsStyles as styles } from './settingsStyles'
 
@@ -19,6 +22,16 @@ type Props = {
 }
 
 export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onClose, onChange, onInvia }: Props) {
+  const pathname = usePathname()
+  const eraVisibileRef = useRef(false)
+
+  useEffect(() => {
+    if (visible && !eraVisibileRef.current) {
+      onChange(s => ({ ...s, schermata: etichettaSchermata(pathname) }))
+    }
+    eraVisibileRef.current = visible
+  }, [visible, pathname, onChange])
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.modalContainer}>

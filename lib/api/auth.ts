@@ -49,3 +49,10 @@ export async function hasCompletedProfile(userId: string) {
     .single()
   return Boolean(profile?.nome_azienda?.trim())
 }
+
+export type PostAuthRoute = '/(tabs)' | '/onboarding'
+
+export async function resolvePostAuthRoute(userId: string): Promise<PostAuthRoute> {
+  const profiloCompleto = await hasCompletedProfile(userId)
+  return profiloCompleto ? '/(tabs)' : '/onboarding'
+}

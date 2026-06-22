@@ -1,17 +1,23 @@
 import { useEffect } from 'react'
 import { View, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
-import { hasSession } from '../lib/api/auth'
+import { currentUserId, hasSession, resolvePostAuthRoute } from '../lib/api/auth'
 
 export default function Index() {
   useEffect(() => {
-    hasSession().then((sessioneAttiva) => {
-      if (sessioneAttiva) {
-        router.replace('/(tabs)')
-      } else {
+    void (async () => {
+      const sessioneAttiva = await hasSession()
+      if (!sessioneAttiva) {
         router.replace('/(auth)/login')
+        return
       }
-    })
+      const userId = await currentUserId()
+      if (!userId) {
+        router.replace('/(auth)/login')
+        return
+      }
+      router.replace(await resolvePostAuthRoute(userId))
+    })()
   }, [])
 
   return (

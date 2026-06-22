@@ -1,31 +1,32 @@
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect } from 'react'
 import { ActivityIndicator, View } from 'react-native'
-import { currentUserId, hasCompletedProfile, setAuthSession } from '../../lib/api/auth'
+import { currentUserId, resolvePostAuthRoute, setAuthSession } from '../../lib/api/auth'
 
 export default function AuthCallback() {
   const params = useLocalSearchParams()
+  const access_token = params.access_token as string | undefined
+  const refresh_token = params.refresh_token as string | undefined
 
   useEffect(() => {
     async function handleCallback() {
-      const access_token = params.access_token as string
-      const refresh_token = params.refresh_token as string
-
-      if (access_token && refresh_token) {
-        await setAuthSession(access_token, refresh_token)
-        const userId = await currentUserId()
-        if (!userId) {
-          router.replace('/(auth)/login')
-          return
-        }
-        const profiloCompleto = await hasCompletedProfile(userId)
-        router.replace(profiloCompleto ? '/(tabs)' : '/onboarding')
-      } else {
+      if (!access_token || !refresh_token) {
         router.replace('/(auth)/login')
+        return
       }
+
+      await setAuthSession(access_token, refresh_token)
+      const userId = await currentUserId()
+      if (!userId) {
+        router.replace('/(auth)/login')
+        return
+      }
+
+      router.replace(await resolvePostAuthRoute(userId))
     }
-    handleCallback()
-  }, [])
+
+    void handleCallback()
+  }, [access_token, refresh_token])
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0D1B2A' }}>
