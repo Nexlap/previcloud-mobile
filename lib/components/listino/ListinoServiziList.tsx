@@ -14,6 +14,7 @@ type Props = {
   onLongPress: (servizioId: string) => void
   onToggleSelezione: (servizioId: string) => void
   onEdit: (servizio: ServizioForm) => void
+  onDuplicate: (servizio: ServizioForm) => void
   onDelete: (servizioId: string) => void
 }
 
@@ -25,6 +26,7 @@ export function ListinoServiziList({
   onLongPress,
   onToggleSelezione,
   onEdit,
+  onDuplicate,
   onDelete,
 }: Props) {
   const { colors, isDark, s } = useScreenTheme()
@@ -56,6 +58,9 @@ export function ListinoServiziList({
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity onPress={() => selezioneAttiva ? onToggleSelezione(srv.id) : onEdit(srv)} style={styles.actionBtn}>
                 <AppIcon name="edit-2" size={18} color={colors.icon} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => selezioneAttiva ? onToggleSelezione(srv.id) : onDuplicate(srv)} style={styles.actionBtn}>
+                <AppIcon name="copy" size={18} color={colors.icon} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => selezioneAttiva ? onToggleSelezione(srv.id) : onDelete(srv.id)} style={styles.actionBtn}>
                 <AppIcon name="trash-2" size={18} color="#EF4444" />

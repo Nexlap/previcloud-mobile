@@ -1,8 +1,8 @@
 import { Audio } from 'expo-av'
 import Constants from 'expo-constants'
 import { router } from 'expo-router'
-import { useEffect, useState } from 'react'
-import { ActivityIndicator, Alert, ScrollView, View } from 'react-native'
+import { useEffect, useMemo, useState } from 'react'
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, View } from 'react-native'
 import { ServizioForm } from '../../lib/types'
 import { creaServizioListino } from '../../lib/api/servizi'
 import { sessionToken } from '../../lib/api/auth'
@@ -22,7 +22,7 @@ import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 const EMPTY_DRAFT: ServizioDraft = { nome: '', descrizione: '', costo: '', unita: 'cad' }
 
 export default function Listino() {
-  const { s } = useScreenTheme()
+  const { colors, s } = useScreenTheme()
   const [servizi, setServizi] = useState<ServizioForm[]>([])
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState('')
@@ -38,6 +38,15 @@ export default function Listino() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null)
   const [selezioneAttiva, setSelezioneAttiva] = useState(false)
   const [serviziSelezionati, setServiziSelezionati] = useState<string[]>([])
+  const [ricerca, setRicerca] = useState('')
+
+  const serviziFiltrati = useMemo(() => {
+    const q = ricerca.trim().toLowerCase()
+    if (!q) return servizi
+    return servizi.filter(s =>
+      s.nome.toLowerCase().includes(q) || (s.descrizione || '').toLowerCase().includes(q),
+    )
+  }, [ricerca, servizi])
 
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
@@ -63,6 +72,25 @@ export default function Listino() {
     setServizioInEdit(s)
     setNuovoServizio({ nome: s.nome, descrizione: s.descrizione, costo: s.costo, unita: s.unita })
     setMostraModalServizio(true)
+  }
+
+  async function duplicaServizio(s: ServizioForm) {
+    const { data, error } = await creaServizioListino({
+      nome: `Copia di ${s.nome}`,
+      descrizione: s.descrizione,
+      costo: s.costo,
+      unita: s.unita,
+      ordine: servizi.length,
+    })
+    if (error) {
+      Alert.alert('Errore', error.message)
+      return
+    }
+    if (data) {
+      const copia = normalizzaServizioListino(data)
+      setServizi(prev => [...prev, copia])
+      apriModifica(copia)
+    }
   }
 
   async function salvaServizio() {
@@ -212,16 +240,35 @@ export default function Listino() {
         {servizi.length === 0 ? (
           <ListinoEmpty onAdd={apriNuovo} />
         ) : (
-          <ListinoServiziList
-            servizi={servizi}
-            selezioneAttiva={selezioneAttiva}
-            serviziSelezionati={serviziSelezionati}
-            onPress={(s) => selezioneAttiva ? toggleSelezione(s.id) : apriModifica(s)}
-            onLongPress={avviaSelezione}
-            onToggleSelezione={toggleSelezione}
-            onEdit={apriModifica}
-            onDelete={eliminaServizio}
-          />
+          <>
+            <View style={s.searchBox}>
+              <TextInput
+                value={ricerca}
+                onChangeText={setRicerca}
+                placeholder="Cerca per nome o descrizione"
+                placeholderTextColor={colors.textMuted}
+                style={s.searchInput}
+              />
+            </View>
+            <ListinoServiziList
+              servizi={serviziFiltrati}
+              selezioneAttiva={selezioneAttiva}
+              serviziSelezionati={serviziSelezionati}
+              onPress={(srv) => selezioneAttiva ? toggleSelezione(srv.id) : apriModifica(srv)}
+              onLongPress={avviaSelezione}
+              onToggleSelezione={toggleSelezione}
+              onEdit={apriModifica}
+              onDuplicate={duplicaServizio}
+              onDelete={eliminaServizio}
+            />
+            {serviziFiltrati.length === 0 && ricerca.trim() !== '' && (
+              <View style={[s.card, { padding: 20 }]}>
+                <Text style={[s.textMuted, { textAlign: 'center' }]}>
+                  Nessun servizio trovato.
+                </Text>
+              </View>
+            )}
+          </>
         )}
         <View style={{ height: selezioneAttiva ? 120 : 40 }} />
       </ScrollView>

@@ -72,4 +72,12 @@ export const onboardingStyles = StyleSheet.create({
   templateChipTextActive: { color: '#fff' },
   previewCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
   previewContainer: { borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
+  label: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  input: { borderRadius: 12, borderWidth: 1, padding: 12, fontSize: 14 },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
+  chipText: { fontSize: 13, color: '#6B7280' },
+  chipTextActive: { color: '#fff' },
+  skipBtn: { borderRadius: 16, padding: 16, alignItems: 'center' as const, borderWidth: 1.5, borderColor: '#0D1B2A', marginTop: 8 },
+  skipBtnText: { color: '#0D1B2A', fontSize: 16, fontWeight: '600' },
 })

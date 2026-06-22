@@ -1,7 +1,6 @@
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { Modal, Text, TouchableOpacity, View } from 'react-native'
-import { router } from 'expo-router'
 import { segnaPreventivoPagato } from '../../api/preventivoPdf'
 import { eventBus } from '../../eventBus'
 import { inputDateToIso, oggiInputDate } from 'preventivoai-shared'
@@ -11,6 +10,7 @@ import {
   useNotifiche,
   type Notifica,
 } from '../../hooks/useNotifiche'
+import { apriNotificaUi } from '../../utils/apriNotifica'
 import { AppIcon } from '../icons/AppIcon'
 import { NotificaFirmaDialog } from './NotificaFirmaDialog'
 
@@ -46,9 +46,7 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
 
   function apriNotifica(n: Notifica) {
     setListaAperta(false)
-    if (!n.preventivo_id) return
-    router.push('/(tabs)/storico')
-    setTimeout(() => eventBus.emit('apri-notifica', n), 150)
+    apriNotificaUi(n)
   }
 
   return (

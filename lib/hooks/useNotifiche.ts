@@ -1,13 +1,34 @@
 import { supabase } from '../supabase'
 
+export type NotificaPayloadRata = {
+  rata_id?: string
+  abbonamento_id?: string
+  cliente_id?: string
+  cliente_nome?: string
+  importo_residuo?: number
+  scadenza?: string
+  mese?: number
+  anno?: number
+  tipo_piano?: string
+}
+
+export type NotificaPayloadFirma = {
+  nomeCliente?: string
+  urlFirma?: string
+  emailCliente?: string
+  telefonoCliente?: string
+  chiediPagato?: boolean
+  pdfFirmatoUrl?: string
+}
+
 export type Notifica = {
   id: string
-  tipo: 'firma_ricevuta' | 'reminder_firma'
+  tipo: 'firma_ricevuta' | 'reminder_firma' | 'rata_in_scadenza' | 'pagamento_ricevuto' | string
   preventivo_id: string | null
   invio_id: string | null
   titolo: string
   messaggio: string
-  payload: Record<string, unknown>
+  payload: NotificaPayloadRata & NotificaPayloadFirma & Record<string, unknown>
   letta: boolean
   snooze_until: string | null
   created_at: string
@@ -19,6 +40,8 @@ export type NotificaToast = {
   messaggio: string
   tipo: Notifica['tipo']
   preventivo_id: string | null
+  cliente_id: string | null
+  payload: Notifica['payload']
   leaving: boolean
 }
 
@@ -35,13 +58,16 @@ export function notificaContaBadge(n: Notifica, now = Date.now()) {
 
 export function buildToast(raw: Partial<Notifica>): NotificaToast | null {
   if (!raw.id) return null
-  const tipo = raw.tipo === 'reminder_firma' ? 'reminder_firma' : 'firma_ricevuta'
+  const tipo = typeof raw.tipo === 'string' ? raw.tipo : 'firma_ricevuta'
+  const payload = (raw.payload || {}) as Notifica['payload']
   return {
     id: raw.id,
     titolo: typeof raw.titolo === 'string' && raw.titolo.trim() ? raw.titolo.trim() : 'Notifica',
     messaggio: typeof raw.messaggio === 'string' ? raw.messaggio : '',
     tipo,
     preventivo_id: raw.preventivo_id ?? null,
+    cliente_id: typeof payload.cliente_id === 'string' ? payload.cliente_id : null,
+    payload,
     leaving: false,
   }
 }

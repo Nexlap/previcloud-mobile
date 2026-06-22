@@ -14,7 +14,7 @@ export function OnboardingStepper({
   onNavigate,
   canNavigate,
 }: Props) {
-  const step_labels = [1, 2, 3, 4]
+  const step_labels = [1, 2, 3, 4, 5]
   return (
     <View style={styles.stepperRow}>
       {step_labels.map((num, i) => {

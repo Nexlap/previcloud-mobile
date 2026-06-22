@@ -7,8 +7,10 @@ import { elaboraServiziDaTesto } from '../lib/api/listinoSmart'
 import { completaOnboarding, generaPreviewOnboarding, tokenOnboarding } from '../lib/api/onboarding'
 import { OnboardingAziendaStep } from '../lib/components/onboarding/OnboardingAziendaStep'
 import { OnboardingServiziStep } from '../lib/components/onboarding/OnboardingServiziStep'
+import { OnboardingPagamentoStep } from '../lib/components/onboarding/OnboardingPagamentoStep'
 import { OnboardingTemplateStep } from '../lib/components/onboarding/OnboardingTemplateStep'
 import { OnboardingWelcomeStep } from '../lib/components/onboarding/OnboardingWelcomeStep'
+import { MetodoPagamentoForm, salvaMetodoPagamento } from '../lib/api/pagamenti'
 import { DEMO_NOME_AZIENDA, DEMO_PREVENTIVO, generaTestoDemo } from '../lib/features/onboarding/demo'
 import { scalaHtmlPreviewOnboarding } from '../lib/features/onboarding/preview'
 import { serviziDaTesto } from '../lib/features/onboarding/serviziDaTesto'
@@ -41,6 +43,15 @@ export default function Onboarding() {
   const [registrando, setRegistrando] = useState(false)
   const [recording, setRecording] = useState<Audio.Recording | null>(null)
   const [elaborandoMedia, setElaborandoMedia] = useState(false)
+
+  const [formPagamento, setFormPagamento] = useState<MetodoPagamentoForm>({
+    tipo: 'bonifico',
+    nome: '',
+    dati: {},
+    predefinito: true,
+  })
+  const [errorePagamento, setErrorePagamento] = useState('')
+  const [tipoPagamentoScelto, setTipoPagamentoScelto] = useState(false)
 
   async function elaboraServiziAI() {
     if (!testoServizi.trim()) return
@@ -153,7 +164,7 @@ export default function Onboarding() {
 
   function puoNavigareAlloStep(targetStep: number) {
     if (targetStep >= 2 && (!nomeAzienda.trim() || !categoria)) return false
-    return targetStep >= 0 && targetStep <= 3
+    return targetStep >= 0 && targetStep <= 4
   }
 
   function vaiAlloStep(targetStep: number) {
@@ -168,6 +179,30 @@ export default function Onboarding() {
       setServizi(serviziDaTesto(testoServizi))
     }
     vaiAlloStep(3)
+  }
+
+  function avanzaDaTemplate() {
+    vaiAlloStep(4)
+  }
+
+  async function salvaPagamentoECompleta() {
+    if (!tipoPagamentoScelto) {
+      setErrorePagamento('Seleziona un metodo di pagamento oppure usa Salta.')
+      return
+    }
+    if (!formPagamento.nome.trim()) {
+      setErrorePagamento('Inserisci un nome per il metodo di pagamento.')
+      return
+    }
+    setSaving(true)
+    setErrorePagamento('')
+    const { error } = await salvaMetodoPagamento(formPagamento)
+    if (error) {
+      setSaving(false)
+      setErrorePagamento(error.message)
+      return
+    }
+    await completa()
   }
 
   function handleTemplateChange(id: string) {
@@ -276,11 +311,30 @@ export default function Onboarding() {
         templateScelto={templateScelto}
         htmlPreview={htmlPreview}
         caricandoPreview={caricandoPreview}
-        saving={saving}
         onTemplateChange={handleTemplateChange}
         onNavigate={vaiAlloStep}
         canNavigate={puoNavigareAlloStep}
-        onComplete={completa}
+        onNext={avanzaDaTemplate}
+      />
+    )
+  }
+
+  if (step === 4) {
+    return (
+      <OnboardingPagamentoStep
+        stepMassimoRaggiunto={stepMassimoRaggiunto}
+        form={formPagamento}
+        errore={errorePagamento}
+        saving={saving}
+        onFormChange={(form) => {
+          setFormPagamento(form)
+          setTipoPagamentoScelto(true)
+          setErrorePagamento('')
+        }}
+        onNavigate={vaiAlloStep}
+        canNavigate={puoNavigareAlloStep}
+        onSkip={completa}
+        onComplete={salvaPagamentoECompleta}
       />
     )
   }

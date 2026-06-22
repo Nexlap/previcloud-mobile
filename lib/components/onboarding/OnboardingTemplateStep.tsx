@@ -10,11 +10,10 @@ type Props = {
   templateScelto: string
   htmlPreview: string
   caricandoPreview: boolean
-  saving: boolean
   onTemplateChange: (id: string) => void
   onNavigate: (s: number) => void
   canNavigate: (s: number) => boolean
-  onComplete: () => void
+  onNext: () => void
 }
 
 export function OnboardingTemplateStep({
@@ -22,11 +21,10 @@ export function OnboardingTemplateStep({
   templateScelto,
   htmlPreview,
   caricandoPreview,
-  saving,
   onTemplateChange,
   onNavigate,
   canNavigate,
-  onComplete,
+  onNext,
 }: Props) {
   return (
     <View style={styles.container}>
@@ -69,14 +67,10 @@ export function OnboardingTemplateStep({
         </View>
 
         <TouchableOpacity
-          style={[styles.nextBtn, saving && styles.nextBtnDisabled]}
-          onPress={onComplete}
-          disabled={saving}
+          style={styles.nextBtn}
+          onPress={onNext}
         >
-          {saving
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.nextBtnText}>✓ Inizia a usare PreventivoAI</Text>
-          }
+          <Text style={styles.nextBtnText}>Avanti →</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

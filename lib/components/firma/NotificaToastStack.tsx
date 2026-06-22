@@ -1,4 +1,3 @@
-import { router } from 'expo-router'
 import { useEffect, useRef } from 'react'
 import {
   Animated,
@@ -8,8 +7,17 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { eventBus } from '../../eventBus'
-import { useNotifiche, type Notifica, type NotificaToast } from '../../hooks/useNotifiche'
+import {
+  caricaNotificaById,
+  useNotifiche,
+  type Notifica,
+  type NotificaToast,
+} from '../../hooks/useNotifiche'
+import { apriNotificaUi } from '../../utils/apriNotifica'
+
+function toastApribile(t: NotificaToast) {
+  return Boolean(t.preventivo_id) || t.tipo === 'rata_in_scadenza'
+}
 
 function toastToNotifica(t: NotificaToast): Notifica {
   return {
@@ -19,7 +27,7 @@ function toastToNotifica(t: NotificaToast): Notifica {
     invio_id: null,
     titolo: t.titolo,
     messaggio: t.messaggio,
-    payload: {},
+    payload: t.payload,
     letta: false,
     snooze_until: null,
     created_at: new Date().toISOString(),
@@ -64,8 +72,8 @@ function ToastItem({
       <TouchableOpacity
         style={styles.toastBody}
         onPress={onPress}
-        activeOpacity={toast.preventivo_id ? 0.7 : 1}
-        disabled={!toast.preventivo_id}
+        activeOpacity={toastApribile(toast) ? 0.7 : 1}
+        disabled={!toastApribile(toast)}
       >
         <Text style={styles.titolo} numberOfLines={1}>{toast.titolo}</Text>
         {toast.messaggio ? (
@@ -89,12 +97,18 @@ export function NotificaToastStack() {
 
   if (toasts.length === 0) return null
 
-  function handleToastPress(t: NotificaToast) {
+  async function handleToastPress(t: NotificaToast) {
     rimuoviToast(t.id)
-    if (!t.preventivo_id) return
-    const notifica = toastToNotifica(t)
-    router.push('/(tabs)/storico')
-    setTimeout(() => eventBus.emit('apri-notifica', notifica), 150)
+    if (!toastApribile(t)) return
+
+    let notifica = toastToNotifica(t)
+    if (t.tipo === 'rata_in_scadenza' && !t.payload?.rata_id) {
+      const loaded = await caricaNotificaById(t.id)
+      if (!loaded) return
+      notifica = loaded
+    }
+
+    apriNotificaUi(notifica)
   }
 
   return (
