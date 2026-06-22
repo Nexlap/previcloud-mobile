@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
-import { Alert, ScrollView, StyleSheet, View } from 'react-native'
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { generaPDF as generaPDFApi, generaPDFFile, salvaPDF as salvaPDFApi } from "../../lib/api/pdf"
 import {
   PreventivoPdfClienteButton,
@@ -24,7 +24,7 @@ import { PreventivoPdfSuccessModal, type PdfSuccessInvio } from '../../lib/compo
 import { PreventivoPdfTemplatePicker } from '../../lib/components/preventivoPdf/PreventivoPdfTemplatePicker'
 import { eventBus } from '../../lib/eventBus'
 import { scalaHtmlPreview, testoConPagamento } from '../../lib/features/preventivoPdf/text'
-import { importoDaTesto, meseCorrenteString, parseImportoEuro } from 'preventivoai-shared'
+import { importoDaTesto, meseCorrenteString, parseImportoEuro, validaPianiPagamento } from 'preventivoai-shared'
 import {
   aggiornaTitoloPreventivo,
   caricaClientePreventivo,
@@ -285,6 +285,20 @@ export default function PreventivoPDF() {
   }
 
   async function generaPDF() {
+    const errPiani = validaPianiPagamento({
+      pagamentoRateAttivo,
+      abbonamentoAttivo,
+      clienteCollegato: Boolean(clienteSelezionato?.id),
+      rateNumero,
+      rateGiornoScadenza,
+      rateMeseInizio,
+      abGiorno,
+      abMeseInizio,
+    })
+    if (errPiani) {
+      Alert.alert('Attenzione', errPiani)
+      return
+    }
     setGenerando(true)
     try {
       const testoFinale = await buildTestoConPagamento()
@@ -413,35 +427,38 @@ export default function PreventivoPDF() {
       <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 16, gap: 14 }}>
         <PreventivoPdfPreviewCard htmlPreview={htmlPreview} caricandoPreview={caricandoPreview} />
         <PreventivoPdfTemplatePicker template={template} onSelectTemplate={salvaTemplate} />
-        <PreventivoPdfTariffaToggle nascondiPrezzi={nascondiPrezzi} onChangeNascondiPrezzi={setNascondiPrezzi} />
-        <PreventivoPdfAbbonamentoCard
-          attivo={abbonamentoAttivo}
-          importo={abImporto}
-          giorno={abGiorno}
-          meseInizio={abMeseInizio}
-          mensilita={abMensilita}
-          visibileNelPDF={abVisibileNelPDF}
-          importoTotale={importo_totale}
-          onChangeAttivo={onChangeAbbonamentoAttivo}
-          onChangeImporto={setAbImporto}
-          onChangeGiorno={setAbGiorno}
-          onChangeMeseInizio={setAbMeseInizio}
-          onChangeMensilita={setAbMensilita}
-          onChangeVisibileNelPDF={setAbVisibileNelPDF}
-        />
-        <BuilderPagamentoRateCard
-          attivo={pagamentoRateAttivo}
-          numeroRate={rateNumero}
-          giornoScadenza={rateGiornoScadenza}
-          meseInizio={rateMeseInizio}
-          visibileNelPDF={rateVisibileNelPDF}
-          importoTotale={importoTotaleNum}
-          onChangeAttivo={onChangePagamentoRateAttivo}
-          onChangeNumeroRate={setRateNumero}
-          onChangeGiornoScadenza={setRateGiornoScadenza}
-          onChangeMeseInizio={setRateMeseInizio}
-          onChangeVisibileNelPDF={setRateVisibileNelPDF}
-        />
+        <View style={styles.opzioniDocumento}>
+          <Text style={styles.opzioniDocumentoTitle}>Opzioni documento</Text>
+          <PreventivoPdfTariffaToggle nascondiPrezzi={nascondiPrezzi} onChangeNascondiPrezzi={setNascondiPrezzi} />
+          <PreventivoPdfAbbonamentoCard
+            attivo={abbonamentoAttivo}
+            importo={abImporto}
+            giorno={abGiorno}
+            meseInizio={abMeseInizio}
+            mensilita={abMensilita}
+            visibileNelPDF={abVisibileNelPDF}
+            importoTotale={importo_totale}
+            onChangeAttivo={onChangeAbbonamentoAttivo}
+            onChangeImporto={setAbImporto}
+            onChangeGiorno={setAbGiorno}
+            onChangeMeseInizio={setAbMeseInizio}
+            onChangeMensilita={setAbMensilita}
+            onChangeVisibileNelPDF={setAbVisibileNelPDF}
+          />
+          <BuilderPagamentoRateCard
+            attivo={pagamentoRateAttivo}
+            numeroRate={rateNumero}
+            giornoScadenza={rateGiornoScadenza}
+            meseInizio={rateMeseInizio}
+            visibileNelPDF={rateVisibileNelPDF}
+            importoTotale={importoTotaleNum}
+            onChangeAttivo={onChangePagamentoRateAttivo}
+            onChangeNumeroRate={setRateNumero}
+            onChangeGiornoScadenza={setRateGiornoScadenza}
+            onChangeMeseInizio={setRateMeseInizio}
+            onChangeVisibileNelPDF={setRateVisibileNelPDF}
+          />
+        </View>
         <PreventivoPdfClienteButton
           cliente={clienteSelezionato}
           onPressCliente={() => setMostraModalCliente(true)}
@@ -504,4 +521,13 @@ export default function PreventivoPDF() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   scroll: { flex: 1 },
+  opzioniDocumento: { gap: 14 },
+  opzioniDocumentoTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginLeft: 2,
+  },
 })

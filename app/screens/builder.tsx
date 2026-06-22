@@ -40,11 +40,8 @@ import { VociPreventivoCard } from '../../lib/components/builder/VociPreventivoC
 import { BuilderHeader } from '../../lib/components/builder/BuilderHeader';
 import { GeneraPdfButton } from '../../lib/components/builder/GeneraPdfButton';
 import { ClienteModal } from '../../lib/components/builder/ClienteModal';
-import { BuilderPagamentoRateCard } from '../../lib/components/builder/BuilderPagamentoRateCard';
 import { AnalisiFiscaleCard } from '../../lib/components/builder/AnalisiFiscaleCard';
-import { PreventivoPdfAbbonamentoCard } from '../../lib/components/preventivoPdf/PreventivoPdfOptionsCards';
-import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo';
-import { meseCorrenteString, validaPianiPagamento } from 'preventivoai-shared';
+import { meseCorrenteString } from 'preventivoai-shared';
 
 export { resetBuilderState };
 
@@ -468,42 +465,6 @@ export default function Builder() {
     })
   }
 
-  function clienteBuilderCollegato() {
-    return Boolean(clienteSelezionato?.id)
-  }
-
-  function richiediClientePerPagamentoRicorrente(): boolean {
-    if (clienteBuilderCollegato()) return true
-    Alert.alert(
-      'Seleziona un cliente',
-      'Associa un cliente al preventivo per attivare abbonamento mensile o pagamento a rate.',
-    )
-    return false
-  }
-
-  function onChangeAbbonamentoAttivo(v: boolean) {
-    if (!v) {
-      setAbbonamentoAttivo(false)
-      return
-    }
-    if (!richiediClientePerPagamentoRicorrente()) return
-    confermaPagamentoEsclusivo('canone', pagamentoRateAttivo, () => {
-      setPagamentoRateAttivo(false)
-      setAbbonamentoAttivo(true)
-    })
-  }
-
-  function onChangePagamentoRateAttivo(v: boolean) {
-    if (!v) {
-      setPagamentoRateAttivo(false)
-      return
-    }
-    if (!richiediClientePerPagamentoRicorrente()) return
-    confermaPagamentoEsclusivo('rate', abbonamentoAttivo, () => {
-      setAbbonamentoAttivo(false)
-      setPagamentoRateAttivo(true)
-    })
-  }
 
   function calcolaTotale() {
     return calcolaTotaleVoci(voci)
@@ -572,20 +533,6 @@ export default function Builder() {
 
   function generaPDF() {
     if (voci.length === 0) { Alert.alert('Preventivo vuoto', 'Aggiungi almeno un servizio.'); return }
-    const errPiani = validaPianiPagamento({
-      pagamentoRateAttivo,
-      abbonamentoAttivo,
-      clienteCollegato: clienteBuilderCollegato(),
-      rateNumero,
-      rateGiornoScadenza,
-      rateMeseInizio,
-      abGiorno,
-      abMeseInizio,
-    })
-    if (errPiani) {
-      Alert.alert('Attenzione', errPiani)
-      return
-    }
     const testo = generaTestoPreventivo()
     const mpId = metodoPagamentoNessuno ? '' : (metodoPagamentoSelezionato?.id || '')
     trackEvento('builder_pdf_generato', 'builder', { num_voci: voci.length, ha_trasferte: trasferte.length > 0 })
@@ -691,36 +638,6 @@ export default function Builder() {
           metodoPagamentoNessuno={metodoPagamentoNessuno}
           onOpen={() => setMostraModalPagamento(true)}
           onConfigura={() => router.push('/screens/pagamenti')}
-        />
-
-        <BuilderPagamentoRateCard
-          attivo={pagamentoRateAttivo}
-          numeroRate={rateNumero}
-          giornoScadenza={rateGiornoScadenza}
-          meseInizio={rateMeseInizio}
-          visibileNelPDF={rateVisibileNelPDF}
-          importoTotale={totaleConIva}
-          onChangeAttivo={onChangePagamentoRateAttivo}
-          onChangeNumeroRate={setRateNumero}
-          onChangeGiornoScadenza={setRateGiornoScadenza}
-          onChangeMeseInizio={setRateMeseInizio}
-          onChangeVisibileNelPDF={setRateVisibileNelPDF}
-        />
-
-        <PreventivoPdfAbbonamentoCard
-          attivo={abbonamentoAttivo}
-          importo={abImporto}
-          giorno={abGiorno}
-          meseInizio={abMeseInizio}
-          mensilita={abMensilita}
-          visibileNelPDF={abVisibileNelPDF}
-          importoTotale={totaleConIva.toFixed(0)}
-          onChangeAttivo={onChangeAbbonamentoAttivo}
-          onChangeImporto={setAbImporto}
-          onChangeGiorno={setAbGiorno}
-          onChangeMeseInizio={setAbMeseInizio}
-          onChangeMensilita={setAbMensilita}
-          onChangeVisibileNelPDF={setAbVisibileNelPDF}
         />
 
         <TrasferteCard

@@ -76,7 +76,7 @@ function totaliRate(ratePerPiano: Record<string, RataAbbonamento[]>) {
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 
 export default function ClienteDettaglio() {
-  const { id, nome, tab: tabIniziale } = useLocalSearchParams<{ id: string, nome: string, tab?: string }>()
+  const { id, nome, tab: tabIniziale, highlight } = useLocalSearchParams<{ id: string, nome: string, tab?: string, highlight?: string }>()
   const navigation = useNavigation()
   const { modificaInput, apriDaPreventivo, chiudiSceltaModifica } = useModificaPreventivoScelta()
 
@@ -104,6 +104,8 @@ export default function ClienteDettaglio() {
   const [modalitaSelezione, setModalitaSelezione] = useState(false)
   const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
   const scrollRef = useRef<ScrollView>(null)
+  const preventivoRowOffsets = useRef<Record<string, number>>({})
+  const highlightPreventivoId = typeof highlight === 'string' && highlight.length > 0 ? highlight : null
   const [keyboardHeight, setKeyboardHeight] = useState(0)
 
   useEffect(() => {
@@ -246,6 +248,30 @@ export default function ClienteDettaglio() {
   }, [tabIniziale])
 
   useEffect(() => {
+    if (!highlightPreventivoId) return
+    setTab('preventivi')
+    setAperto(highlightPreventivoId)
+    setCronologiaAperta(null)
+    setCronologiaVersioneAperta(null)
+    const timer = setTimeout(() => {
+      const y = preventivoRowOffsets.current[highlightPreventivoId]
+      if (y != null) scrollRef.current?.scrollTo({ y: Math.max(0, y - 32), animated: true })
+    }, 180)
+    return () => clearTimeout(timer)
+  }, [highlightPreventivoId])
+
+  function clearHighlightParam() {
+    router.setParams({ highlight: '' })
+  }
+
+  function registraOffsetPreventivo(preventivoId: string, y: number) {
+    preventivoRowOffsets.current[preventivoId] = y
+    if (highlightPreventivoId === preventivoId) {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 32), animated: true })
+    }
+  }
+
+  useEffect(() => {
     setPianoSelezioneAttiva(false)
     setPianiSelezionati([])
     setRateSelezioneAttiva(false)
@@ -303,10 +329,7 @@ export default function ClienteDettaglio() {
   }
 
   function apriPreventivoMadre(preventivoId: string) {
-    setTab('preventivi')
-    setAperto(preventivoId)
-    setCronologiaAperta(null)
-    setCronologiaVersioneAperta(null)
+    router.setParams({ tab: 'preventivi', highlight: preventivoId })
   }
 
   async function aggiornaCollegamentiPiano() {
@@ -800,6 +823,9 @@ export default function ClienteDettaglio() {
             onApriFirmaDettaglio={setFirmaDettaglioPreventivo}
             ricaricaInviiFirma={ricaricaInviiFirma}
             onDopoFirmaManuale={(preventivoId) => cambiaStato(preventivoId, 'accettato')}
+            highlightPreventivoId={highlightPreventivoId}
+            onHighlightFinished={clearHighlightParam}
+            onPreventivoRowLayout={registraOffsetPreventivo}
           />
         )}
 
@@ -852,7 +878,7 @@ export default function ClienteDettaglio() {
               setPianoEspansoId(prev => {
                 const isExpanded = prev === abbonamentoId
                   || (prev === null && abbonamentiAttivi[0]?.id === abbonamentoId)
-                if (isExpanded) return prev === abbonamentoId ? null : ''
+                if (isExpanded) return ''
                 return abbonamentoId
               })
             }}
@@ -867,7 +893,7 @@ export default function ClienteDettaglio() {
             onOpenPagamento={apriModalPagamento}
             onSendReminder={inviaReminder}
             onAzzeraPagamento={azzeraPagamento}
-            onToggleRataMini={(rataId) => setRataMiniAperta(rataMiniAperta === rataId ? null : rataId)}
+            onToggleRataMini={(rataId) => setRataMiniAperta(prev => prev === rataId ? null : rataId)}
             onEditCanone={(abbonamentoId) => {
               const ab = abbonamentiAttivi.find(a => a.id === abbonamentoId)
               if (!ab) return

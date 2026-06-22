@@ -9,6 +9,7 @@ import { titoloHeaderPiano, analizzaStatoPiano, ordinaPianiPerStato } from 'prev
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PianoVuotoState } from './PianoVuotoState'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
+import { pianoEspansoStyles } from './pianoEspansoStyles'
 import { AppIcon } from '../icons/AppIcon'
 
 type Props = {
@@ -297,14 +298,20 @@ function AbbonamentoPianoCard({
   const analisi = useMemo(() => analizzaStatoPiano(abbonamento, rate), [abbonamento, rate])
   const badgeCorrente = rataMeseCorrente ? badgeCanone(rataMeseCorrente.stato) : null
   const defaultNome = `Abbonamento N.${indice + 1}`
+  const cardEspansa = espanso && !selezionePianoAttiva
 
   return (
-    <View style={styles.pianoCard}>
+    <View style={[
+      styles.pianoCard,
+      pianoEspansoStyles.card,
+      cardEspansa && pianoEspansoStyles.cardEspansa,
+      pianoSelezionato && styles.pianoHeaderSelected,
+      analisi.concluso && styles.pianoHeaderConcluso,
+    ]}>
       <LongPressAwarePressable
         style={[
           styles.abHeader,
-          pianoSelezionato && styles.pianoHeaderSelected,
-          analisi.concluso && styles.pianoHeaderConcluso,
+          cardEspansa && styles.abHeaderEspanso,
         ]}
         onPress={() => {
           if (selezionePianoAttiva) {
@@ -358,8 +365,8 @@ function AbbonamentoPianoCard({
         onClose={() => setMenuAperto(false)}
       />
 
-      {espanso && !selezionePianoAttiva ? (
-        <View style={styles.abBody}>
+      {cardEspansa ? (
+        <View style={pianoEspansoStyles.body}>
           <PreventivoMadreLink preventivo={preventivoMadre} onPress={onApriPreventivoMadre} />
 
           {rataMeseCorrente ? (
@@ -589,9 +596,10 @@ const styles = StyleSheet.create({
   checkCircleActive: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
   checkMark: { color: '#fff', fontSize: 12, fontWeight: '700' },
   pianoCard: { gap: 0 },
-  abHeader: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center' },
-  pianoHeaderSelected: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
-  pianoHeaderConcluso: { borderColor: '#A7F3D0', backgroundColor: '#F0FDF4' },
+  abHeader: { padding: 16, flexDirection: 'row', alignItems: 'center' },
+  abHeaderEspanso: { paddingBottom: 12 },
+  pianoHeaderSelected: { backgroundColor: '#F0FDF4' },
+  pianoHeaderConcluso: { backgroundColor: '#F0FDF4' },
   pianoHeaderTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   abHeaderTesto: { flex: 1, minWidth: 0 },
   abHeaderNome: { fontSize: 15, fontWeight: '700', color: '#0D1B2A', flexShrink: 1 },
@@ -609,7 +617,6 @@ const styles = StyleSheet.create({
   },
   abHeaderArrow: { fontSize: 12, color: '#9CA3AF' },
   menuPuntini: { fontSize: 22, color: '#9CA3AF', lineHeight: 24 },
-  abBody: { gap: 10, marginTop: 10 },
   rataCardCorrente: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: '#0E9F8E', padding: 14, gap: 10 },
   rataCardSelected: { backgroundColor: '#F0FDF4' },
   rataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },

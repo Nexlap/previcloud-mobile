@@ -16,6 +16,7 @@ import { titoloHeaderPiano, analizzaStatoPiano } from 'preventivoai-shared'
 import { AppIcon } from '../icons/AppIcon'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
+import { pianoEspansoStyles } from './pianoEspansoStyles'
 
 const MESI_FULL = [
   'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -406,13 +407,20 @@ export function PianoRateCard({
     ]
   }
 
+  const cardEspansa = pianoEspanso && !selezionePianoAttiva
+
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      pianoEspansoStyles.card,
+      cardEspansa && pianoEspansoStyles.cardEspansa,
+      pianoSelezionato && styles.pianoHeaderSelected,
+      analisi.concluso && styles.pianoHeaderConcluso,
+    ]}>
       <LongPressAwarePressable
         style={[
-          styles.pianoHeader,
-          pianoSelezionato && styles.pianoHeaderSelected,
-          analisi.concluso && styles.pianoHeaderConcluso,
+          styles.pianoTapArea,
+          cardEspansa && styles.pianoTapAreaEspanso,
         ]}
         onPress={() => {
           if (selezionePianoAttiva) {
@@ -429,18 +437,31 @@ export function PianoRateCard({
         }}
         onLongPress={() => onAvviaSelezionePiano?.(abbonamento.id)}
       >
-        {selezionePianoAttiva ? (
-          <View style={[styles.checkCircle, pianoSelezionato && styles.checkCircleActive]}>
-            {pianoSelezionato ? <Text style={styles.checkMark}>{'\u2713'}</Text> : null}
+        <View style={styles.pianoHeaderRow}>
+          {selezionePianoAttiva ? (
+            <View style={[styles.checkCircle, pianoSelezionato && styles.checkCircleActive]}>
+              {pianoSelezionato ? <Text style={styles.checkMark}>{'\u2713'}</Text> : null}
+            </View>
+          ) : null}
+          <View style={styles.pianoHeaderTesto}>
+            <View style={styles.pianoHeaderTitleRow}>
+              <Text style={styles.pianoHeaderTitle} numberOfLines={1} ellipsizeMode="tail">
+                {titoloHeaderPiano(abbonamento.nome, preventivoMadre, 'rate', 'Piano a rate')}
+              </Text>
+              {!selezionePianoAttiva ? <PianoStatoBadge analisi={analisi} compact /> : null}
+            </View>
           </View>
-        ) : null}
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <View style={styles.pianoHeaderTitleRow}>
-            <Text style={styles.pianoHeaderTitle} numberOfLines={1} ellipsizeMode="tail">
-              {titoloHeaderPiano(abbonamento.nome, preventivoMadre, 'rate', 'Piano a rate')}
-            </Text>
-            {!selezionePianoAttiva ? <PianoStatoBadge analisi={analisi} compact /> : null}
-          </View>
+          {!selezionePianoAttiva ? (
+            <View style={styles.pianoHeaderActions}>
+              <TouchableOpacity hitSlop={8} onPress={() => setMenuAperto(true)}>
+                <Text style={styles.menuPuntini}>{'\u22EE'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.sectionArrow}>{pianoEspanso ? '\u25B2' : '\u25BC'}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.pianoRiepilogo} collapsable={false}>
           <Text style={styles.pianoHeaderSub}>
             {analisi.concluso
               ? `${rate.length}/${rate.length} rate pagate \u00B7 \u20AC${formatImportoEuro(importoRaccolto, 2)} raccolti`
@@ -452,14 +473,6 @@ export function PianoRateCard({
             </Text>
           ) : null}
         </View>
-        {!selezionePianoAttiva ? (
-          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-            <TouchableOpacity hitSlop={8} onPress={() => setMenuAperto(true)}>
-              <Text style={styles.menuPuntini}>{'\u22EE'}</Text>
-            </TouchableOpacity>
-            <Text style={styles.sectionArrow}>{pianoEspanso ? '\u25B2' : '\u25BC'}</Text>
-          </View>
-        ) : null}
       </LongPressAwarePressable>
 
       <MenuAzioniSheet
@@ -468,8 +481,8 @@ export function PianoRateCard({
         onClose={() => setMenuAperto(false)}
       />
 
-      {pianoEspanso && !selezionePianoAttiva ? (
-        <View style={styles.pianoBody}>
+      {cardEspansa ? (
+        <View style={pianoEspansoStyles.body}>
           <View style={styles.progressTrack}>
             <View
               style={[
@@ -643,7 +656,7 @@ export function PianoRateCard({
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 12 },
+  container: { gap: 0 },
   checkCircle: {
     width: 22,
     height: 22,
@@ -657,15 +670,19 @@ const styles = StyleSheet.create({
   checkMark: { color: '#fff', fontSize: 12, fontWeight: '700' },
   fieldLabel: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.8 },
   input: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
-  pianoHeader: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', flexDirection: 'row', alignItems: 'center', gap: 12 },
-  pianoHeaderSelected: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
-  pianoHeaderConcluso: { borderColor: '#A7F3D0', backgroundColor: '#F0FDF4' },
+  pianoTapArea: { padding: 16 },
+  pianoTapAreaEspanso: { paddingBottom: 12 },
+  pianoHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pianoHeaderActions: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  pianoHeaderTesto: { flex: 1, minWidth: 0 },
+  pianoRiepilogo: { marginTop: 4 },
+  pianoHeaderSelected: { backgroundColor: '#F0FDF4' },
+  pianoHeaderConcluso: { backgroundColor: '#F0FDF4' },
   pianoHeaderTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   pianoHeaderTitle: { fontSize: 15, fontWeight: '700', color: '#0D1B2A', flexShrink: 1 },
   pianoHeaderSub: { fontSize: 13, color: '#374151', marginTop: 4 },
   pianoHeaderHint: { fontSize: 12, color: '#9CA3AF', marginTop: 4 },
   pianoHeaderHintConcluso: { color: '#047857', fontWeight: '500' },
-  pianoBody: { gap: 10 },
   progressTrack: { height: 8, backgroundColor: '#F3F4F6', borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: 8, backgroundColor: '#0E9F8E', borderRadius: 4 },
   progressFillConcluso: { backgroundColor: '#047857' },

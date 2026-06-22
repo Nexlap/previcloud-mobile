@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Alert, Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { LongPressAwarePressable } from '../LongPressAwarePressable'
 import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
 import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPreventivo/constants'
@@ -40,6 +40,81 @@ type Props = {
   onApriFirmaDettaglio?: (preventivo: Preventivo) => void
   ricaricaInviiFirma?: () => void
   onDopoFirmaManuale?: (preventivoId: string) => void
+  highlightPreventivoId?: string | null
+  onHighlightFinished?: () => void
+  onPreventivoRowLayout?: (preventivoId: string, y: number) => void
+}
+
+type PreventivoCardShellProps = {
+  preventivoId: string
+  highlighted: boolean
+  selected: boolean
+  isOld: boolean
+  onHighlightFinished?: () => void
+  onRowLayout?: (preventivoId: string, y: number) => void
+  children: ReactNode
+}
+
+function PreventivoCardShell({
+  preventivoId,
+  highlighted,
+  selected,
+  isOld,
+  onHighlightFinished,
+  onRowLayout,
+  children,
+}: PreventivoCardShellProps) {
+  const highlightAnim = useRef(new Animated.Value(0)).current
+  const highlightStarted = useRef(false)
+
+  useEffect(() => {
+    if (!highlighted) {
+      highlightStarted.current = false
+      highlightAnim.setValue(0)
+      return
+    }
+    if (highlightStarted.current) return
+    highlightStarted.current = true
+    highlightAnim.setValue(1)
+    Animated.timing(highlightAnim, {
+      toValue: 0,
+      duration: 800,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) onHighlightFinished?.()
+    })
+  }, [highlighted, highlightAnim, onHighlightFinished])
+
+  const backgroundColor = highlighted
+    ? highlightAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['#fff', 'rgba(14, 159, 142, 0.18)'],
+    })
+    : '#fff'
+
+  const borderColor = highlighted
+    ? highlightAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['#E5E7EB', 'rgba(14, 159, 142, 0.55)'],
+    })
+    : selected
+      ? '#0E9F8E'
+      : '#E5E7EB'
+
+  return (
+    <Animated.View
+      onLayout={(e) => onRowLayout?.(preventivoId, e.nativeEvent.layout.y)}
+      style={[
+        styles.prevCard,
+        isOld && styles.prevCardOld,
+        selected && !highlighted && styles.prevCardSelected,
+        highlighted && styles.prevCardHighlight,
+        { backgroundColor, borderColor },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  )
 }
 
 export function ClientePreventiviList({
@@ -67,6 +142,9 @@ export function ClientePreventiviList({
   onApriFirmaDettaglio,
   ricaricaInviiFirma,
   onDopoFirmaManuale,
+  highlightPreventivoId = null,
+  onHighlightFinished,
+  onPreventivoRowLayout,
 }: Props) {
   const [menuPreventivo, setMenuPreventivo] = useState<Preventivo | null>(null)
 
@@ -123,9 +201,17 @@ export function ClientePreventiviList({
         const sfFirma = statoFirmaInvio(invio)
         const mostraInvia = mostraPulsanteInviaFirma(p.pdf_url, invio)
         return (
-        <LongPressAwarePressable
+        <PreventivoCardShell
           key={p.id}
-          style={[styles.prevCard, !p.is_ultimo && styles.prevCardOld, selezione.includes(p.id) && styles.prevCardSelected]}
+          preventivoId={p.id}
+          highlighted={highlightPreventivoId === p.id}
+          selected={selezione.includes(p.id)}
+          isOld={!p.is_ultimo}
+          onHighlightFinished={onHighlightFinished}
+          onRowLayout={onPreventivoRowLayout}
+        >
+        <LongPressAwarePressable
+          style={styles.prevCardInner}
           onPress={() => onToggleCard(p.id)}
           onLongPress={() => onLongPress(p.id)}
         >
@@ -216,6 +302,7 @@ export function ClientePreventiviList({
             </View>
           )}
         </LongPressAwarePressable>
+        </PreventivoCardShell>
         )
       })}
 
@@ -232,6 +319,8 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 40 },
   emptyText: { fontSize: 14, color: '#9CA3AF', marginBottom: 12 },
   prevCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
+  prevCardHighlight: { borderWidth: 1.5 },
+  prevCardInner: { overflow: 'hidden' },
   prevCardOld: { opacity: 0.6 },
   prevCardSelected: { borderColor: '#0E9F8E', borderWidth: 2 },
   prevVersione: { fontSize: 13, fontWeight: '700', color: '#0D1B2A' },
