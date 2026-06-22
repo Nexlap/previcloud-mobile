@@ -24,6 +24,10 @@ import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSele
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
 import { formatImportoEuro } from 'preventivoai-shared'
+import {
+  messaggioEliminaPreventiviMultipli,
+  messaggioEliminaPreventivoSingolo,
+} from '../../lib/confermeElimina'
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
 import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
@@ -265,7 +269,7 @@ export default function ClienteDettaglio() {
   }
 
   async function eliminaPreventivo(prevId: string) {
-    Alert.alert('Elimina', 'Vuoi eliminare questo preventivo?', [
+    Alert.alert('Elimina preventivo', messaggioEliminaPreventivoSingolo(!!collegamentiPiano[prevId]), [
       { text: 'Annulla', style: 'cancel' },
       {
         text: 'Elimina',
@@ -348,7 +352,10 @@ export default function ClienteDettaglio() {
   }
 
   async function eliminaSelezionati() {
-    Alert.alert('Elimina', `Vuoi eliminare ${selezione.length} preventivi?`, [
+    Alert.alert(
+      'Elimina preventivi',
+      messaggioEliminaPreventiviMultipli(selezione.length, selezione, collegamentiPiano),
+      [
       { text: 'Annulla', style: 'cancel' },
       { text: 'Elimina', style: 'destructive', onPress: async () => {
         const ok = await eliminaPreventiviIds(selezione)

@@ -28,20 +28,53 @@ export function giorniRimastiCestino(deletedAt: string): number {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
 }
 
-async function idsCatenaPreventivo(preventivoId: string): Promise<string[]> {
-  const { data: current } = await supabase
+async function idsFamigliaPreventivo(preventivoId: string): Promise<string[]> {
+  const ids = new Set<string>([preventivoId])
+
+  const { data: current, error: currentErr } = await supabase
     .from('preventivi')
     .select('id, preventivo_padre_id')
     .eq('id', preventivoId)
     .single()
 
+  if (currentErr) {
+    console.error('[cestino] idsFamigliaPreventivo: query preventivo:', currentErr.message)
+    return [preventivoId]
+  }
+
   if (!current) return [preventivoId]
 
-  const ids = new Set<string>([preventivoId])
   if (current.preventivo_padre_id) {
-    const versioni = await caricaCronologiaPreventivo(current.preventivo_padre_id)
-    for (const v of versioni) ids.add(v.id)
+    try {
+      const versioni = await caricaCronologiaPreventivo(current.preventivo_padre_id)
+      for (const v of versioni) ids.add(v.id)
+    } catch (e) {
+      console.error('[cestino] idsFamigliaPreventivo: cronologia preventivo:', e)
+    }
   }
+
+  let espanso = true
+  while (espanso) {
+    espanso = false
+    const batch = [...ids]
+    const { data: figli, error: figliErr } = await supabase
+      .from('preventivi')
+      .select('id')
+      .in('preventivo_padre_id', batch)
+
+    if (figliErr) {
+      console.error('[cestino] idsFamigliaPreventivo: query figli:', figliErr.message)
+      break
+    }
+
+    for (const f of figli || []) {
+      if (!ids.has(f.id)) {
+        ids.add(f.id)
+        espanso = true
+      }
+    }
+  }
+
   return [...ids]
 }
 
@@ -91,7 +124,7 @@ export async function spostaPreventiviInCestino(ids: string[]) {
 
   const tuttiIds = new Set<string>()
   for (const id of ids) {
-    for (const chainId of await idsCatenaPreventivo(id)) tuttiIds.add(chainId)
+    for (const chainId of await idsFamigliaPreventivo(id)) tuttiIds.add(chainId)
   }
   const preventivoIds = [...tuttiIds]
 
@@ -131,7 +164,7 @@ export async function ripristinaPreventivi(ids: string[]) {
 
   const tuttiIds = new Set<string>()
   for (const id of ids) {
-    for (const chainId of await idsCatenaPreventivo(id)) tuttiIds.add(chainId)
+    for (const chainId of await idsFamigliaPreventivo(id)) tuttiIds.add(chainId)
   }
 
   const softPrev = await supabase
@@ -238,7 +271,7 @@ export async function eliminaDefinitivamentePreventivi(ids: string[]) {
 
   const tuttiIds = new Set<string>()
   for (const id of ids) {
-    for (const chainId of await idsCatenaPreventivo(id)) tuttiIds.add(chainId)
+    for (const chainId of await idsFamigliaPreventivo(id)) tuttiIds.add(chainId)
   }
   const preventivoIds = [...tuttiIds]
 

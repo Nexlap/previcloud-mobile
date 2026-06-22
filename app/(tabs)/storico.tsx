@@ -16,6 +16,10 @@ import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSele
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { caricaClientiPerSposta, caricaCollegamentiPianoPreventivi, caricaCronologiaPreventivo, ripristinaVersionePreventivo, spostaPreventivi } from '../../lib/api/storico'
 import { conteggioCestino } from '../../lib/cestino'
+import {
+  messaggioEliminaPreventiviMultipli,
+  messaggioEliminaPreventivoSingolo,
+} from '../../lib/confermeElimina'
 import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
 import { useModificaPreventivoScelta } from '../../lib/features/modificaPreventivo/useModificaPreventivoScelta'
 import { StoricoEmpty } from '../../lib/components/storico/StoricoEmpty'
@@ -116,7 +120,7 @@ export default function Storico() {
   }
 
   async function elimina(id: string) {
-    Alert.alert('Elimina', 'Vuoi eliminare questo preventivo?', [
+    Alert.alert('Elimina preventivo', messaggioEliminaPreventivoSingolo(!!collegamentiPiano[id]), [
       { text: 'Annulla', style: 'cancel' },
       {
         text: 'Elimina',
@@ -162,7 +166,10 @@ export default function Storico() {
   async function eliminaSelezionati() {
     const ids = [...preventiviSelezionati]
     if (ids.length === 0) return
-    Alert.alert('Elimina', `Eliminare ${ids.length} preventivi?`, [
+    Alert.alert(
+      'Elimina preventivi',
+      messaggioEliminaPreventiviMultipli(ids.length, ids, collegamentiPiano),
+      [
       { text: 'Annulla', style: 'cancel' },
       {
         text: 'Elimina',
