@@ -31,4 +31,6 @@ export type BuilderMemoryState = {
   rateGiornoScadenza: string
   rateMeseInizio: string
   rateVisibileNelPDF: boolean
+  metodoPagamentoNessuno: boolean
+  metodoPagamentoId: string | null
 }

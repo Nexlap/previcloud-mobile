@@ -22,6 +22,8 @@ export const builderState: BuilderMemoryState = {
   rateGiornoScadenza: '1',
   rateMeseInizio: meseCorrenteString(),
   rateVisibileNelPDF: true,
+  metodoPagamentoNessuno: false,
+  metodoPagamentoId: null,
 }
 
 export function resetBuilderState() {
@@ -45,4 +47,6 @@ export function resetBuilderState() {
   builderState.rateGiornoScadenza = '1'
   builderState.rateMeseInizio = meseCorrenteString()
   builderState.rateVisibileNelPDF = true
+  builderState.metodoPagamentoNessuno = false
+  builderState.metodoPagamentoId = null
 }

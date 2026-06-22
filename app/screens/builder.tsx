@@ -52,6 +52,7 @@ export default function Builder() {
   const [salvandoCliente, setSalvandoCliente] = useState(false)
   const [metodiPagamento, setMetodiPagamento] = useState<any[]>([metodoContantiDefault])
   const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<any | null>(null)
+  const [metodoPagamentoNessuno, setMetodoPagamentoNessuno] = useState(builderState.metodoPagamentoNessuno)
   const [stripeChargesEnabled, setStripeChargesEnabled] = useState(false)
   const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
   const [nettoDesiderato, setNettoDesiderato] = useState('')
@@ -157,7 +158,10 @@ export default function Builder() {
   useEffect(() => {
     if (!pagamentoImportato || metodiPagamento.length <= 1) return
     const trovato = trovaMetodoPagamentoDaNome(metodiPagamento, pagamentoImportato)
-    if (trovato) setMetodoPagamentoSelezionato(trovato)
+    if (trovato) {
+      setMetodoPagamentoSelezionato(trovato)
+      setMetodoPagamentoNessuno(false)
+    }
   }, [pagamentoImportato, metodiPagamento])
 
   useEffect(() => {
@@ -181,7 +185,9 @@ export default function Builder() {
     builderState.rateGiornoScadenza = rateGiornoScadenza
     builderState.rateMeseInizio = rateMeseInizio
     builderState.rateVisibileNelPDF = rateVisibileNelPDF
-  }, [voci, nomeCliente, noteExtra, includiIva, trasferte, mostraTrasferte, nuovaSpesaNome, nuovaSpesaImporto, nuoviKm, abbonamentoAttivo, abImporto, abGiorno, abMeseInizio, abMensilita, abVisibileNelPDF, pagamentoRateAttivo, rateNumero, rateGiornoScadenza, rateMeseInizio, rateVisibileNelPDF])
+    builderState.metodoPagamentoNessuno = metodoPagamentoNessuno
+    builderState.metodoPagamentoId = metodoPagamentoNessuno ? null : (metodoPagamentoSelezionato?.id ?? null)
+  }, [voci, nomeCliente, noteExtra, includiIva, trasferte, mostraTrasferte, nuovaSpesaNome, nuovaSpesaImporto, nuoviKm, abbonamentoAttivo, abImporto, abGiorno, abMeseInizio, abMensilita, abVisibileNelPDF, pagamentoRateAttivo, rateNumero, rateGiornoScadenza, rateMeseInizio, rateVisibileNelPDF, metodoPagamentoNessuno, metodoPagamentoSelezionato])
 
   useEffect(() => {
     const reset = () => ripristina()
@@ -191,8 +197,28 @@ export default function Builder() {
 
   async function caricaMetodiPagamento() {
     const { metodiPagamento, predefinito } = await caricaMetodiPagamentoBuilder()
-    if (metodiPagamento) setMetodiPagamento(metodiPagamento)
-    if (predefinito && !inModifica) setMetodoPagamentoSelezionato(predefinito)
+    if (!metodiPagamento) return
+
+    setMetodiPagamento(metodiPagamento)
+
+    if (builderState.metodoPagamentoNessuno) {
+      setMetodoPagamentoNessuno(true)
+      setMetodoPagamentoSelezionato(null)
+      return
+    }
+
+    if (builderState.metodoPagamentoId) {
+      const trovato = metodiPagamento.find((m) => m.id === builderState.metodoPagamentoId)
+      if (trovato) {
+        setMetodoPagamentoSelezionato(trovato)
+        return
+      }
+    }
+
+    if (predefinito && !inModifica) {
+      setMetodoPagamentoSelezionato(predefinito)
+      setMetodoPagamentoNessuno(false)
+    }
   }
 
   async function caricaServizi() {
@@ -246,6 +272,8 @@ export default function Builder() {
     setRateGiornoScadenza('1')
     setRateMeseInizio(meseCorrenteString())
     setRateVisibileNelPDF(true)
+    setMetodoPagamentoSelezionato(null)
+    setMetodoPagamentoNessuno(false)
   }
 
   function clienteBuilderCollegato() {
@@ -337,7 +365,14 @@ export default function Builder() {
   }
 
   function generaTestoPreventivo() {
-    return generaTestoPreventivoBuilder({ nomeCliente, voci, trasferte, includiIva, noteExtra, metodoPagamentoSelezionato })
+    return generaTestoPreventivoBuilder({
+      nomeCliente,
+      voci,
+      trasferte,
+      includiIva,
+      noteExtra,
+      metodoPagamentoSelezionato: metodoPagamentoNessuno ? null : metodoPagamentoSelezionato,
+    })
   }
 
   function generaPDF() {
@@ -357,7 +392,7 @@ export default function Builder() {
       return
     }
     const testo = generaTestoPreventivo()
-    const mpId = metodoPagamentoSelezionato?.id || ''
+    const mpId = metodoPagamentoNessuno ? '' : (metodoPagamentoSelezionato?.id || '')
     trackEvento('builder_pdf_generato', 'builder', { num_voci: voci.length, ha_trasferte: trasferte.length > 0 })
     router.push({
       pathname: '/screens/preventivo-pdf',
@@ -365,6 +400,7 @@ export default function Builder() {
         testo,
         cliente_id: clienteSelezionato?.id || params.cliente_id || '',
         metodo_pagamento_id: mpId,
+        metodo_pagamento_nessuno: metodoPagamentoNessuno ? '1' : '0',
         importo_totale: totaleConIva.toFixed(0),
         versione_padre_id: modifica?.versionePadreId || params.versione_padre_id || '',
         ab_attivo: abbonamentoAttivo ? '1' : '0',
@@ -448,6 +484,7 @@ export default function Builder() {
         <PagamentoCard
           metodiPagamento={metodiPagamento}
           metodoPagamentoSelezionato={metodoPagamentoSelezionato}
+          metodoPagamentoNessuno={metodoPagamentoNessuno}
           onOpen={() => setMostraModalPagamento(true)}
           onConfigura={() => router.push('/screens/pagamenti')}
         />
@@ -544,9 +581,18 @@ export default function Builder() {
         visible={mostraModalPagamento}
         metodiPagamento={metodiPagamento}
         metodoPagamentoSelezionato={metodoPagamentoSelezionato}
+        metodoPagamentoNessuno={metodoPagamentoNessuno}
         stripeChargesEnabled={stripeChargesEnabled}
         onClose={() => setMostraModalPagamento(false)}
-        onSelect={(metodo) => { setMetodoPagamentoSelezionato(metodo); setMostraModalPagamento(false) }}
+        onSelect={(metodo) => {
+          setMetodoPagamentoSelezionato(metodo)
+          setMetodoPagamentoNessuno(false)
+          setMostraModalPagamento(false)
+        }}
+        onSelectNessuno={() => {
+          setMetodoPagamentoSelezionato(null)
+          setMetodoPagamentoNessuno(true)
+        }}
       />
 
       <ClienteModal

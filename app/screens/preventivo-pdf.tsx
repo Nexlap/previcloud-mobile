@@ -52,6 +52,7 @@ type Params = {
   versione_padre_id: string
   cliente_id: string
   metodo_pagamento_id: string
+  metodo_pagamento_nessuno?: string
   importo_totale: string
   ab_attivo?: string
   ab_importo?: string
@@ -72,6 +73,7 @@ export default function PreventivoPDF() {
     versione_padre_id,
     cliente_id,
     metodo_pagamento_id,
+    metodo_pagamento_nessuno,
     importo_totale,
     ab_attivo,
     ab_importo,
@@ -248,6 +250,10 @@ export default function PreventivoPDF() {
   async function caricaMetodiPagamento() {
     const data = await caricaMetodiPagamentoPreventivo()
     setMetodiPagamento(data)
+    if (metodo_pagamento_nessuno === '1') {
+      setMetodoPagamentoSelezionato(null)
+      return
+    }
     const metodoDaParam = metodo_pagamento_id ? data.find(m => m.id === metodo_pagamento_id) : null
     const predefinito = data.find(m => m.predefinito)
     if (metodoDaParam || predefinito) setMetodoPagamentoSelezionato(metodoDaParam || predefinito || null)

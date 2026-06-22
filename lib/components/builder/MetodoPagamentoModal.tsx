@@ -16,12 +16,23 @@ type Props = {
   visible: boolean
   metodiPagamento: MetodoPagamento[]
   metodoPagamentoSelezionato: MetodoPagamento | null
+  metodoPagamentoNessuno: boolean
   stripeChargesEnabled?: boolean
   onClose: () => void
   onSelect: (metodo: MetodoPagamento) => void
+  onSelectNessuno: () => void
 }
 
-export function MetodoPagamentoModal({ visible, metodiPagamento, metodoPagamentoSelezionato, stripeChargesEnabled = false, onClose, onSelect }: Props) {
+export function MetodoPagamentoModal({
+  visible,
+  metodiPagamento,
+  metodoPagamentoSelezionato,
+  metodoPagamentoNessuno,
+  stripeChargesEnabled = false,
+  onClose,
+  onSelect,
+  onSelectNessuno,
+}: Props) {
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.modalContainer}>
@@ -33,14 +44,29 @@ export function MetodoPagamentoModal({ visible, metodiPagamento, metodoPagamento
           <View style={{ width: 24 }} />
         </View>
         <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
+          <TouchableOpacity
+            style={[styles.clienteItem, metodoPagamentoNessuno && styles.clienteItemActive]}
+            onPress={() => { onSelectNessuno(); onClose() }}
+          >
+            <Text style={styles.nessunoIcon}>—</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.clienteSelezionatoNome}>Nessuno / da concordare</Text>
+              <Text style={styles.clienteSelezionatoInfo}>Nessun metodo indicato nel preventivo</Text>
+            </View>
+            {metodoPagamentoNessuno && <AppIcon name="check" size={18} color="#0E9F8E" />}
+          </TouchableOpacity>
+
+          <View style={styles.separator} />
+
           {metodiPagamento.map(m => {
             const stripeDisabilitato = m.tipo === 'stripe' && !stripeChargesEnabled
+            const attivo = !metodoPagamentoNessuno && metodoPagamentoSelezionato?.id === m.id
             return (
             <TouchableOpacity
               key={m.id}
               style={[
                 styles.clienteItem,
-                metodoPagamentoSelezionato?.id === m.id && styles.clienteItemActive,
+                attivo && styles.clienteItemActive,
                 stripeDisabilitato && styles.clienteItemDisabled,
               ]}
               onPress={() => { if (!stripeDisabilitato) onSelect(m) }}
@@ -55,7 +81,7 @@ export function MetodoPagamentoModal({ visible, metodiPagamento, metodoPagamento
                   <Text style={styles.stripeDisabled}>Completa la verifica Stripe in Impostazioni</Text>
                 )}
               </View>
-              {metodoPagamentoSelezionato?.id === m.id && !stripeDisabilitato && <AppIcon name="check" size={18} color="#0E9F8E" />}
+              {attivo && !stripeDisabilitato && <AppIcon name="check" size={18} color="#0E9F8E" />}
             </TouchableOpacity>
             )
           })}
@@ -69,6 +95,8 @@ const styles = StyleSheet.create({
   modalContainer: { flex: 1, backgroundColor: '#F7F8FA' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 56, backgroundColor: '#0D1B2A' },
   modalTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  separator: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 4 },
+  nessunoIcon: { fontSize: 18, color: '#9CA3AF', width: 20, textAlign: 'center' },
   clienteItem: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB' },
   clienteItemActive: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
   clienteItemDisabled: { opacity: 0.55 },
