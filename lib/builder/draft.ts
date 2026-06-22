@@ -76,6 +76,7 @@ export function applicaBozzaABuilderState(draft: BuilderDraft) {
   builderState.rateVisibileNelPDF = draft.rateVisibileNelPDF
   builderState.metodoPagamentoNessuno = draft.metodoPagamentoNessuno
   builderState.metodoPagamentoId = draft.metodoPagamentoId
+  builderState.nascondiPrezzi = draft.nascondiPrezzi ?? false
 }
 
 export async function caricaBozzaBuilder(): Promise<BuilderDraft | null> {

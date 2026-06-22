@@ -33,4 +33,5 @@ export type BuilderMemoryState = {
   rateVisibileNelPDF: boolean
   metodoPagamentoNessuno: boolean
   metodoPagamentoId: string | null
+  nascondiPrezzi: boolean
 }

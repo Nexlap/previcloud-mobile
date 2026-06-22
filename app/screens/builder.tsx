@@ -387,6 +387,7 @@ export default function Builder() {
         rateVisibileNelPDF,
         metodoPagamentoNessuno,
         metodoPagamentoId: metodoPagamentoNessuno ? null : (metodoPagamentoSelezionato?.id ?? null),
+        nascondiPrezzi: builderState.nascondiPrezzi,
       },
       clienteSelezionato?.id || '',
       clienteSelezionato?.nome || '',

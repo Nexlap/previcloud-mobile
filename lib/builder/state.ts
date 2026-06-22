@@ -24,6 +24,7 @@ export const builderState: BuilderMemoryState = {
   rateVisibileNelPDF: true,
   metodoPagamentoNessuno: false,
   metodoPagamentoId: null,
+  nascondiPrezzi: false,
 }
 
 export function resetBuilderState() {
@@ -49,4 +50,5 @@ export function resetBuilderState() {
   builderState.rateVisibileNelPDF = true
   builderState.metodoPagamentoNessuno = false
   builderState.metodoPagamentoId = null
+  builderState.nascondiPrezzi = false
 }

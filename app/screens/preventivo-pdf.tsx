@@ -46,7 +46,8 @@ import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsc
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
 import { resetBuilderState } from './builder'
-import { cancellaBozzaBuilder } from '../../lib/builder/draft'
+import { bozzaBuilderVuota, cancellaBozzaBuilder, caricaBozzaBuilder, salvaBozzaBuilder } from '../../lib/builder/draft'
+import { builderState } from '../../lib/builder/state'
 
 type Params = {
   testo: string
@@ -101,7 +102,7 @@ export default function PreventivoPDF() {
   const [titolo, setTitolo] = useState('')
   const [mostraModalTitolo, setMostraModalTitolo] = useState(false)
   const [preventivoSalvatoId, setPreventivoSalvatoId] = useState<string | null>(null)
-  const [nascondiPrezzi, setNascondiPrezzi] = useState(false)
+  const [nascondiPrezzi, setNascondiPrezzi] = useState(builderState.nascondiPrezzi)
   const [htmlPreview, setHtmlPreview] = useState('')
   const [caricandoPreview, setCaricandoPreview] = useState(false)
   const [metodiPagamento, setMetodiPagamento] = useState<MetodoPagamento[]>([])
@@ -167,6 +168,18 @@ export default function PreventivoPDF() {
     if (rate_mese_inizio) setRateMeseInizio(rate_mese_inizio)
     if (rate_visibile === '0') setRateVisibileNelPDF(false)
   }, [rate_attivo, rate_numero, rate_giorno, rate_mese_inizio, rate_visibile])
+
+  useEffect(() => {
+    builderState.nascondiPrezzi = nascondiPrezzi
+    const timeout = setTimeout(() => {
+      void (async () => {
+        const draft = await caricaBozzaBuilder()
+        if (!draft || bozzaBuilderVuota(draft)) return
+        await salvaBozzaBuilder({ ...draft, nascondiPrezzi })
+      })()
+    }, 800)
+    return () => clearTimeout(timeout)
+  }, [nascondiPrezzi])
 
   const importoTotaleNum = importo_totale
     ? (parseImportoEuro(String(importo_totale)) ?? 0)
