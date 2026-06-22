@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View
+  Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { creaServizioListino } from '../../lib/api/servizi';
@@ -10,6 +10,18 @@ import { eventBus } from '../../lib/eventBus';
 import { trackEvento } from '../../lib/utils/analytics';
 import { formatImportoEuroVisuale } from 'preventivoai-shared';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
+import {
+  applicaBozzaABuilderState,
+  bozzaBuilderVuota,
+  bozzaBuilderVuotaDaState,
+  buildBuilderDraft,
+  cancellaBozzaBuilder,
+  caricaBozzaBuilder,
+  clienteIdUtilizzabile,
+  messaggioRipresaBozza,
+  salvaBozzaBuilder,
+  type BuilderDraft,
+} from '../../lib/builder/draft';
 import { caricaClientiBuilder, caricaMetodiPagamentoBuilder, caricaProfiloFiscaleBuilder, caricaServiziBuilder, creaClienteBuilder, metodoContantiDefault } from '../../lib/builder/data';
 import { statoAccount } from '../../lib/api/stripeConnect';
 import { calcolaFiscalePreventivo, calcolaLordoDaNetto as calcolaLordoDaNettoBuilder, calcolaTotaleTrasferte, calcolaTotaleVoci } from '../../lib/builder/fiscale';
@@ -92,8 +104,13 @@ export default function Builder() {
   const insets = useSafeAreaInsets()
   const modificaCaricata = useRef(false)
   const scrollRef = useRef<ScrollView>(null)
+  const bozzaGestitaRef = useRef(false)
+  const bloccoSalvataggioBozzaRef = useRef(false)
+  const clienteBozzaVerificatoRef = useRef(false)
+  const [avvisoBozza, setAvvisoBozza] = useState<string | null>(null)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [pagamentoImportato, setPagamentoImportato] = useState('')
+  const [datiBuilderPronti, setDatiBuilderPronti] = useState(false)
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
@@ -195,15 +212,109 @@ export default function Builder() {
     return () => { eventBus.off('reset-builder', reset) }
   }, [])
 
+  useEffect(() => {
+    if (inModifica || bozzaGestitaRef.current || !datiBuilderPronti) return
+
+    void (async () => {
+      const draft = await caricaBozzaBuilder()
+      if (!draft || bozzaBuilderVuota(draft)) {
+        bozzaGestitaRef.current = true
+        return
+      }
+
+      if (!bozzaBuilderVuotaDaState({
+        ...builderState,
+        clienteSelezionatoId: clienteSelezionato?.id,
+      })) {
+        bozzaGestitaRef.current = true
+        return
+      }
+
+      bozzaGestitaRef.current = true
+      Alert.alert(
+        'Preventivo in corso',
+        messaggioRipresaBozza(draft),
+        [
+          {
+            text: 'Inizia nuovo',
+            style: 'destructive',
+            onPress: () => ripristina(),
+          },
+          {
+            text: 'Riprendi bozza',
+            onPress: () => applicaBozzaDraft(draft),
+          },
+        ],
+        { cancelable: false },
+      )
+    })()
+  }, [inModifica, datiBuilderPronti])
+
+  useEffect(() => {
+    if (inModifica || clienteBozzaVerificatoRef.current || clienti.length === 0) return
+
+    const idDaVerificare = clienteSelezionato?.id
+    clienteBozzaVerificatoRef.current = true
+    if (!idDaVerificare) return
+
+    void clienteIdUtilizzabile(idDaVerificare).then((ok) => {
+      if (ok) return
+
+      setClienteSelezionato(null)
+      setAbbonamentoAttivo(false)
+      setPagamentoRateAttivo(false)
+      setAvvisoBozza('Il cliente precedentemente selezionato non è più disponibile')
+    })
+  }, [clienti.length, inModifica, clienteSelezionato?.id])
+
+  useEffect(() => {
+    if (inModifica || bloccoSalvataggioBozzaRef.current) return
+
+    const timeout = setTimeout(() => {
+      void salvaBozzaBuilder(snapshotBozzaBuilder())
+    }, 800)
+
+    return () => clearTimeout(timeout)
+  }, [
+    inModifica,
+    voci,
+    nomeCliente,
+    noteExtra,
+    includiIva,
+    trasferte,
+    mostraTrasferte,
+    nuovaSpesaNome,
+    nuovaSpesaImporto,
+    nuoviKm,
+    abbonamentoAttivo,
+    abImporto,
+    abGiorno,
+    abMeseInizio,
+    abMensilita,
+    abVisibileNelPDF,
+    pagamentoRateAttivo,
+    rateNumero,
+    rateGiornoScadenza,
+    rateMeseInizio,
+    rateVisibileNelPDF,
+    metodoPagamentoNessuno,
+    metodoPagamentoSelezionato,
+    clienteSelezionato,
+  ])
+
   async function caricaMetodiPagamento() {
     const { metodiPagamento, predefinito } = await caricaMetodiPagamentoBuilder()
-    if (!metodiPagamento) return
+    if (!metodiPagamento) {
+      setDatiBuilderPronti(true)
+      return
+    }
 
     setMetodiPagamento(metodiPagamento)
 
     if (builderState.metodoPagamentoNessuno) {
       setMetodoPagamentoNessuno(true)
       setMetodoPagamentoSelezionato(null)
+      setDatiBuilderPronti(true)
       return
     }
 
@@ -211,6 +322,7 @@ export default function Builder() {
       const trovato = metodiPagamento.find((m) => m.id === builderState.metodoPagamentoId)
       if (trovato) {
         setMetodoPagamentoSelezionato(trovato)
+        setDatiBuilderPronti(true)
         return
       }
     }
@@ -219,6 +331,7 @@ export default function Builder() {
       setMetodoPagamentoSelezionato(predefinito)
       setMetodoPagamentoNessuno(false)
     }
+    setDatiBuilderPronti(true)
   }
 
   async function caricaServizi() {
@@ -249,7 +362,82 @@ export default function Builder() {
     if (data) setProfiloFiscale(data)
   }
 
+  function snapshotBozzaBuilder(): BuilderDraft {
+    return buildBuilderDraft(
+      {
+        voci,
+        nomeCliente,
+        noteExtra,
+        includiIva,
+        trasferte,
+        mostraTrasferte,
+        nuovaSpesaNome,
+        nuovaSpesaImporto,
+        nuoviKm,
+        abbonamentoAttivo,
+        abImporto,
+        abGiorno,
+        abMeseInizio,
+        abMensilita,
+        abVisibileNelPDF,
+        pagamentoRateAttivo,
+        rateNumero,
+        rateGiornoScadenza,
+        rateMeseInizio,
+        rateVisibileNelPDF,
+        metodoPagamentoNessuno,
+        metodoPagamentoId: metodoPagamentoNessuno ? null : (metodoPagamentoSelezionato?.id ?? null),
+      },
+      clienteSelezionato?.id || '',
+      clienteSelezionato?.nome || '',
+    )
+  }
+
+  function applicaBozzaDraft(draft: BuilderDraft) {
+    applicaBozzaABuilderState(draft)
+    setVoci(draft.voci)
+    setNomeCliente(draft.nomeCliente)
+    setNoteExtra(draft.noteExtra)
+    setIncludiIva(draft.includiIva)
+    setTrasferte(draft.trasferte)
+    setMostraTrasferte(draft.mostraTrasferte)
+    setNuovaSpesaNome(draft.nuovaSpesaNome)
+    setNuovaSpesaImporto(draft.nuovaSpesaImporto)
+    setNuoviKm(draft.nuoviKm)
+    setAbbonamentoAttivo(draft.abbonamentoAttivo)
+    setAbImporto(draft.abImporto)
+    setAbGiorno(draft.abGiorno)
+    setAbMeseInizio(draft.abMeseInizio)
+    setAbMensilita(draft.abMensilita)
+    setAbVisibileNelPDF(draft.abVisibileNelPDF)
+    setPagamentoRateAttivo(draft.pagamentoRateAttivo)
+    setRateNumero(draft.rateNumero)
+    setRateGiornoScadenza(draft.rateGiornoScadenza)
+    setRateMeseInizio(draft.rateMeseInizio)
+    setRateVisibileNelPDF(draft.rateVisibileNelPDF)
+    setMetodoPagamentoNessuno(draft.metodoPagamentoNessuno)
+    if (draft.clienteSelezionatoId && draft.clienteNome) {
+      setClienteSelezionato({
+        id: draft.clienteSelezionatoId,
+        nome: draft.clienteNome,
+        telefono: null,
+        email: null,
+        indirizzo: null,
+      })
+      clienteBozzaVerificatoRef.current = false
+    } else {
+      setClienteSelezionato(null)
+    }
+    if (draft.metodoPagamentoNessuno) {
+      setMetodoPagamentoSelezionato(null)
+    } else if (draft.metodoPagamentoId) {
+      const trovato = metodiPagamento.find((m) => m.id === draft.metodoPagamentoId)
+      setMetodoPagamentoSelezionato(trovato ?? null)
+    }
+  }
+
   function ripristina() {
+    bloccoSalvataggioBozzaRef.current = true
     resetBuilderState()
     setVoci([])
     setNomeCliente('')
@@ -274,6 +462,9 @@ export default function Builder() {
     setRateVisibileNelPDF(true)
     setMetodoPagamentoSelezionato(null)
     setMetodoPagamentoNessuno(false)
+    void cancellaBozzaBuilder().finally(() => {
+      bloccoSalvataggioBozzaRef.current = false
+    })
   }
 
   function clienteBuilderCollegato() {
@@ -438,6 +629,15 @@ export default function Builder() {
           ])
         }}
       />
+
+      {avvisoBozza ? (
+        <View style={styles.avvisoBozza}>
+          <Text style={styles.avvisoBozzaText}>{avvisoBozza}</Text>
+          <TouchableOpacity onPress={() => setAvvisoBozza(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.avvisoBozzaClose}>×</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <ScrollView
         ref={scrollRef}
@@ -618,4 +818,19 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, gap: 14 },
+  avvisoBozza: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  avvisoBozzaText: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 16 },
+  avvisoBozzaClose: { fontSize: 18, color: '#92400E', lineHeight: 18 },
 })

@@ -46,6 +46,7 @@ import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsc
 import { trackEvento } from '../../lib/utils/analytics'
 import { errorMessage } from '../../lib/utils/errors'
 import { resetBuilderState } from './builder'
+import { cancellaBozzaBuilder } from '../../lib/builder/draft'
 
 type Params = {
   testo: string
@@ -301,6 +302,7 @@ export default function PreventivoPDF() {
       if (idSalvato) setPreventivoSalvatoId(idSalvato)
 
       resetBuilderState()
+      void cancellaBozzaBuilder()
       eventBus.emit('reset-builder')
 
       if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
