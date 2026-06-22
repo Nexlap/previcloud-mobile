@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Modal, Text, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { segnaPreventivoPagato } from '../../api/preventivoPdf'
@@ -15,16 +15,37 @@ import { AppIcon } from '../icons/AppIcon'
 import { NotificaFirmaDialog } from './NotificaFirmaDialog'
 
 export function NotificheBell() {
-  const { notifiche, count, segnaLetta, rimanda, archivia, ricarica } = useNotifiche()
+  const {
+    notifiche,
+    count,
+    erroreCaricamento,
+    segnaTutteLette,
+    segnaLetta,
+    rimanda,
+    archivia,
+    ricarica,
+    clearToasts,
+  } = useNotifiche()
   const [listaAperta, setListaAperta] = useState(false)
 
   useFocusEffect(useCallback(() => {
     void ricarica()
   }, [ricarica]))
 
-  async function apriNotifica(n: Notifica) {
+  useEffect(() => {
+    if (!listaAperta) return
+    void segnaTutteLette().catch((e) => {
+      console.error('segnaTutteLette', e)
+    })
+  }, [listaAperta, segnaTutteLette])
+
+  function apriCampanella() {
+    clearToasts()
+    setListaAperta(true)
+  }
+
+  function apriNotifica(n: Notifica) {
     setListaAperta(false)
-    await segnaLetta(n.id)
     if (!n.preventivo_id) return
     router.push('/(tabs)/storico')
     setTimeout(() => eventBus.emit('apri-notifica', n), 150)
@@ -32,9 +53,16 @@ export function NotificheBell() {
 
   return (
     <>
-      <TouchableOpacity onPress={() => setListaAperta(true)} style={{ position: 'relative', padding: 8 }}>
+      <TouchableOpacity onPress={apriCampanella} style={{ position: 'relative', padding: 8 }}>
         <AppIcon name="bell" size={22} color="#0D1B2A" />
-        {count > 0 ? (
+        {erroreCaricamento ? (
+          <View style={{
+            position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 9,
+            backgroundColor: '#F59E0B', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>!</Text>
+          </View>
+        ) : count > 0 ? (
           <View style={{
             position: 'absolute', top: 2, right: 2, minWidth: 18, height: 18, borderRadius: 9,
             backgroundColor: '#0E9F8E', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
@@ -49,13 +77,19 @@ export function NotificheBell() {
           <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', maxHeight: 420 }}>
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
               <Text style={{ fontWeight: '700', fontSize: 16, color: '#0D1B2A' }}>Notifiche</Text>
-              {count > 0 ? (
+              {erroreCaricamento ? (
+                <Text style={{ marginTop: 2, fontSize: 12, color: '#B45309' }}>
+                  Impossibile caricare le notifiche. Riprova più tardi.
+                </Text>
+              ) : count > 0 ? (
                 <Text style={{ marginTop: 2, fontSize: 12, color: '#9CA3AF' }}>{count} da fare</Text>
               ) : notifiche.length > 0 ? (
                 <Text style={{ marginTop: 2, fontSize: 12, color: '#9CA3AF' }}>Tutte rimandate</Text>
               ) : null}
             </View>
-            {notifiche.length === 0 ? (
+            {erroreCaricamento && notifiche.length === 0 ? (
+              <Text style={{ padding: 20, color: '#B45309', fontSize: 14 }}>Errore di caricamento</Text>
+            ) : notifiche.length === 0 ? (
               <Text style={{ padding: 20, color: '#9CA3AF', fontSize: 14 }}>Nessuna notifica</Text>
             ) : (
               notifiche.map(n => {

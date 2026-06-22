@@ -6,6 +6,7 @@ import { currentUserId, hasCompletedProfile, onSignedOut } from '../lib/api/auth
 import { purgeCestinoScaduto } from '../lib/cestino'
 import { ThemeProvider, useTheme } from '../lib/theme/ThemeContext'
 import { ThemedStatusBar } from '../lib/theme/ThemedStatusBar'
+import { NotificheProvider } from '../lib/hooks/useNotifiche'
 import { trackSessione } from '../lib/utils/analytics'
 
 function RootStack() {
@@ -71,9 +72,10 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <ThemedStatusBar />
-      <RootStack />
-      {!splashDone && (
+      <NotificheProvider>
+        <ThemedStatusBar />
+        <RootStack />
+        {!splashDone && (
         <Animated.View style={[styles.splash, { opacity: splashOpacity }]}>
           <Animated.View style={[styles.logoContainer, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
             <View style={styles.logoCircle}>
@@ -87,6 +89,7 @@ export default function RootLayout() {
           </Animated.View>
         </Animated.View>
       )}
+      </NotificheProvider>
     </ThemeProvider>
   )
 }

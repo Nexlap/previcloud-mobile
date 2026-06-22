@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { AppState } from 'react-native'
 import { supabase } from '../supabase'
 
 export type Notifica = {
@@ -15,6 +13,15 @@ export type Notifica = {
   created_at: string
 }
 
+export type NotificaToast = {
+  id: string
+  titolo: string
+  messaggio: string
+  tipo: Notifica['tipo']
+  preventivo_id: string | null
+  leaving: boolean
+}
+
 const ORE_RIMANDA_DEFAULT = 24
 
 export function notificaInRimando(n: Notifica, now = Date.now()) {
@@ -26,9 +33,28 @@ export function notificaContaBadge(n: Notifica, now = Date.now()) {
   return !n.letta && !notificaInRimando(n, now)
 }
 
-export async function caricaNotificheCampanella() {
+export function buildToast(raw: Partial<Notifica>): NotificaToast | null {
+  if (!raw.id) return null
+  const tipo = raw.tipo === 'reminder_firma' ? 'reminder_firma' : 'firma_ricevuta'
+  return {
+    id: raw.id,
+    titolo: typeof raw.titolo === 'string' && raw.titolo.trim() ? raw.titolo.trim() : 'Notifica',
+    messaggio: typeof raw.messaggio === 'string' ? raw.messaggio : '',
+    tipo,
+    preventivo_id: raw.preventivo_id ?? null,
+    leaving: false,
+  }
+}
+
+export function contaBadgeCampanella(notifiche: Notifica[], visteLocalmente: Set<string>) {
+  return notifiche.filter((n) => notificaContaBadge(n) && !visteLocalmente.has(n.id)).length
+}
+
+export async function caricaNotificheCampanella(): Promise<
+  { ok: true; notifiche: Notifica[] } | { ok: false; error: string }
+> {
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return [] as Notifica[]
+  if (!user) return { ok: true, notifiche: [] }
   const { data, error } = await supabase
     .from('notifiche')
     .select('*')
@@ -38,9 +64,9 @@ export async function caricaNotificheCampanella() {
     .limit(50)
   if (error) {
     console.error('caricaNotificheCampanella', error.message)
-    return []
+    return { ok: false, error: error.message }
   }
-  return (data || []) as Notifica[]
+  return { ok: true, notifiche: (data || []) as Notifica[] }
 }
 
 export async function caricaNotificaById(id: string) {
@@ -61,6 +87,17 @@ export async function caricaNotificaById(id: string) {
 
 export async function segnaNotificaLetta(id: string) {
   const { error } = await supabase.from('notifiche').update({ letta: true }).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function segnaTutteLette() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  const { error } = await supabase
+    .from('notifiche')
+    .update({ letta: true })
+    .eq('user_id', user.id)
+    .eq('letta', false)
   if (error) throw new Error(error.message)
 }
 
@@ -85,54 +122,4 @@ export function formatTempoNotifica(iso: string) {
   return new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
 }
 
-export function useNotifiche() {
-  const [notifiche, setNotifiche] = useState<Notifica[]>([])
-  const [count, setCount] = useState(0)
-
-  const ricarica = useCallback(async () => {
-    const list = await caricaNotificheCampanella()
-    setNotifiche(list)
-    setCount(list.filter(notificaContaBadge).length)
-  }, [])
-
-  const ricaricaRef = useRef(ricarica)
-  ricaricaRef.current = ricarica
-
-  useEffect(() => {
-    void ricaricaRef.current()
-
-    const channelName = `notifiche-mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const channel = supabase
-      .channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifiche' }, () => {
-        void ricaricaRef.current()
-      })
-      .subscribe()
-
-    const appStateSub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void ricaricaRef.current()
-    })
-
-    return () => {
-      appStateSub.remove()
-      void supabase.removeChannel(channel)
-    }
-  }, [])
-
-  const segnaLetta = useCallback(async (id: string) => {
-    await segnaNotificaLetta(id)
-    await ricarica()
-  }, [ricarica])
-
-  const rimanda = useCallback(async (id: string, ore = ORE_RIMANDA_DEFAULT) => {
-    await rimandaNotifica(id, ore)
-    await ricarica()
-  }, [ricarica])
-
-  const archivia = useCallback(async (id: string) => {
-    await segnaNotificaLetta(id)
-    await ricarica()
-  }, [ricarica])
-
-  return { notifiche, count, ricarica, segnaLetta, rimanda, archivia }
-}
+export { useNotifiche, NotificheProvider } from './NotificheProvider'

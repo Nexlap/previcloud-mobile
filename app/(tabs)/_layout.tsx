@@ -1,6 +1,7 @@
 import { router, Stack, usePathname } from 'expo-router'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { AppIcon, type AppIconName } from '../../lib/components/icons/AppIcon'
+import { NotificaToastStack } from '../../lib/components/firma/NotificaToastStack'
 import { useTheme } from '../../lib/theme/ThemeContext'
 
 type TabDef = { icon: AppIconName | null; label: string; path: string }
@@ -20,6 +21,7 @@ export default function TabsLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+      <NotificaToastStack />
       <View style={[styles.tabBar, { backgroundColor: colors.tabBar, borderTopColor: colors.tabBarBorder }]}>
         {TABS.map((tab) => {
           if (tab.icon === null) {
