@@ -105,12 +105,26 @@ export function ClienteStats({ preventiviCount, totaleValore, trascrizioniCount,
         <Text style={styles.statLabel}>Preventivi</Text>
       </View>
       <View style={styles.statCard}>
-        <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${formatImportoEuroVisuale(totaleValore)}`}</Text>
+        <Text
+          style={[styles.statVal, { color: '#0E9F8E' }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
+          {`\u20AC${formatImportoEuroVisuale(totaleValore)}`}
+        </Text>
         <Text style={styles.statLabel}>Incassato</Text>
       </View>
       {abbonamentoTotale !== null && abbonamentoTotale !== undefined ? (
         <View style={styles.statCard}>
-          <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${formatImportoEuroVisuale(abbonamentoTotale)}`}</Text>
+          <Text
+            style={[styles.statVal, { color: '#0E9F8E' }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
+            {`\u20AC${formatImportoEuroVisuale(abbonamentoTotale)}`}
+          </Text>
           <Text style={styles.statLabel}>Abbonamento</Text>
         </View>
       ) : (
@@ -169,8 +183,8 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   clienteNote: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', marginTop: 4 },
   statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  statVal: { fontSize: 20, fontWeight: '700', color: '#0D1B2A' },
+  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', minWidth: 0 },
+  statVal: { fontSize: 20, fontWeight: '700', color: '#0D1B2A', width: '100%', textAlign: 'center' },
   statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   tabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' },
   tabBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' },

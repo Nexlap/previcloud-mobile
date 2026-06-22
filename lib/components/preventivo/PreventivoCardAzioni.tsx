@@ -36,7 +36,7 @@ export function PreventivoCardAzioni({
   style,
 }: Props) {
   const mostraAzioni = !modalitaSelezione
-  const mostraRigaDataPagamento = p.stato === 'accettato' && !collegamentoPiano && !modalitaSelezione
+  const mostraDataPagamento = Boolean(p.pagato && p.data_pagamento && !collegamentoPiano && !modalitaSelezione)
   const toggleSelezione = () => onToggleSelezione?.()
   const longPressProps = onLongPress
     ? { onLongPress, delayLongPress: 400 as const }
@@ -45,7 +45,12 @@ export function PreventivoCardAzioni({
   return (
     <View style={[styles.wrapper, style]}>
       <View style={styles.stack}>
-        <Text style={styles.importo}>
+        <Text
+          style={styles.importo}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
           {p.importo_totale ? `\u20AC${formatImportoDb(p.importo_totale)}` : '\u2014'}
         </Text>
 
@@ -62,11 +67,9 @@ export function PreventivoCardAzioni({
             pagamentoGestitoDalPiano={collegamentoPiano}
             showArrow={!modalitaSelezione}
           />
-          {mostraRigaDataPagamento ? (
-            <View style={[styles.dataPagamentoSlot, styles.dataPagamentoSlotRiservato]}>
-              {p.pagato && p.data_pagamento ? (
-                <Text style={styles.dataPagamento}>Pagato il {formatDataBreve(p.data_pagamento)}</Text>
-              ) : null}
+          {mostraDataPagamento ? (
+            <View style={styles.dataPagamentoSlot}>
+              <Text style={styles.dataPagamento}>Pagato il {formatDataBreve(p.data_pagamento!)}</Text>
             </View>
           ) : null}
         </TouchableOpacity>
@@ -120,6 +123,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0D1B2A',
+    alignSelf: 'stretch',
+    textAlign: 'right',
   },
   dataPagamento: {
     fontSize: 11,
@@ -130,9 +135,6 @@ const styles = StyleSheet.create({
   dataPagamentoSlot: {
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
-  },
-  dataPagamentoSlotRiservato: {
-    minHeight: 15,
   },
   iconBtn: {
     paddingVertical: 2,
