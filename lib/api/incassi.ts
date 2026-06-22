@@ -1,4 +1,4 @@
-import { queryConFiltroCestino } from 'preventivoai-shared'
+import { queryConFiltroCestino, incassoSingoliPreventivi, sommaImportoRate } from 'preventivoai-shared'
 import { supabase } from '../supabase'
 
 type RataIncassoRow = {
@@ -14,28 +14,12 @@ type PreventivoIncassoRow = {
   cliente_id: string | null
 }
 
-export function sommaImportoRate(rate: Pick<RataIncassoRow, 'importo' | 'acconto' | 'stato'>[]) {
-  return rate.reduce((totale, r) => {
-    if (r.stato === 'incassato') return totale + (r.importo || 0)
-    if (r.stato === 'parziale') return totale + (r.acconto || 0)
-    return totale
-  }, 0)
-}
+export { sommaImportoRate }
 
 function clienteIdDaRata(r: RataIncassoRow) {
   const ab = r.abbonamenti
   if (Array.isArray(ab)) return ab[0]?.cliente_id
   return ab?.cliente_id
-}
-
-function incassoSingoliPreventivi(
-  preventivi: PreventivoIncassoRow[],
-  preventiviConAbbonamento: Set<string>,
-  clienteId?: string,
-) {
-  return preventivi
-    .filter(p => (!clienteId || p.cliente_id === clienteId) && !preventiviConAbbonamento.has(p.id))
-    .reduce((totale, p) => totale + (p.importo_totale || 0), 0)
 }
 
 async function caricaAbbonamentiConPreventivo(userId: string, clienteId?: string) {

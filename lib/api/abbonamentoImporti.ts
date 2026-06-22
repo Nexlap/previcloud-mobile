@@ -1,45 +1,11 @@
 import { MESI_BREVI } from '../constants'
 import { supabase } from '../supabase'
 import { Abbonamento, RataAbbonamento } from '../types'
-import { calcolaImportiRate, formatImportoEuro } from 'preventivoai-shared'
+import { calcolaImportiRate, formatImportoEuro, nuovoStatoDopoImportoRata, rateScaduteDaSegnalare } from 'preventivoai-shared'
 
 export type ImportiAlert = { title: string; message: string }
 
-export function nuovoStatoDopoImportoRata(rata: RataAbbonamento, nuovoImporto: number): RataAbbonamento['stato'] {
-  const acconto = rata.acconto || 0
-  if (acconto >= nuovoImporto) return 'incassato'
-  if (acconto > 0) return 'parziale'
-  if (rata.stato === 'in_ritardo') return 'in_ritardo'
-  return 'da_incassare'
-}
-
-export function rateScaduteDaSegnalare(
-  abbonamentiAttivi: Abbonamento[],
-  ratePerPiano: Record<string, RataAbbonamento[]>,
-  ora = new Date(),
-) {
-  const meseOra = ora.getMonth() + 1
-  const annoOra = ora.getFullYear()
-  const giornoOggi = ora.getDate()
-  const scadute: { abbonamentoId: string; rataId: string }[] = []
-
-  for (const abbonamento of abbonamentiAttivi) {
-    const rate = ratePerPiano[abbonamento.id] || []
-    for (const r of rate) {
-      if (r.stato === 'da_incassare' || r.stato === 'parziale') {
-        const scaduta =
-          r.anno < annoOra
-          || (r.anno === annoOra && r.mese < meseOra)
-          || (r.anno === annoOra && r.mese === meseOra && giornoOggi > abbonamento.giorno_scadenza)
-        if (scaduta) {
-          scadute.push({ abbonamentoId: abbonamento.id, rataId: r.id })
-        }
-      }
-    }
-  }
-
-  return scadute
-}
+export { rateScaduteDaSegnalare }
 
 export async function segnaRataInRitardo(rataId: string) {
   return supabase.from('rate_abbonamento').update({ stato: 'in_ritardo' }).eq('id', rataId)

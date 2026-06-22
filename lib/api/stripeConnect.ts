@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking'
 import { BACKEND_URL } from '../constants'
 import { sessionToken } from './settings'
 
@@ -8,9 +9,15 @@ export type StripeAccountStato = {
   stripe_charges_enabled: boolean
 }
 
+const STRIPE_ONBOARDING_WEB_CALLBACK = 'https://preventivoai-web.vercel.app/stripe-callback'
+
+/** Deep link in-app (deve coincidere con la rotta app/stripe-callback.tsx). */
 export function stripeCallbackUrl(): string {
-  return 'https://preventivoai-web.vercel.app/stripe-callback'
+  const url = Linking.createURL('stripe-callback')
+  console.log('[STRIPE_DEBUG] deep link generato:', url)
+  return url
 }
+
 async function authFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await sessionToken()
   if (!token) throw new Error('Non autenticato')
@@ -34,9 +41,8 @@ export async function connettiAccount(): Promise<{ stripe_account_id: string }> 
 }
 
 export async function creaOnboardingLink(): Promise<{ url: string }> {
-  const callbackUrl = stripeCallbackUrl()
-  const return_url = callbackUrl
-  const refresh_url = callbackUrl
+  const return_url = STRIPE_ONBOARDING_WEB_CALLBACK
+  const refresh_url = STRIPE_ONBOARDING_WEB_CALLBACK
   console.log('[stripeConnect] creaOnboardingLink return_url:', return_url)
   console.log('[stripeConnect] creaOnboardingLink refresh_url:', refresh_url)
   return authFetch('/api/stripe/onboarding-link', {
