@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Cliente } from '../../types'
-import { formatImportoEuro } from 'preventivoai-shared'
+import { formatImportoEuroVisuale } from 'preventivoai-shared'
 import { AppIcon } from '../icons/AppIcon'
 import { IconLabel } from '../icons/IconLabel'
 
@@ -105,12 +105,12 @@ export function ClienteStats({ preventiviCount, totaleValore, trascrizioniCount,
         <Text style={styles.statLabel}>Preventivi</Text>
       </View>
       <View style={styles.statCard}>
-        <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${formatImportoEuro(totaleValore, 0)}`}</Text>
-        <Text style={styles.statLabel}>Fatturato</Text>
+        <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${formatImportoEuroVisuale(totaleValore)}`}</Text>
+        <Text style={styles.statLabel}>Incassato</Text>
       </View>
       {abbonamentoTotale !== null && abbonamentoTotale !== undefined ? (
         <View style={styles.statCard}>
-          <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${formatImportoEuro(abbonamentoTotale, 0)}`}</Text>
+          <Text style={[styles.statVal, { color: '#0E9F8E' }]}>{`\u20AC${formatImportoEuroVisuale(abbonamentoTotale)}`}</Text>
           <Text style={styles.statLabel}>Abbonamento</Text>
         </View>
       ) : (

@@ -10,7 +10,7 @@ import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { FirmaStatoBadge, mostraPulsanteInviaFirma } from '../firma/FirmaStatoBadge'
 import { statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
-import { formatImportoDb } from 'preventivoai-shared'
+import { formatImportoDb, formatDataBreveConOra } from 'preventivoai-shared'
 import { useStoricoTheme } from '../../hooks/useStoricoTheme'
 import { IconLabel } from '../icons/IconLabel'
 import { AppIcon } from '../icons/AppIcon'
@@ -89,11 +89,7 @@ export function StoricoPreventiviList({
         const invio = inviiFirma[p.id]
         const sfFirma = statoFirmaInvio(invio)
         const mostraInvia = mostraPulsanteInviaFirma(p.pdf_url, invio)
-        const dataFormattata = new Date(p.created_at).toLocaleDateString('it-IT', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        })
+        const dataFormattata = formatDataBreveConOra(p.created_at)
 
         return (
           <View key={p.id} style={[styles.card, th.card, selezionato && th.cardSelected]}>

@@ -14,7 +14,7 @@ import {
 import { AppIcon } from '../icons/AppIcon'
 import { NotificaFirmaDialog } from './NotificaFirmaDialog'
 
-export function NotificheBell() {
+export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string }) {
   const {
     notifiche,
     count,
@@ -54,7 +54,7 @@ export function NotificheBell() {
   return (
     <>
       <TouchableOpacity onPress={apriCampanella} style={{ position: 'relative', padding: 8 }}>
-        <AppIcon name="bell" size={22} color="#0D1B2A" />
+        <AppIcon name="bell" size={22} color={iconColor} />
         {erroreCaricamento ? (
           <View style={{
             position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 9,

@@ -10,7 +10,7 @@ import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { FirmaStatoBadge, mostraPulsanteInviaFirma } from '../firma/FirmaStatoBadge'
 import { registraFirmaManuale, statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
-import { formatImportoDb } from 'preventivoai-shared'
+import { formatImportoDb, formatDataBreveConOra } from 'preventivoai-shared'
 import { IconLabel } from '../icons/IconLabel'
 import { errorMessage } from '../../utils/errors'
 
@@ -231,7 +231,7 @@ export function ClientePreventiviList({
             <View style={preventivoCardRowStyles.left}>
               <Text style={styles.prevVersione}>{p.titolo || 'Preventivo'}</Text>
               <Text style={styles.prevData}>
-                {`${new Date(p.created_at).toLocaleDateString('it-IT')}${p.is_ultimo ? ' · attivo' : ''}`}
+                {`${formatDataBreveConOra(p.created_at)}${p.is_ultimo ? ' · attivo' : ''}`}
               </Text>
               {collegamentiPiano[p.id] ? (
                 <View style={styles.prevPianoBadge}>

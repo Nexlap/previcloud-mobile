@@ -8,7 +8,7 @@ import { eventBus } from "../../lib/eventBus"
 import { caricaHomeData } from '../../lib/api/home'
 import { Preventivo, Profile } from "../../lib/types"
 import { trackEvento } from "../../lib/utils/analytics"
-import { formatImportoEuro, formatImportoDb } from 'preventivoai-shared'
+import { formatImportoEuroVisuale, formatImportoDb } from 'preventivoai-shared'
 import { PreventivoStatoBadge } from '../../lib/components/preventivo/PreventivoStatoBadge'
 import { NotificheBell } from '../../lib/components/firma/NotificheBell'
 import { ProfileMenuButton } from '../../lib/components/ProfileMenuButton'
@@ -90,7 +90,7 @@ export default function Home() {
           <Text style={styles.nome}>{nome}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <NotificheBell />
+          <NotificheBell iconColor="#fff" />
           <ProfileMenuButton nomeBreve={nome} />
         </View>
       </View>
@@ -118,7 +118,7 @@ export default function Home() {
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              {`€${formatImportoEuro(pagamentiIncassati)}`}
+              {`€${formatImportoEuroVisuale(pagamentiIncassati)}`}
             </Text>
             <Text style={[styles.statLabel, styles.statLabelOnDark]}>Pagamenti incassati</Text>
           </View>

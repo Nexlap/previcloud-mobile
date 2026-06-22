@@ -8,7 +8,7 @@ export function StoricoHeader() {
     <View style={styles.header}>
       <Text style={styles.headerTitle}>Storico preventivi</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <NotificheBell />
+        <NotificheBell iconColor="#fff" />
         <ProfileMenuButton />
       </View>
     </View>
