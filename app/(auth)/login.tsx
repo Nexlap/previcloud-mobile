@@ -13,6 +13,9 @@ import { errorMessage } from '../../lib/utils/errors'
 
 WebBrowser.maybeCompleteAuthSession()
 
+/** Imposta `true` per riattivare tab e form di registrazione in-app. */
+const BETA_REGISTRAZIONE_APERTA = false
+
 export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
@@ -48,17 +51,17 @@ export default function Login() {
       Alert.alert('Errore', 'Inserisci email e password')
       return
     }
-    if (mode === 'register' && !accettaTermini) {
+    if (mode === 'register' && BETA_REGISTRAZIONE_APERTA && !accettaTermini) {
       Alert.alert('Termini richiesti', 'Accetta i termini e condizioni per continuare.')
       return
     }
-    if (mode === 'register' && password.length < 6) {
+    if (mode === 'register' && BETA_REGISTRAZIONE_APERTA && password.length < 6) {
       setErrorePassword('La password deve avere almeno 6 caratteri.')
       return
     }
     setErrorePassword(null)
     setLoading(true)
-    if (mode === 'register') {
+    if (mode === 'register' && BETA_REGISTRAZIONE_APERTA) {
       const { error } = await signUpWithEmail(email, password)
       if (error) Alert.alert('Errore', error.message)
       else Alert.alert('Fatto!', 'Controlla la tua email per confermare.')
@@ -160,17 +163,21 @@ export default function Login() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.logo}>Preventivo<Text style={styles.logoAccent}>AI</Text></Text>
-          <Text style={styles.subtitle}>{mode === 'login' ? 'Bentornato' : 'Crea il tuo account'}</Text>
+          <Text style={styles.subtitle}>
+            {mode === 'register' && BETA_REGISTRAZIONE_APERTA ? 'Crea il tuo account' : 'Bentornato'}
+          </Text>
         </View>
         <View style={styles.card}>
-          <View style={styles.toggle}>
-            <TouchableOpacity style={[styles.toggleBtn, mode === 'login' && styles.toggleActive]} onPress={() => { setMode('login'); setAccettaTermini(false); setErrorePassword(null) }}>
-              <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>Accedi</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.toggleBtn, mode === 'register' && styles.toggleActive]} onPress={() => { setMode('register'); setErrorePassword(null) }}>
-              <Text style={[styles.toggleText, mode === 'register' && styles.toggleTextActive]}>Registrati</Text>
-            </TouchableOpacity>
-          </View>
+          {BETA_REGISTRAZIONE_APERTA ? (
+            <View style={styles.toggle}>
+              <TouchableOpacity style={[styles.toggleBtn, mode === 'login' && styles.toggleActive]} onPress={() => { setMode('login'); setAccettaTermini(false); setErrorePassword(null) }}>
+                <Text style={[styles.toggleText, mode === 'login' && styles.toggleTextActive]}>Accedi</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.toggleBtn, mode === 'register' && styles.toggleActive]} onPress={() => { setMode('register'); setErrorePassword(null) }}>
+                <Text style={[styles.toggleText, mode === 'register' && styles.toggleTextActive]}>Registrati</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           {biometricoAttivato && (
             <TouchableOpacity style={styles.biometricoBtn} onPress={loginBiometrico}>
@@ -197,7 +204,7 @@ export default function Login() {
                 <Text style={styles.passwordToggleText}>{mostraPassword ? 'Nascondi' : 'Mostra'}</Text>
               </TouchableOpacity>
             </View>
-            {mode === 'register' && errorePassword ? (
+            {mode === 'register' && BETA_REGISTRAZIONE_APERTA && errorePassword ? (
               <Text style={styles.erroreInline}>{errorePassword}</Text>
             ) : null}
             {mode === 'login' && (
@@ -207,7 +214,7 @@ export default function Login() {
             )}
           </View>
 
-          {mode === 'register' && (
+          {mode === 'register' && BETA_REGISTRAZIONE_APERTA && (
             <View style={styles.terminiRow}>
               <TouchableOpacity
                 style={[styles.checkbox, accettaTermini && styles.checkboxChecked]}
@@ -227,8 +234,21 @@ export default function Login() {
           )}
 
           <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSubmit} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>{mode === 'login' ? 'Accedi' : 'Crea account'}</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : (
+              <Text style={styles.btnText}>
+                {mode === 'register' && BETA_REGISTRAZIONE_APERTA ? 'Crea account' : 'Accedi'}
+              </Text>
+            )}
           </TouchableOpacity>
+
+          {!BETA_REGISTRAZIONE_APERTA ? (
+            <Text style={styles.invitoText}>
+              Vuoi accedere? Richiedi l&apos;invito su{' '}
+              <Text style={styles.invitoLink} onPress={apriHomepageWeb}>
+                preventivoai-web.vercel.app
+              </Text>
+            </Text>
+          ) : null}
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -287,6 +307,8 @@ const styles = StyleSheet.create({
   btn: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, alignItems: 'center' as const, marginTop: 8 },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  invitoText: { marginTop: 16, fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 19 },
+  invitoLink: { color: '#0E9F8E', fontWeight: '600' },
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
   dividerText: { fontSize: 13, color: '#9CA3AF' },
