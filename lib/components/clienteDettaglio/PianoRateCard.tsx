@@ -4,28 +4,27 @@ import {
   type DimensionValue,
 } from 'react-native'
 import { LongPressAwarePressable } from '../LongPressAwarePressable'
-import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
+import type { VoceMenuAzione } from '../MenuAzioniSheet'
+import { mostraMenuAzioniAlert } from '../../utils/mostraMenuAzioniAlert'
 import { sessioneClienteDettaglio } from '../../api/clienteDettaglio'
 import { creaLinkPagamentoRata } from '../../api/pdf'
-import { MESI_BREVI } from '../../constants'
 import { eventBus } from '../../eventBus'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
 import { errorMessage } from '../../utils/errors'
-import { formatImportoEuro, formatDataBreve, parseImportoEuro, ricalcolaImportiRateLibere } from 'preventivoai-shared'
-import { titoloHeaderPiano, analizzaStatoPiano } from 'preventivoai-shared'
+import {
+  formatImportoEuro,
+  formatDataBreve,
+  giornoScadenzaEffettivo,
+  labelScadenzaRataDaPiano,
+  parseImportoEuro,
+  ricalcolaImportiRateLibere,
+  titoloHeaderPiano,
+  analizzaStatoPiano,
+} from 'preventivoai-shared'
 import { AppIcon } from '../icons/AppIcon'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
 import { pianoEspansoStyles } from './pianoEspansoStyles'
-
-const MESI_FULL = [
-  'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-  'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre',
-]
-
-function labelScadenza(rata: RataAbbonamento) {
-  return `${MESI_BREVI[rata.mese - 1]} ${rata.anno}`
-}
 
 function badgeRata(stato: RataAbbonamento['stato']) {
   if (stato === 'incassato') return { label: 'Pagata', bg: '#D1FAE5', color: '#0E9F8E' }
@@ -82,8 +81,8 @@ function RataMiniDetail({
       {rata.note ? <Text style={styles.rataNota}>{rata.note}</Text> : null}
       <View style={styles.rataAzioni}>
         {rata.stato !== 'incassato' ? (
-          <TouchableOpacity style={styles.rataAzioneBtn} onPress={() => onOpenPagamento(rata)}>
-            <Text style={styles.rataAzioneBtnText}>+ Registra pagamento</Text>
+          <TouchableOpacity style={[styles.rataAzioneBtn, styles.rataAzioneBtnRegistra]} onPress={() => onOpenPagamento(rata)}>
+            <Text style={styles.rataAzioneBtnText} numberOfLines={1}>+ Registra</Text>
           </TouchableOpacity>
         ) : null}
         {mostraReminder && rata.stato !== 'incassato' ? (
@@ -121,6 +120,7 @@ function RataMiniDetail({
 type RataMiniProps = {
   rata: RataAbbonamento
   index: number
+  giornoScadenzaPiano: number
   aperta: boolean
   invioReminderLoading: string | null
   mostraReminder: boolean
@@ -133,6 +133,7 @@ type RataMiniProps = {
 function RataMiniRow({
   rata,
   index,
+  giornoScadenzaPiano,
   aperta,
   invioReminderLoading,
   mostraReminder,
@@ -146,7 +147,9 @@ function RataMiniRow({
     <View style={styles.rataMiniTab}>
       <TouchableOpacity style={styles.rataMiniRow} onPress={onToggle} activeOpacity={0.7}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.rataMiniTitolo}>{`Rata ${index + 1} \u00B7 ${labelScadenza(rata)}`}</Text>
+          <Text style={styles.rataMiniTitolo}>
+            {`Rata ${index + 1} \u00B7 ${labelScadenzaRataDaPiano(rata, giornoScadenzaPiano)}`}
+          </Text>
         </View>
         <Text style={styles.rataMiniImporto}>{`\u20AC${formatImportoEuro(rata.importo, 2)}`}</Text>
         <View style={[styles.badge, { backgroundColor: badge.bg }]}>
@@ -221,8 +224,6 @@ export function PianoRateCard({
   const [nuovoImportoTotale, setNuovoImportoTotale] = useState('')
   const [salvaImportoLoading, setSalvaImportoLoading] = useState(false)
   const [salvaPersonalizzaLoading, setSalvaPersonalizzaLoading] = useState(false)
-  const [menuAperto, setMenuAperto] = useState(false)
-
   const rateOrdinate = useMemo(() => [...rate].sort(ordinaRate), [rate])
   const rateFuture = useMemo(
     () => rateOrdinate.filter(r => r.stato !== 'incassato'),
@@ -244,7 +245,15 @@ export function PianoRateCard({
     return incassato + parziale
   }, [rate])
   const analisi = useMemo(() => analizzaStatoPiano(abbonamento, rate), [abbonamento, rate])
+  const giornoScadenzaPiano = giornoScadenzaEffettivo(abbonamento.giorno_scadenza)
   const prossima = rateFuture[0]
+  const sottotitoloRiepilogo = useMemo(() => {
+    if (analisi.concluso || analisi.stato === 'vuoto' || analisi.stato === 'in_ritardo' || analisi.stato === 'in_regola') {
+      return analisi.sottotitolo
+    }
+    if (!prossima) return analisi.sottotitolo
+    return `Prossima: ${labelScadenzaRataDaPiano(prossima, giornoScadenzaPiano)} \u00B7 \u20AC${formatImportoEuro(prossima.importo, 2)}`
+  }, [analisi, prossima, giornoScadenzaPiano])
   const targetImportoPiano = abbonamento.importo_default ?? importoPiano
   const sommaIncassateFisse = rateStorico.reduce((a, r) => a + r.importo, 0)
   const sommaBozzaModificabili = rateFuture.reduce((a, r) => {
@@ -340,7 +349,8 @@ export function PianoRateCard({
       if (!session) return
       const residuo = rata.importo - (rata.acconto || 0)
       const link = await creaLinkPagamentoRata(rata.id, clienteNome, session.access_token)
-      const testo = `Ciao ${clienteNome}, ti ricordo il pagamento di \u20AC${formatImportoEuro(residuo, 2)} per la rata di ${MESI_FULL[rata.mese - 1]} ${rata.anno}. Puoi pagare qui: ${link}`
+      const periodoLabel = `la rata del ${labelScadenzaRataDaPiano(rata, giornoScadenzaPiano)}`
+      const testo = `Ciao ${clienteNome}, ti ricordo il pagamento di \u20AC${formatImportoEuro(residuo, 2)} per ${periodoLabel}. Puoi pagare qui: ${link}`
       const url = `whatsapp://send?text=${encodeURIComponent(testo)}`
       if (await Linking.canOpenURL(url)) {
         await Linking.openURL(url)
@@ -453,7 +463,13 @@ export function PianoRateCard({
           </View>
           {!selezionePianoAttiva ? (
             <View style={styles.pianoHeaderActions}>
-              <TouchableOpacity hitSlop={8} onPress={() => setMenuAperto(true)}>
+              <TouchableOpacity
+                hitSlop={8}
+                onPress={() => mostraMenuAzioniAlert(
+                  vociMenu(),
+                  titoloHeaderPiano(abbonamento.nome, preventivoMadre, 'rate', 'Piano a rate'),
+                )}
+              >
                 <Text style={styles.menuPuntini}>{'\u22EE'}</Text>
               </TouchableOpacity>
               <Text style={styles.sectionArrow}>{pianoEspanso ? '\u25B2' : '\u25BC'}</Text>
@@ -467,19 +483,13 @@ export function PianoRateCard({
               ? `${rate.length}/${rate.length} rate pagate \u00B7 \u20AC${formatImportoEuro(importoRaccolto, 2)} raccolti`
               : `${ratePagate}/${rate.length} rate pagate \u00B7 \u20AC${formatImportoEuro(importoRaccolto, 2)} su \u20AC${formatImportoEuro(importoPiano, 2)}`}
           </Text>
-          {analisi.sottotitolo ? (
+          {sottotitoloRiepilogo ? (
             <Text style={[styles.pianoHeaderHint, analisi.concluso && styles.pianoHeaderHintConcluso]}>
-              {analisi.sottotitolo}
+              {sottotitoloRiepilogo}
             </Text>
           ) : null}
         </View>
       </LongPressAwarePressable>
-
-      <MenuAzioniSheet
-        visible={menuAperto}
-        voci={vociMenu()}
-        onClose={() => setMenuAperto(false)}
-      />
 
       {cardEspansa ? (
         <View style={pianoEspansoStyles.body}>
@@ -511,6 +521,7 @@ export function PianoRateCard({
                     key={rata.id}
                     rata={rata}
                     index={index}
+                    giornoScadenzaPiano={giornoScadenzaPiano}
                     aperta={rataMiniAperta === rata.id}
                     invioReminderLoading={invioReminderLoading}
                     mostraReminder={prossima?.id === rata.id}
@@ -537,6 +548,7 @@ export function PianoRateCard({
                     key={rata.id}
                     rata={rata}
                     index={index}
+                    giornoScadenzaPiano={giornoScadenzaPiano}
                     aperta={rataMiniAperta === rata.id}
                     invioReminderLoading={invioReminderLoading}
                     mostraReminder={false}
@@ -562,7 +574,9 @@ export function PianoRateCard({
                 const pinnata = rataPinnataEffettiva(rata)
                 return (
                   <View key={rata.id} style={styles.personalizzaRiga}>
-                    <Text style={styles.personalizzaLabel}>{`Rata ${index + 1} \u00B7 ${labelScadenza(rata)}`}</Text>
+                    <Text style={styles.personalizzaLabel}>
+                      {`Rata ${index + 1} \u00B7 ${labelScadenzaRataDaPiano(rata, giornoScadenzaPiano)}`}
+                    </Text>
                     {pagata ? (
                       <Text style={styles.personalizzaLocked}>{`\u20AC${formatImportoEuro(rata.importo, 2)}`}</Text>
                     ) : (
@@ -706,9 +720,10 @@ const styles = StyleSheet.create({
   rataBarraLabels: { flexDirection: 'row', justifyContent: 'space-between' },
   rataBarraAcconto: { fontSize: 11, color: '#F59E0B', fontWeight: '500' },
   rataBarraResiduo: { fontSize: 11, color: '#EF4444', fontWeight: '500' },
-  rataAzioni: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  rataAzioneBtn: { flex: 1, minWidth: 120, borderRadius: 10, padding: 9, alignItems: 'center', borderWidth: 1, borderColor: '#0E9F8E' },
-  rataAzioneBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600' },
+  rataAzioni: { flexDirection: 'row', gap: 8, alignItems: 'stretch' },
+  rataAzioneBtn: { flexGrow: 1, flexShrink: 1, minWidth: 0, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 9, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#0E9F8E' },
+  rataAzioneBtnRegistra: { flexShrink: 0, minWidth: 96 },
+  rataAzioneBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600', flexShrink: 0 },
   reminderBtnCompact: { flex: 0, paddingHorizontal: 12, borderColor: '#25D366' },
   reminderBtnCompactText: { fontSize: 13, color: '#25D366', fontWeight: '600' },
   abAzioneBtn: { flex: 1, borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },

@@ -7,6 +7,7 @@ type Props = {
   pagato: boolean
   dataPagamento?: string | null
   onTogglePagato: (pagato: boolean, dataPagamento?: string) => void | Promise<void>
+  onPagatoConfermato?: () => void
   disabled?: boolean
 }
 
@@ -19,6 +20,7 @@ export function PreventivoSegnaPagatoSection({
   pagato,
   dataPagamento,
   onTogglePagato,
+  onPagatoConfermato,
   disabled,
 }: Props) {
   const [salvando, setSalvando] = useState(false)
@@ -62,6 +64,7 @@ export function PreventivoSegnaPagatoSection({
       await onTogglePagato(true, inputDateToIso(dataPagamentoInput))
       setPagatoLocale(true)
       setMostraDataPagamento(false)
+      onPagatoConfermato?.()
     } finally {
       setSalvando(false)
     }

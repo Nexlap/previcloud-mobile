@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Alert, Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { LongPressAwarePressable } from '../LongPressAwarePressable'
-import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
-import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPreventivo/constants'
+import type { VoceMenuAzione } from '../MenuAzioniSheet'
+import { mostraMenuAzioniAlert } from '../../utils/mostraMenuAzioniAlert'
 import type { PreventivoInvio } from '../../api/firma'
 import { PreventivoCardAzioni } from '../preventivo/PreventivoCardAzioni'
 import { preventivoCardRowStyles } from '../preventivo/preventivoCardStyles'
@@ -12,7 +12,6 @@ import { registraFirmaManuale, statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
 import { formatImportoDb } from 'preventivoai-shared'
 import { IconLabel } from '../icons/IconLabel'
-import { AppIcon } from '../icons/AppIcon'
 import { errorMessage } from '../../utils/errors'
 
 type Props = {
@@ -146,10 +145,7 @@ export function ClientePreventiviList({
   onHighlightFinished,
   onPreventivoRowLayout,
 }: Props) {
-  const [menuPreventivo, setMenuPreventivo] = useState<Preventivo | null>(null)
-
   function segnaFirmatoSuCarta(p: Preventivo) {
-    setMenuPreventivo(null)
     Alert.alert(
       'Firma su carta',
       'Segnare questo preventivo come firmato su carta? Non verrà inviato alcun link online.',
@@ -175,15 +171,26 @@ export function ClientePreventiviList({
 
   function vociMenu(p: Preventivo): VoceMenuAzione[] {
     const sfFirma = statoFirmaInvio(inviiFirma[p.id])
-    const voci: VoceMenuAzione[] = [
+    const voci: VoceMenuAzione[] = []
+    if (p.is_ultimo) {
+      voci.push(
+        { label: 'Modifica preventivo', onPress: () => onModificaUltimo(p) },
+        { label: 'Genera versione alternativa', onPress: () => onModificaUltimo(p) },
+      )
+    }
+    voci.push(
       { label: 'Rinomina', onPress: () => onRinomina(p) },
       { label: 'Sposta', onPress: () => onSposta(p.id) },
-    ]
-    if (p.pdf_url && sfFirma !== 'firmato') {
+    )
+    if (p.pdf_url && sfFirma === 'nessuno') {
       voci.push({ label: 'Segna firmato su carta', onPress: () => segnaFirmatoSuCarta(p) })
     }
     voci.push({ label: 'Elimina', onPress: () => onElimina(p.id), danger: true })
     return voci
+  }
+
+  function apriMenuPreventivo(p: Preventivo) {
+    mostraMenuAzioniAlert(vociMenu(p), p.titolo || 'Preventivo')
   }
 
   if (preventivi.length === 0) {
@@ -259,7 +266,7 @@ export function ClientePreventiviList({
               onLongPress={() => onLongPress(p.id)}
               onScaricaPdf={() => onScaricaPdf(p)}
               onInviaFirma={onInviaFirma ? () => onInviaFirma(p) : undefined}
-              onMenu={() => setMenuPreventivo(p)}
+              onMenu={() => apriMenuPreventivo(p)}
             />
           </View>
 
@@ -291,26 +298,12 @@ export function ClientePreventiviList({
                   )}
                 </View>
               ))}
-              {p.is_ultimo && (
-                <TouchableOpacity style={styles.editBtn} onPress={() => onModificaUltimo(p)}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-                    <AppIcon name="edit-2" size={16} color="#0E9F8E" />
-                    <Text style={styles.editBtnText}>{MODIFICA_VERSIONE_ALTERNATIVA_LABEL}</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
             </View>
           )}
         </LongPressAwarePressable>
         </PreventivoCardShell>
         )
       })}
-
-      <MenuAzioniSheet
-        visible={menuPreventivo !== null}
-        voci={menuPreventivo ? vociMenu(menuPreventivo) : []}
-        onClose={() => setMenuPreventivo(null)}
-      />
     </>
   )
 }
@@ -328,8 +321,6 @@ const styles = StyleSheet.create({
   prevPianoBadge: { marginTop: 4 },
   prevDetail: { padding: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
   prevTesto: { fontSize: 12, color: '#6B7280', lineHeight: 18, fontFamily: 'monospace' },
-  editBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' },
-  editBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   cronologiaBtn: { paddingVertical: 8, alignItems: 'center' },
   cronologiaBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' },
   cronologiaItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F7F8FA', borderRadius: 8, padding: 10 },

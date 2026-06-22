@@ -36,16 +36,26 @@ export function PreventivoStatoBadge({
   showArrow = false,
 }: Props) {
   const meta = badgeMeta({ stato, pagato, pagamentoGestitoDalPiano })
-  const label = `${meta.label}${showArrow ? ' \u25BC' : ''}`
+
+  if (!showArrow) {
+    return (
+      <View style={[styles.badge, { backgroundColor: meta.backgroundColor }]}>
+        <Text style={[styles.text, { color: meta.color, fontWeight: meta.fontWeight }]}>{meta.label}</Text>
+      </View>
+    )
+  }
 
   return (
-    <View style={[styles.badge, { backgroundColor: meta.backgroundColor }]}>
-      <Text style={[styles.text, { color: meta.color, fontWeight: meta.fontWeight }]}>{label}</Text>
+    <View style={[styles.badge, styles.badgeConFreccia, { backgroundColor: meta.backgroundColor }]}>
+      <Text style={[styles.text, { color: meta.color, fontWeight: meta.fontWeight }]}>{meta.label}</Text>
+      <Text style={styles.arrow}>{'\u25BC'}</Text>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, alignSelf: 'flex-start' },
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  badgeConFreccia: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   text: { fontSize: 10 },
+  arrow: { fontSize: 10, color: '#9CA3AF' },
 })

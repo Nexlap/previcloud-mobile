@@ -36,6 +36,7 @@ export function PreventivoCardAzioni({
   style,
 }: Props) {
   const mostraAzioni = !modalitaSelezione
+  const mostraRigaDataPagamento = p.stato === 'accettato' && !collegamentoPiano && !modalitaSelezione
   const toggleSelezione = () => onToggleSelezione?.()
   const longPressProps = onLongPress
     ? { onLongPress, delayLongPress: 400 as const }
@@ -49,6 +50,7 @@ export function PreventivoCardAzioni({
         </Text>
 
         <TouchableOpacity
+          style={styles.statoTouch}
           onPress={modalitaSelezione ? toggleSelezione : onStatoPress}
           activeOpacity={0.7}
           disabled={modalitaSelezione && !onToggleSelezione}
@@ -60,8 +62,12 @@ export function PreventivoCardAzioni({
             pagamentoGestitoDalPiano={collegamentoPiano}
             showArrow={!modalitaSelezione}
           />
-          {p.pagato && p.data_pagamento && !collegamentoPiano ? (
-            <Text style={styles.dataPagamento}>Pagato il {formatDataBreve(p.data_pagamento)}</Text>
+          {mostraRigaDataPagamento ? (
+            <View style={[styles.dataPagamentoSlot, styles.dataPagamentoSlotRiservato]}>
+              {p.pagato && p.data_pagamento ? (
+                <Text style={styles.dataPagamento}>Pagato il {formatDataBreve(p.data_pagamento)}</Text>
+              ) : null}
+            </View>
           ) : null}
         </TouchableOpacity>
 
@@ -105,6 +111,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
     paddingRight: 2,
+    minWidth: 100,
+  },
+  statoTouch: {
+    alignItems: 'flex-end',
   },
   importo: {
     fontSize: 14,
@@ -115,6 +125,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9CA3AF',
     marginTop: 2,
+    textAlign: 'right',
+  },
+  dataPagamentoSlot: {
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+  },
+  dataPagamentoSlotRiservato: {
+    minHeight: 15,
   },
   iconBtn: {
     paddingVertical: 2,

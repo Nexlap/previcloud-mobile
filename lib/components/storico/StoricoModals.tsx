@@ -65,6 +65,7 @@ export function StoricoModals({
                 pagato={preventivoPagato}
                 dataPagamento={preventivoDataPagamento}
                 onTogglePagato={onTogglePagato}
+                onPagatoConfermato={onCloseStato}
               />
             ) : null}
             <TouchableOpacity style={styles.modalCancel} onPress={onCloseStato}>

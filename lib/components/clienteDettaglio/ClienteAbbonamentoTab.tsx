@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View, type DimensionValue } from 'react-native'
 import { LongPressAwarePressable } from '../LongPressAwarePressable'
-import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
+import type { VoceMenuAzione } from '../MenuAzioniSheet'
+import { mostraMenuAzioniAlert } from '../../utils/mostraMenuAzioniAlert'
 import { MESI_BREVI } from '../../constants'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
-import { formatDataBreve, formatImportoEuro } from 'preventivoai-shared'
-import { titoloHeaderPiano, analizzaStatoPiano, ordinaPianiPerStato } from 'preventivoai-shared'
+import { formatDataBreve, formatImportoEuro, giornoScadenzaEffettivo, labelScadenzaRataDaPiano, titoloHeaderPiano, analizzaStatoPiano, ordinaPianiPerStato } from 'preventivoai-shared'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PianoVuotoState } from './PianoVuotoState'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
@@ -40,10 +40,6 @@ type Props = {
   pianiSelezionati: string[]
   onAvviaSelezionePiano: (abbonamentoId: string) => void
   onToggleSelezionePiano: (abbonamentoId: string) => void
-}
-
-function labelScadenza(rata: RataAbbonamento) {
-  return `${MESI_BREVI[rata.mese - 1]} ${rata.anno}`
 }
 
 function badgeCanone(stato: RataAbbonamento['stato']) {
@@ -143,6 +139,7 @@ function RataDetail({
 
 type RataStoricoProps = {
   rata: RataAbbonamento
+  giornoScadenzaPiano: number
   aperta: boolean
   selezioneAttiva: boolean
   selezionePianoAttiva: boolean
@@ -157,6 +154,7 @@ type RataStoricoProps = {
 
 function RataStoricoRow({
   rata,
+  giornoScadenzaPiano,
   aperta,
   selezioneAttiva,
   selezionePianoAttiva,
@@ -183,7 +181,7 @@ function RataStoricoRow({
     >
       <View style={styles.rataMiniRow}>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={styles.rataMiniMese}>{labelScadenza(rata)}</Text>
+          <Text style={styles.rataMiniMese}>{labelScadenzaRataDaPiano(rata, giornoScadenzaPiano)}</Text>
           {selezioneAttiva && selezionata ? <Text style={styles.rataCheck}>{'\u2713'}</Text> : null}
         </View>
         <Text style={styles.rataMiniImporto}>{`\u20AC${formatImportoEuro(rata.importo, 2)}`}</Text>
@@ -269,7 +267,6 @@ function AbbonamentoPianoCard({
   onToggleSelezionePiano,
 }: AbbonamentoPianoCardProps) {
   const [storicoAperto, setStoricoAperto] = useState(false)
-  const [menuAperto, setMenuAperto] = useState(false)
 
   function vociMenu(): VoceMenuAzione[] {
     return [
@@ -296,6 +293,18 @@ function AbbonamentoPianoCard({
   )
   const totaleIncassato = totaleIncassatoPiano(rate)
   const analisi = useMemo(() => analizzaStatoPiano(abbonamento, rate), [abbonamento, rate])
+  const giornoScadenzaPiano = giornoScadenzaEffettivo(abbonamento.giorno_scadenza)
+  const prossima = useMemo(
+    () => [...rate].sort((a, b) => a.anno - b.anno || a.mese - b.mese).find(r => r.stato !== 'incassato'),
+    [rate],
+  )
+  const sottotitoloRiepilogo = useMemo(() => {
+    if (analisi.concluso || analisi.stato === 'vuoto' || analisi.stato === 'in_ritardo' || analisi.stato === 'in_regola') {
+      return analisi.sottotitolo
+    }
+    if (!prossima) return analisi.sottotitolo
+    return `Prossima: ${labelScadenzaRataDaPiano(prossima, giornoScadenzaPiano)} \u00B7 \u20AC${formatImportoEuro(prossima.importo, 2)}`
+  }, [analisi, prossima, giornoScadenzaPiano])
   const badgeCorrente = rataMeseCorrente ? badgeCanone(rataMeseCorrente.stato) : null
   const defaultNome = `Abbonamento N.${indice + 1}`
   const cardEspansa = espanso && !selezionePianoAttiva
@@ -339,9 +348,9 @@ function AbbonamentoPianoCard({
               ? `Canone completato \u00B7 \u20AC${formatImportoEuro(totaleIncassato, 2)} incassati`
               : `Canone mensile \u00B7 \u20AC${formatImportoEuro(abbonamento.importo_default, 2)}/mese \u00B7 giorno ${abbonamento.giorno_scadenza}`}
           </Text>
-          {analisi.sottotitolo ? (
+          {sottotitoloRiepilogo ? (
             <Text style={[styles.abHeaderHint, analisi.concluso && styles.abHeaderHintConcluso]}>
-              {analisi.sottotitolo}
+              {sottotitoloRiepilogo}
             </Text>
           ) : totaleIncassato > 0 && !analisi.concluso ? (
             <Text style={styles.abHeaderHint}>
@@ -351,19 +360,19 @@ function AbbonamentoPianoCard({
         </View>
         {!selezionePianoAttiva ? (
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-            <TouchableOpacity hitSlop={8} onPress={() => setMenuAperto(true)}>
+            <TouchableOpacity
+              hitSlop={8}
+              onPress={() => mostraMenuAzioniAlert(
+                vociMenu(),
+                titoloHeaderPiano(abbonamento.nome, preventivoMadre, 'canone', defaultNome),
+              )}
+            >
               <Text style={styles.menuPuntini}>{'\u22EE'}</Text>
             </TouchableOpacity>
             <Text style={styles.abHeaderArrow}>{espanso ? '\u25B2' : '\u25BC'}</Text>
           </View>
         ) : null}
       </LongPressAwarePressable>
-
-      <MenuAzioniSheet
-        visible={menuAperto}
-        voci={vociMenu()}
-        onClose={() => setMenuAperto(false)}
-      />
 
       {cardEspansa ? (
         <View style={pianoEspansoStyles.body}>
@@ -388,7 +397,7 @@ function AbbonamentoPianoCard({
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <Text style={styles.rataMese}>
-                      {`${MESI_BREVI[rataMeseCorrente.mese - 1]} ${rataMeseCorrente.anno}`}
+                      {labelScadenzaRataDaPiano(rataMeseCorrente, giornoScadenzaPiano)}
                     </Text>
                     <Text style={styles.rataMeseTag}>corrente</Text>
                     {selezioneAttiva && rateSelezionate.includes(rataMeseCorrente.id) ? (
@@ -436,6 +445,7 @@ function AbbonamentoPianoCard({
                 <RataStoricoRow
                   key={rata.id}
                   rata={rata}
+                  giornoScadenzaPiano={giornoScadenzaPiano}
                   aperta={rataMiniAperta === rata.id}
                   selezioneAttiva={selezioneAttiva}
                   selezionePianoAttiva={selezionePianoAttiva}

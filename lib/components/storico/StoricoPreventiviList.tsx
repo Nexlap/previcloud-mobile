@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import { Text, TouchableOpacity, View } from 'react-native'
 import { LongPressAwarePressable } from '../LongPressAwarePressable'
-import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
+import type { VoceMenuAzione } from '../MenuAzioniSheet'
+import { mostraMenuAzioniAlert } from '../../utils/mostraMenuAzioniAlert'
 import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPreventivo/constants'
 import type { PreventivoInvio } from '../../api/firma'
 import { PreventivoCardAzioni } from '../preventivo/PreventivoCardAzioni'
@@ -67,7 +67,6 @@ export function StoricoPreventiviList({
   onInviaFirma,
   onApriFirmaDettaglio,
 }: Props) {
-  const [menuPreventivo, setMenuPreventivo] = useState<Preventivo | null>(null)
   const th = useStoricoTheme()
 
   function vociMenu(p: Preventivo): VoceMenuAzione[] {
@@ -76,6 +75,11 @@ export function StoricoPreventiviList({
       { label: 'Sposta', onPress: () => onSposta(p.id) },
       { label: 'Elimina', onPress: () => onElimina(p.id), danger: true },
     ]
+  }
+
+  function apriMenuPreventivo(p: Preventivo) {
+    const titolo = p.titolo || p.nome_cliente || 'Preventivo'
+    mostraMenuAzioniAlert(vociMenu(p), titolo)
   }
 
   return (
@@ -136,7 +140,7 @@ export function StoricoPreventiviList({
                 onLongPress={() => onLongPress(p.id)}
                 onScaricaPdf={() => onScaricaPdf(p)}
                 onInviaFirma={onInviaFirma ? () => onInviaFirma(p) : undefined}
-                onMenu={() => setMenuPreventivo(p)}
+                onMenu={() => apriMenuPreventivo(p)}
               />
             </LongPressAwarePressable>
 
@@ -183,12 +187,6 @@ export function StoricoPreventiviList({
           </View>
         )
       })}
-
-      <MenuAzioniSheet
-        visible={menuPreventivo !== null}
-        voci={menuPreventivo ? vociMenu(menuPreventivo) : []}
-        onClose={() => setMenuPreventivo(null)}
-      />
     </>
   )
 }
