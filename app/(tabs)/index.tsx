@@ -30,6 +30,8 @@ export default function Home() {
   const [preventivi, setPreventivi] = useState<Preventivo[]>([])
   const [collegamentiPiano, setCollegamentiPiano] = useState<Record<string, 'canone' | 'rate'>>({})
   const [pagamentiIncassati, setPagamentiIncassati] = useState(0)
+  const [preventiviMese, setPreventiviMese] = useState(0)
+  const [preventiviMeseScorso, setPreventiviMeseScorso] = useState(0)
   const [preventiviTotali, setPreventiviTotali] = useState(0)
   const [minutiRisparmiati, setMinutiRisparmiati] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -62,6 +64,8 @@ export default function Home() {
     setPreventivi(data.preventivi)
     setCollegamentiPiano(data.collegamentiPiano)
     setPagamentiIncassati(data.pagamentiIncassati)
+    setPreventiviMese(data.preventiviMese)
+    setPreventiviMeseScorso(data.preventiviMeseScorso)
     setPreventiviTotali(data.preventiviTotali)
     setMinutiRisparmiati(data.minutiRisparmiati)
     setLoading(false)
@@ -76,6 +80,7 @@ export default function Home() {
   const nome = profile?.nome_azienda?.split(' ')[0] || 'Artigiano'
   const ora = new Date().getHours()
   const saluto = ora < 12 ? 'Buongiorno' : ora < 18 ? 'Buon pomeriggio' : 'Buonasera'
+  const trendPositivo = preventiviMeseScorso > 0 && preventiviMese >= preventiviMeseScorso
 
   return (
     <View style={s.container}>
@@ -98,8 +103,13 @@ export default function Home() {
       >
         <View style={styles.statsRow}>
           <View style={[styles.statCard, s.card]}>
-            <Text style={[styles.statVal, { color: colors.text }]}>{preventiviTotali}</Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Preventivi</Text>
+            <Text style={[styles.statVal, { color: colors.text }]}>{preventiviMese}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Questo mese</Text>
+            {preventiviMeseScorso > 0 ? (
+              <Text style={[styles.statTrend, { color: trendPositivo ? '#0E9F8E' : colors.textMuted }]}>
+                {trendPositivo ? '↑' : '↓'} {preventiviMeseScorso} mese scorso
+              </Text>
+            ) : null}
           </View>
           <View style={[styles.statCard, styles.statCardAccent]}>
             <Text
@@ -120,7 +130,14 @@ export default function Home() {
 
         <View style={s.cardLg}>
           <View style={styles.sectionHeader}>
-            <Text style={s.title}>Ultimi preventivi</Text>
+            <View style={styles.sectionHeaderLeft}>
+              <Text style={s.title}>Ultimi preventivi</Text>
+              {preventiviTotali > 0 ? (
+                <Text style={[styles.sectionSub, { color: colors.textMuted }]}>
+                  {preventiviTotali} totali · ultimi {Math.min(preventivi.length, 5)} in evidenza
+                </Text>
+              ) : null}
+            </View>
             <TouchableOpacity onPress={() => router.push('/(tabs)/storico')}>
               <Text style={styles.sectionLink}>Vedi tutti →</Text>
             </TouchableOpacity>
@@ -132,7 +149,9 @@ export default function Home() {
               <Text style={[styles.emptySub, { color: colors.textMuted }]}>Tocca + per generare il primo</Text>
             </View>
           ) : (
-            preventivi.map((p, i) => (
+            preventivi.map((p, i) => {
+              const titoloRiga = p.titolo || p.nome_cliente || 'Senza titolo'
+              return (
               <TouchableOpacity
                 key={p.id}
                 style={[styles.prevRow, s.rowBorder, i === preventivi.length - 1 && { borderBottomWidth: 0 }]}
@@ -145,10 +164,10 @@ export default function Home() {
                 }}
               >
                 <View style={[styles.prevAvatar, s.avatar]}>
-                  <Text style={styles.prevAvatarText}>{(p.nome_cliente || 'S').charAt(0).toUpperCase()}</Text>
+                  <Text style={styles.prevAvatarText}>{titoloRiga.charAt(0).toUpperCase()}</Text>
                 </View>
                 <View style={styles.prevLeft}>
-                  <Text style={[styles.prevCliente, { color: colors.text }]}>{p.nome_cliente || 'Senza cliente'}</Text>
+                  <Text style={[styles.prevCliente, { color: colors.text }]}>{titoloRiga}</Text>
                   {collegamentiPiano[p.id] ? (
                     <Text style={styles.prevPianoBadge}>
                       {collegamentiPiano[p.id] === 'rate' ? 'Piano a rate collegato' : 'Abbonamento collegato'}
@@ -167,7 +186,7 @@ export default function Home() {
                   />
                 </View>
               </TouchableOpacity>
-            ))
+            )})
           )}
         </View>
 
@@ -203,8 +222,11 @@ const styles = StyleSheet.create({
   statVal: { fontSize: 20, fontWeight: '700' },
   statValCompact: { width: '100%', textAlign: 'center' },
   statLabel: { fontSize: 10, marginTop: 3, textAlign: 'center' },
+  statTrend: { fontSize: 9, marginTop: 4, textAlign: 'center', fontWeight: '500' },
   statLabelOnDark: { color: 'rgba(255,255,255,0.7)' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+  sectionHeaderLeft: { flex: 1, gap: 2, paddingRight: 8 },
+  sectionSub: { fontSize: 11 },
   sectionLink: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' },
   emptyBox: { padding: 32, alignItems: 'center', gap: 8 },
   emptyText: { fontSize: 14, fontWeight: '500' },
