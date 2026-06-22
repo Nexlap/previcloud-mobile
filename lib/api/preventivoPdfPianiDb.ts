@@ -45,4 +45,11 @@ export const preventivoPianiDb: PreventivoPianiDb = {
   async insertRate(rows) {
     await supabase.from('rate_abbonamento').insert(rows)
   },
+  async agganciaPianoAPreventivo(abbonamentoId, preventivoId) {
+    const { error } = await supabase
+      .from('abbonamenti')
+      .update({ preventivo_id: preventivoId })
+      .eq('id', abbonamentoId)
+    return !error
+  },
 }

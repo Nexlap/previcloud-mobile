@@ -22,9 +22,12 @@ export async function caricaMetodiPagamentoBuilder() {
 
   if (!data) return { metodiPagamento: null, predefinito: null }
 
+  const metodi = data as MetodoPagamento[]
+  const haContantiDb = metodi.some((m) => m.tipo === 'contanti')
+
   return {
-    metodiPagamento: [metodoContantiDefault, ...(data as MetodoPagamento[])],
-    predefinito: (data as MetodoPagamento[]).find((metodo) => metodo.predefinito) || null,
+    metodiPagamento: haContantiDb ? metodi : [metodoContantiDefault, ...metodi],
+    predefinito: metodi.find((metodo) => metodo.predefinito) || null,
   }
 }
 
