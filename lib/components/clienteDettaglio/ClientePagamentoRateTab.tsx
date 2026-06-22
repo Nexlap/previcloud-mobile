@@ -11,7 +11,8 @@ type ClientePagamentoRateTabProps = {
   abbonamentiAttivi: Abbonamento[]
   ratePerPiano: Record<string, RataAbbonamento[]>
   preventiviMadreStorico: Record<string, PreventivoMadre>
-  segnaRataPagata: (rataId: string, pagata: boolean, dataIncasso?: string) => void | Promise<void>
+  onOpenPagamento: (rata: RataAbbonamento) => void
+  onAzzeraPagamento: (rataId: string) => void | Promise<void>
   modificaImportoPianoRate: (abbonamentoId: string, importo: number) => Promise<boolean>
   salvaImportiRatePersonalizzati: (abbonamentoId: string, importi: Record<string, number>) => Promise<boolean>
   eliminaAbbonamento: (abbonamentoId: string) => Promise<void | boolean>
@@ -31,7 +32,8 @@ export function ClientePagamentoRateTab({
   abbonamentiAttivi,
   ratePerPiano,
   preventiviMadreStorico,
-  segnaRataPagata,
+  onOpenPagamento,
+  onAzzeraPagamento,
   modificaImportoPianoRate,
   salvaImportiRatePersonalizzati,
   eliminaAbbonamento,
@@ -73,7 +75,8 @@ export function ClientePagamentoRateTab({
         onApriPreventivoMadre={onApriPreventivoMadre}
         onCampoFocus={onCampoFocus}
         onPianoAggiornato={onPianoAggiornato}
-        segnaRataPagata={segnaRataPagata}
+        onOpenPagamento={onOpenPagamento}
+        onAzzeraPagamento={onAzzeraPagamento}
         modificaImportoPianoRate={modificaImportoPianoRate}
         salvaImportiRatePersonalizzati={salvaImportiRatePersonalizzati}
         eliminaAbbonamento={eliminaAbbonamento}

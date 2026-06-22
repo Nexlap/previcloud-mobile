@@ -37,8 +37,8 @@ export default function Login() {
     checkBiometrico()
   }, [])
 
-  async function controllaOnboarding() {
-    const userId = await currentUserId()
+  async function redirectAfterSignIn(userIdFromSignIn?: string | null) {
+    const userId = userIdFromSignIn ?? await currentUserId()
     if (!userId) return
     router.replace(await resolvePostAuthRoute(userId))
   }
@@ -63,29 +63,30 @@ export default function Login() {
       if (error) Alert.alert('Errore', error.message)
       else Alert.alert('Fatto!', 'Controlla la tua email per confermare.')
     } else {
-      const { error } = await signInWithEmail(email, password)
+      const { data, error } = await signInWithEmail(email, password)
       if (error) {
         Alert.alert('Errore', 'Email o password non corretti.')
       } else {
+        const userId = data.user?.id
         if (biometricoDisponibile && !biometricoAttivato) {
           Alert.alert(
             'Accesso rapido',
             'Vuoi usare l\'impronta digitale per i prossimi accessi?',
             [
-              { text: 'No', onPress: () => controllaOnboarding() },
+              { text: 'No', onPress: () => redirectAfterSignIn(userId) },
               {
                 text: 'Sì', onPress: async () => {
                   await SecureStore.setItemAsync('saved_email', email)
                   await SecureStore.setItemAsync('saved_password', password)
                   await SecureStore.setItemAsync('biometrico_attivato', 'true')
                   setBiometricoAttivato(true)
-                  controllaOnboarding()
+                  redirectAfterSignIn(userId)
                 }
               }
             ]
           )
         } else {
-          controllaOnboarding()
+          redirectAfterSignIn(userId)
         }
       }
     }
@@ -104,13 +105,13 @@ export default function Login() {
         const savedEmail = await SecureStore.getItemAsync('saved_email')
         const savedPassword = await SecureStore.getItemAsync('saved_password')
         if (savedEmail && savedPassword) {
-          const { error } = await signInWithEmail(savedEmail, savedPassword)
+          const { data, error } = await signInWithEmail(savedEmail, savedPassword)
           if (error) {
             Alert.alert('Errore', 'Sessione scaduta. Accedi con email e password.')
             await SecureStore.deleteItemAsync('biometrico_attivato')
             setBiometricoAttivato(false)
           } else {
-            await controllaOnboarding()
+            await redirectAfterSignIn(data.user?.id)
           }
         }
       }

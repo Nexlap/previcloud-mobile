@@ -1,6 +1,6 @@
 import { spostaPreventiviInCestino } from '../cestino'
 import { queryConFiltroCestino } from 'preventivoai-shared'
-import { Cliente, Preventivo, Trascrizione } from '../types'
+import { Cliente, Trascrizione } from '../types'
 import { supabase } from '../supabase'
 
 export async function caricaClienteDettaglio(clienteId: string) {
@@ -33,22 +33,6 @@ export async function caricaClientiDisponibili(clienteId: string) {
     .order('nome')
 
   return data || []
-}
-
-export async function caricaCronologiaCliente(padreId: string | null): Promise<Preventivo[]> {
-  if (!padreId) return []
-
-  const versioni: Preventivo[] = []
-  let currentId: string | null = padreId
-  while (currentId) {
-    const result = await supabase.from('preventivi').select('*').eq('id', currentId).single()
-    const data = result.data as Preventivo | null
-    if (!data) break
-    versioni.unshift(data)
-    currentId = data.preventivo_padre_id
-  }
-
-  return versioni
 }
 
 export async function eliminaPreventiviCliente(ids: string[]) {

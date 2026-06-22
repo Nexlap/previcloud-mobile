@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons'
 import { InviaFirmaChip } from '../firma/InviaFirmaChip'
 import { PreventivoStatoBadge } from './PreventivoStatoBadge'
 import type { Preventivo } from '../../types'
-import { formatImportoDb } from 'preventivoai-shared'
+import { formatImportoDb, formatDataBreve } from 'preventivoai-shared'
 
 type Props = {
   preventivo: Preventivo
@@ -60,6 +60,9 @@ export function PreventivoCardAzioni({
             pagamentoGestitoDalPiano={collegamentoPiano}
             showArrow={!modalitaSelezione}
           />
+          {p.pagato && p.data_pagamento && !collegamentoPiano ? (
+            <Text style={styles.dataPagamento}>Pagato il {formatDataBreve(p.data_pagamento)}</Text>
+          ) : null}
         </TouchableOpacity>
 
         {mostraAzioni ? (
@@ -107,6 +110,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0D1B2A',
+  },
+  dataPagamento: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
   },
   iconBtn: {
     paddingVertical: 2,

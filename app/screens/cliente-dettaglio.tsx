@@ -13,8 +13,8 @@ import {
 } from 'react-native'
 import { MESI_BREVI } from '../../lib/constants'
 import { creaLinkPagamentoRata, scaricaECondividiPdfPreventivo } from '../../lib/api/pdf'
-import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, caricaCronologiaCliente, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
-import { ripristinaVersionePreventivo } from '../../lib/api/storico'
+import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
+import { caricaCronologiaPreventivo, ripristinaVersionePreventivo } from '../../lib/api/storico'
 import { caricaContattiCliente } from '../../lib/api/firma'
 import { useInviiFirma } from '../../lib/hooks/useInviiFirma'
 import { caricaSettingsData } from '../../lib/api/settings'
@@ -22,7 +22,7 @@ import { eventBus } from '../../lib/eventBus'
 import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
-import { Cliente, Preventivo, RataAbbonamento, Trascrizione } from '../../lib/types'
+import { Abbonamento, Cliente, Preventivo, PreventivoMadre, RataAbbonamento, Trascrizione } from '../../lib/types'
 import { formatImportoEuro, inputDateToIso, meseCorrenteString, oggiInputDate } from 'preventivoai-shared'
 import {
   messaggioEliminaPreventiviMultipli,
@@ -46,6 +46,32 @@ import { ClientePreventiviList } from '../../lib/components/clienteDettaglio/Cli
 import { InviaFirmaModal } from '../../lib/components/firma/InviaFirmaModal'
 import { FirmaDettaglioModal } from '../../lib/components/firma/FirmaDettaglioModal'
 import { ClientePagamentoRateTab } from '../../lib/components/clienteDettaglio/ClientePagamentoRateTab'
+
+function filtraRatePerPiano(
+  ratePerPiano: Record<string, RataAbbonamento[]>,
+  abbonamenti: Abbonamento[],
+) {
+  const ids = new Set(abbonamenti.map(a => a.id))
+  return Object.fromEntries(Object.entries(ratePerPiano).filter(([id]) => ids.has(id)))
+}
+
+function filtraPreventiviMadreStorico(
+  preventiviMadreStorico: Record<string, PreventivoMadre>,
+  abbonamenti: Abbonamento[],
+) {
+  const preventivoIds = new Set(
+    abbonamenti.map(a => a.preventivo_id).filter(Boolean) as string[],
+  )
+  return Object.fromEntries(Object.entries(preventiviMadreStorico).filter(([id]) => preventivoIds.has(id)))
+}
+
+function totaliRate(ratePerPiano: Record<string, RataAbbonamento[]>) {
+  const tutte = Object.values(ratePerPiano).flat()
+  return {
+    totaleIncassato: tutte.filter(r => r.stato === 'incassato').reduce((a, r) => a + r.importo, 0),
+    totaleParziale: tutte.filter(r => r.stato === 'parziale').reduce((a, r) => a + r.acconto, 0),
+  }
+}
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 
@@ -148,33 +174,60 @@ export default function ClienteDettaglio() {
   })
 
   const {
-    abbonamentiAttivi, preventiviMadreStorico, ratePerPiano, loading: loadingAb,
-    creaAbbonamento, aggiornaAbbonamento, eliminaAbbonamento, eliminaAbbonamenti,
-    registraPagamento, azzeraPagamento,
-    aggiungiRataMese, eliminaRate, rinominaAbbonamento, modificaImportoRata,
-    totaleIncassato, totaleParziale, carica: caricaAb
-  } = useAbbonamento(id, { soloTipo: 'canone' })
-
-  const {
-    abbonamentiAttivi: abbonamentiRateAttivi,
-    ratePerPiano: ratePerPianoRate,
-    preventiviMadreStorico: preventiviMadreStoricoRate,
-    loading: loadingAbRate,
+    abbonamentiAttivi: tuttiAbbonamentiAttivi,
+    abbonamentiStorico: tuttiAbbonamentiStorico,
+    preventiviMadreStorico: tuttiPreventiviMadreStorico,
+    ratePerPiano: tutteRatePerPiano,
+    loading: loadingAb,
+    creaAbbonamento,
     creaPianoRate,
-    eliminaAbbonamento: eliminaPianoRate,
-    eliminaAbbonamenti: eliminaPianiRate,
-    rinominaAbbonamento: rinominaPianoRate,
-    segnaRataPagata: segnaRataPagataRate,
+    aggiornaAbbonamento,
+    eliminaAbbonamento,
+    eliminaAbbonamenti,
+    registraPagamento,
+    azzeraPagamento,
+    aggiungiRataMese,
+    eliminaRate,
+    rinominaAbbonamento,
+    modificaImportoRata,
     modificaImportoPianoRate,
     salvaImportiRatePersonalizzati,
-    carica: caricaAbRate,
-  } = useAbbonamento(id, { soloTipo: 'rate' })
+    carica: caricaAb,
+  } = useAbbonamento(id)
+
+  const pianiCanone = useMemo(
+    () => [...tuttiAbbonamentiAttivi, ...tuttiAbbonamentiStorico].filter(a => a.tipo === 'canone'),
+    [tuttiAbbonamentiAttivi, tuttiAbbonamentiStorico],
+  )
+  const pianiRate = useMemo(
+    () => [...tuttiAbbonamentiAttivi, ...tuttiAbbonamentiStorico].filter(a => a.tipo === 'rate'),
+    [tuttiAbbonamentiAttivi, tuttiAbbonamentiStorico],
+  )
+  const abbonamentiAttivi = useMemo(() => pianiCanone.filter(a => a.attivo), [pianiCanone])
+  const abbonamentiRateAttivi = useMemo(() => pianiRate.filter(a => a.attivo), [pianiRate])
+  const ratePerPiano = useMemo(
+    () => filtraRatePerPiano(tutteRatePerPiano, pianiCanone),
+    [tutteRatePerPiano, pianiCanone],
+  )
+  const ratePerPianoRate = useMemo(
+    () => filtraRatePerPiano(tutteRatePerPiano, pianiRate),
+    [tutteRatePerPiano, pianiRate],
+  )
+  const preventiviMadreStorico = useMemo(
+    () => filtraPreventiviMadreStorico(tuttiPreventiviMadreStorico, pianiCanone),
+    [tuttiPreventiviMadreStorico, pianiCanone],
+  )
+  const preventiviMadreStoricoRate = useMemo(
+    () => filtraPreventiviMadreStorico(tuttiPreventiviMadreStorico, pianiRate),
+    [tuttiPreventiviMadreStorico, pianiRate],
+  )
+  const { totaleIncassato, totaleParziale } = useMemo(() => totaliRate(ratePerPiano), [ratePerPiano])
 
   useEffect(() => {
-    const aggiorna = () => { caricaAbRate() }
+    const aggiorna = () => { caricaAb() }
     eventBus.on('aggiorna-piano-cliente', aggiorna)
     return () => { eventBus.off('aggiorna-piano-cliente', aggiorna) }
-  }, [caricaAbRate])
+  }, [caricaAb])
 
   const preventiviSenzaPiano = useMemo(
     () => preventivi.filter(p => p.is_ultimo && !collegamentiPiano[p.id]),
@@ -245,7 +298,7 @@ export default function ClienteDettaglio() {
 
   async function onRefresh() {
     setRefreshing(true)
-    await Promise.all([carica(), onRefreshPreventivi(), caricaAb(), caricaAbRate()])
+    await Promise.all([carica(), onRefreshPreventivi(), caricaAb()])
     setRefreshing(false)
   }
 
@@ -312,7 +365,7 @@ export default function ClienteDettaglio() {
       return
     }
     if (!padreId) return
-    const versioni = await caricaCronologiaCliente(padreId)
+    const versioni = await caricaCronologiaPreventivo(padreId)
     if (versioni.length > 0) {
       setCronologia(c => ({ ...c, [preventivoId]: versioni }))
       setCronologiaAperta(preventivoId)
@@ -499,7 +552,7 @@ export default function ClienteDettaglio() {
     setMostraModalNuovoRate(false)
     await aggiornaCollegamentiPiano()
     eventBus.emit('aggiorna-piano-cliente')
-    await caricaAbRate()
+    await caricaAb()
   }
 
   async function salvaModificaAbbonamento() {
@@ -530,8 +583,7 @@ export default function ClienteDettaglio() {
 
   async function salvaRinominaAbbonamento() {
     if (!abbonamentoSelezionatoId) return
-    const rinomina = tab === 'pagamento_rate' ? rinominaPianoRate : rinominaAbbonamento
-    await rinomina(abbonamentoSelezionatoId, nomeAbTemp)
+    await rinominaAbbonamento(abbonamentoSelezionatoId, nomeAbTemp)
     setMostraModalRinominaAb(false)
   }
 
@@ -607,9 +659,7 @@ export default function ClienteDettaglio() {
         text: 'Elimina',
         style: 'destructive',
         onPress: async () => {
-          const ok = tab === 'pagamento_rate'
-            ? await eliminaPianiRate(ids)
-            : await eliminaAbbonamenti(ids)
+          const ok = await eliminaAbbonamenti(ids)
           if (!ok) return
           eventBus.emit('aggiorna-piano-cliente')
           await aggiornaCollegamentiPiano()
@@ -757,14 +807,15 @@ export default function ClienteDettaglio() {
         {tab === 'pagamento_rate' && (
           <ClientePagamentoRateTab
             clienteNome={cliente.nome || nome || ''}
-            loading={loadingAbRate}
+            loading={loadingAb}
             abbonamentiAttivi={abbonamentiRateAttivi}
             ratePerPiano={ratePerPianoRate}
             preventiviMadreStorico={preventiviMadreStoricoRate}
-            segnaRataPagata={segnaRataPagataRate}
+            onOpenPagamento={apriModalPagamento}
+            onAzzeraPagamento={azzeraPagamento}
             modificaImportoPianoRate={modificaImportoPianoRate}
             salvaImportiRatePersonalizzati={salvaImportiRatePersonalizzati}
-            eliminaAbbonamento={eliminaPianoRate}
+            eliminaAbbonamento={eliminaAbbonamento}
             onApriPreventivoMadre={apriPreventivoMadre}
             onPianoAggiornato={aggiornaCollegamentiPiano}
             onCampoFocus={scrollCampoInVista}

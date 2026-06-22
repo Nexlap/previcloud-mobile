@@ -11,11 +11,11 @@ import { MESI_BREVI } from '../../constants'
 import { eventBus } from '../../eventBus'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
 import { errorMessage } from '../../utils/errors'
-import { formatImportoEuro, parseImportoEuro, ricalcolaImportiRateLibere } from 'preventivoai-shared'
+import { formatImportoEuro, formatDataBreve, parseImportoEuro, ricalcolaImportiRateLibere } from 'preventivoai-shared'
 import { titoloHeaderPiano, analizzaStatoPiano } from 'preventivoai-shared'
+import { AppIcon } from '../icons/AppIcon'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
-import { RataSegnaPagataSection } from './RataSegnaPagataSection'
 
 const MESI_FULL = [
   'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -37,6 +37,86 @@ function ordinaRate(a: RataAbbonamento, b: RataAbbonamento) {
   return a.anno - b.anno || a.mese - b.mese
 }
 
+function residuoRata(rata: RataAbbonamento) {
+  return rata.importo - (rata.acconto || 0)
+}
+
+function percentWidth(value: number): DimensionValue {
+  return `${Math.max(0, Math.min(100, value))}%`
+}
+
+type RataMiniDetailProps = {
+  rata: RataAbbonamento
+  invioReminderLoading: string | null
+  mostraReminder: boolean
+  onOpenPagamento: (rata: RataAbbonamento) => void
+  onAzzeraPagamento: (rataId: string) => void | Promise<void>
+  onReminder: () => void
+}
+
+function RataMiniDetail({
+  rata,
+  invioReminderLoading,
+  mostraReminder,
+  onOpenPagamento,
+  onAzzeraPagamento,
+  onReminder,
+}: RataMiniDetailProps) {
+  return (
+    <>
+      {rata.stato === 'parziale' ? (
+        <View style={styles.rataBarraContainer}>
+          <View style={styles.rataBarra}>
+            <View style={[styles.rataBarraFill, { width: percentWidth(((rata.acconto || 0) / rata.importo) * 100) }]} />
+          </View>
+          <View style={styles.rataBarraLabels}>
+            <Text style={styles.rataBarraAcconto}>Acconto: {'\u20AC'}{formatImportoEuro(rata.acconto || 0, 2)}</Text>
+            <Text style={styles.rataBarraResiduo}>Residuo: {'\u20AC'}{formatImportoEuro(residuoRata(rata), 2)}</Text>
+          </View>
+        </View>
+      ) : null}
+      {rata.data_incasso ? (
+        <Text style={styles.rataDataIncasso}>Pagato il {formatDataBreve(rata.data_incasso)}</Text>
+      ) : null}
+      {rata.note ? <Text style={styles.rataNota}>{rata.note}</Text> : null}
+      <View style={styles.rataAzioni}>
+        {rata.stato !== 'incassato' ? (
+          <TouchableOpacity style={styles.rataAzioneBtn} onPress={() => onOpenPagamento(rata)}>
+            <Text style={styles.rataAzioneBtnText}>+ Registra pagamento</Text>
+          </TouchableOpacity>
+        ) : null}
+        {mostraReminder && rata.stato !== 'incassato' ? (
+          <TouchableOpacity
+            style={[styles.rataAzioneBtn, styles.reminderBtnCompact]}
+            onPress={onReminder}
+            disabled={invioReminderLoading === rata.id}
+          >
+            {invioReminderLoading === rata.id
+              ? <ActivityIndicator size="small" color="#25D366" />
+              : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <AppIcon name="send" size={14} color="#25D366" />
+                  <Text style={styles.reminderBtnCompactText}>WA</Text>
+                </View>
+              )}
+          </TouchableOpacity>
+        ) : null}
+        {(rata.acconto || 0) > 0 ? (
+          <TouchableOpacity
+            style={[styles.rataAzioneBtn, { borderColor: '#E5E7EB' }]}
+            onPress={() => Alert.alert('Azzera', 'Riportare a "da pagare"?', [
+              { text: 'Annulla', style: 'cancel' },
+              { text: 'Azzera', style: 'destructive', onPress: () => onAzzeraPagamento(rata.id) },
+            ])}
+          >
+            <Text style={[styles.rataAzioneBtnText, { color: '#9CA3AF' }]}>{'\u21A9'} Azzera</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </>
+  )
+}
+
 type RataMiniProps = {
   rata: RataAbbonamento
   index: number
@@ -44,7 +124,8 @@ type RataMiniProps = {
   invioReminderLoading: string | null
   mostraReminder: boolean
   onToggle: () => void
-  onSegnaPagata: (pagata: boolean, dataIncasso?: string) => void | Promise<void>
+  onOpenPagamento: (rata: RataAbbonamento) => void
+  onAzzeraPagamento: (rataId: string) => void | Promise<void>
   onReminder: () => void
 }
 
@@ -55,11 +136,11 @@ function RataMiniRow({
   invioReminderLoading,
   mostraReminder,
   onToggle,
-  onSegnaPagata,
+  onOpenPagamento,
+  onAzzeraPagamento,
   onReminder,
 }: RataMiniProps) {
   const badge = badgeRata(rata.stato)
-  const pagata = rata.stato === 'incassato'
   return (
     <View style={styles.rataMiniTab}>
       <TouchableOpacity style={styles.rataMiniRow} onPress={onToggle} activeOpacity={0.7}>
@@ -74,22 +155,14 @@ function RataMiniRow({
       </TouchableOpacity>
       {aperta ? (
         <View style={styles.rataMiniDetail}>
-          <RataSegnaPagataSection
-            pagata={pagata}
-            dataIncasso={rata.data_incasso}
-            onToggle={onSegnaPagata}
+          <RataMiniDetail
+            rata={rata}
+            invioReminderLoading={invioReminderLoading}
+            mostraReminder={mostraReminder}
+            onOpenPagamento={onOpenPagamento}
+            onAzzeraPagamento={onAzzeraPagamento}
+            onReminder={onReminder}
           />
-          {mostraReminder && !pagata ? (
-            <TouchableOpacity
-              style={styles.reminderBtn}
-              onPress={onReminder}
-              disabled={invioReminderLoading === rata.id}
-            >
-              {invioReminderLoading === rata.id
-                ? <ActivityIndicator size="small" color="#25D366" />
-                : <Text style={styles.reminderBtnText}>Invia reminder</Text>}
-            </TouchableOpacity>
-          ) : null}
         </View>
       ) : null}
     </View>
@@ -104,7 +177,8 @@ export type PianoRateCardProps = {
   onApriPreventivoMadre?: (preventivoId: string) => void
   onCampoFocus?: () => void
   onPianoAggiornato?: () => void | Promise<void>
-  segnaRataPagata: (rataId: string, pagata: boolean, dataIncasso?: string) => void | Promise<void>
+  onOpenPagamento: (rata: RataAbbonamento) => void
+  onAzzeraPagamento: (rataId: string) => void | Promise<void>
   modificaImportoPianoRate: (abbonamentoId: string, importo: number) => Promise<boolean>
   salvaImportiRatePersonalizzati: (abbonamentoId: string, importi: Record<string, number>) => Promise<boolean>
   eliminaAbbonamento: (abbonamentoId: string) => Promise<void | boolean>
@@ -123,7 +197,8 @@ export function PianoRateCard({
   onApriPreventivoMadre,
   onCampoFocus,
   onPianoAggiornato,
-  segnaRataPagata,
+  onOpenPagamento,
+  onAzzeraPagamento,
   modificaImportoPianoRate,
   salvaImportiRatePersonalizzati,
   eliminaAbbonamento,
@@ -427,7 +502,8 @@ export function PianoRateCard({
                     invioReminderLoading={invioReminderLoading}
                     mostraReminder={prossima?.id === rata.id}
                     onToggle={() => setRataMiniAperta(id => id === rata.id ? null : rata.id)}
-                    onSegnaPagata={(v, dataIncasso) => segnaRataPagata(rata.id, v, dataIncasso)}
+                    onOpenPagamento={onOpenPagamento}
+                    onAzzeraPagamento={onAzzeraPagamento}
                     onReminder={() => inviaReminder(rata)}
                   />
                 )
@@ -452,7 +528,8 @@ export function PianoRateCard({
                     invioReminderLoading={invioReminderLoading}
                     mostraReminder={false}
                     onToggle={() => setRataMiniAperta(id => id === rata.id ? null : rata.id)}
-                    onSegnaPagata={(v, dataIncasso) => segnaRataPagata(rata.id, v, dataIncasso)}
+                    onOpenPagamento={onOpenPagamento}
+                    onAzzeraPagamento={onAzzeraPagamento}
                     onReminder={() => inviaReminder(rata)}
                   />
                 )
@@ -604,10 +681,19 @@ const styles = StyleSheet.create({
   rataMiniDetail: { marginTop: 10, gap: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 10 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   badgeText: { fontSize: 10, fontWeight: '600' },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  toggleLabel: { fontSize: 13, color: '#374151', fontWeight: '500' },
-  reminderBtn: { borderWidth: 1, borderColor: '#25D366', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  reminderBtnText: { color: '#25D366', fontSize: 13, fontWeight: '600' },
+  rataNota: { fontSize: 12, color: '#9CA3AF' },
+  rataDataIncasso: { fontSize: 12, color: '#9CA3AF' },
+  rataBarraContainer: { gap: 4 },
+  rataBarra: { height: 6, backgroundColor: '#F3F4F6', borderRadius: 3, overflow: 'hidden' },
+  rataBarraFill: { height: 6, backgroundColor: '#F59E0B', borderRadius: 3 },
+  rataBarraLabels: { flexDirection: 'row', justifyContent: 'space-between' },
+  rataBarraAcconto: { fontSize: 11, color: '#F59E0B', fontWeight: '500' },
+  rataBarraResiduo: { fontSize: 11, color: '#EF4444', fontWeight: '500' },
+  rataAzioni: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  rataAzioneBtn: { flex: 1, minWidth: 120, borderRadius: 10, padding: 9, alignItems: 'center', borderWidth: 1, borderColor: '#0E9F8E' },
+  rataAzioneBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600' },
+  reminderBtnCompact: { flex: 0, paddingHorizontal: 12, borderColor: '#25D366' },
+  reminderBtnCompactText: { fontSize: 13, color: '#25D366', fontWeight: '600' },
   abAzioneBtn: { flex: 1, borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
   abAzioneBtnText: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
   abAzioneBtnPrimary: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A' },

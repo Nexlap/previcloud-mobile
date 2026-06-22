@@ -4,7 +4,7 @@ import { LongPressAwarePressable } from '../LongPressAwarePressable'
 import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
 import { MESI_BREVI } from '../../constants'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
-import { formatImportoEuro } from 'preventivoai-shared'
+import { formatDataBreve, formatImportoEuro } from 'preventivoai-shared'
 import { titoloHeaderPiano, analizzaStatoPiano, ordinaPianiPerStato } from 'preventivoai-shared'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PianoVuotoState } from './PianoVuotoState'
@@ -98,6 +98,9 @@ function RataDetail({
           </View>
         </View>
       )}
+      {rata.data_incasso ? (
+        <Text style={styles.rataDataIncasso}>Pagato il {formatDataBreve(rata.data_incasso)}</Text>
+      ) : null}
       {rata.note ? <Text style={styles.rataNota}>{rata.note}</Text> : null}
       <View style={styles.rataAzioni}>
         {rata.stato !== 'incassato' && (
@@ -633,6 +636,7 @@ const styles = StyleSheet.create({
   abAzioneBtn: { flex: 1, borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
   abAzioneBtnText: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
   rataNota: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  rataDataIncasso: { fontSize: 12, color: '#9CA3AF' },
   rataBarraContainer: { gap: 4 },
   rataBarra: { height: 6, backgroundColor: '#F3F4F6', borderRadius: 3, overflow: 'hidden' },
   rataBarraFill: { height: 6, backgroundColor: '#F59E0B', borderRadius: 3 },
