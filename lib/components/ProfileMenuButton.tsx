@@ -134,6 +134,7 @@ export function ProfileMenuButton({ nomeBreve: nomeProp, email: emailProp }: Pro
 
             {voceMenu('user', 'Il mio profilo', () => { setMenuAperto(false); router.push('/screens/profilo') })}
             {voceMenu('settings', 'Impostazioni azienda', () => { setMenuAperto(false); router.push('/screens/settings') })}
+            {voceMenu('percent', 'Regime fiscale', () => { setMenuAperto(false); router.push('/screens/fiscale') })}
             {voceMenu('smartphone', 'App e legalità', () => { setMenuAperto(false); router.push('/screens/profilo') })}
             {voceMenu('alert-triangle', 'Segnala un problema', () => { setMenuAperto(false); setMostraSegnalazione(true) })}
 

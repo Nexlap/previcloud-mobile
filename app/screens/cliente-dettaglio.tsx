@@ -748,6 +748,8 @@ export default function ClienteDettaglio() {
             inviiFirma={inviiFirma}
             onInviaFirma={setFirmaModalPreventivo}
             onApriFirmaDettaglio={setFirmaDettaglioPreventivo}
+            ricaricaInviiFirma={ricaricaInviiFirma}
+            onDopoFirmaManuale={(preventivoId) => cambiaStato(preventivoId, 'accettato')}
           />
         )}
 

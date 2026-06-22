@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { LongPressAwarePressable } from '../LongPressAwarePressable'
 import { MenuAzioniSheet, type VoceMenuAzione } from '../MenuAzioniSheet'
 import { MODIFICA_VERSIONE_ALTERNATIVA_LABEL } from '../../features/modificaPreventivo/constants'
@@ -8,11 +8,12 @@ import { PreventivoCardAzioni } from '../preventivo/PreventivoCardAzioni'
 import { preventivoCardRowStyles } from '../preventivo/preventivoCardStyles'
 import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { FirmaStatoBadge, mostraPulsanteInviaFirma } from '../firma/FirmaStatoBadge'
-import { statoFirmaInvio } from '../../api/firma'
+import { registraFirmaManuale, statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
 import { formatImportoDb } from 'preventivoai-shared'
 import { IconLabel } from '../icons/IconLabel'
 import { AppIcon } from '../icons/AppIcon'
+import { errorMessage } from '../../utils/errors'
 
 type Props = {
   preventivi: Preventivo[]
@@ -37,6 +38,8 @@ type Props = {
   inviiFirma?: Record<string, PreventivoInvio>
   onInviaFirma?: (preventivo: Preventivo) => void
   onApriFirmaDettaglio?: (preventivo: Preventivo) => void
+  ricaricaInviiFirma?: () => void
+  onDopoFirmaManuale?: (preventivoId: string) => void
 }
 
 export function ClientePreventiviList({
@@ -62,15 +65,47 @@ export function ClientePreventiviList({
   inviiFirma = {},
   onInviaFirma,
   onApriFirmaDettaglio,
+  ricaricaInviiFirma,
+  onDopoFirmaManuale,
 }: Props) {
   const [menuPreventivo, setMenuPreventivo] = useState<Preventivo | null>(null)
 
+  function segnaFirmatoSuCarta(p: Preventivo) {
+    setMenuPreventivo(null)
+    Alert.alert(
+      'Firma su carta',
+      'Segnare questo preventivo come firmato su carta? Non verrà inviato alcun link online.',
+      [
+        { text: 'Annulla', style: 'cancel' },
+        {
+          text: 'Segna firmato',
+          onPress: () => {
+            void (async () => {
+              try {
+                await registraFirmaManuale(p.id)
+                ricaricaInviiFirma?.()
+                onDopoFirmaManuale?.(p.id)
+              } catch (err: unknown) {
+                Alert.alert('Errore', errorMessage(err, 'Operazione non riuscita.'))
+              }
+            })()
+          },
+        },
+      ],
+    )
+  }
+
   function vociMenu(p: Preventivo): VoceMenuAzione[] {
-    return [
+    const sfFirma = statoFirmaInvio(inviiFirma[p.id])
+    const voci: VoceMenuAzione[] = [
       { label: 'Rinomina', onPress: () => onRinomina(p) },
       { label: 'Sposta', onPress: () => onSposta(p.id) },
-      { label: 'Elimina', onPress: () => onElimina(p.id), danger: true },
     ]
+    if (p.pdf_url && sfFirma !== 'firmato') {
+      voci.push({ label: 'Segna firmato su carta', onPress: () => segnaFirmatoSuCarta(p) })
+    }
+    voci.push({ label: 'Elimina', onPress: () => onElimina(p.id), danger: true })
+    return voci
   }
 
   if (preventivi.length === 0) {
