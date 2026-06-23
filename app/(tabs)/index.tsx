@@ -109,7 +109,7 @@ export default function Home() {
       <View style={styles.header}>
         <View>
           <Text style={styles.saluto}>{saluto},</Text>
-          <Text style={styles.nome}>{nome}</Text>
+          <Text style={styles.nome}>{nome} 👋</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <NotificheBell iconColor="#fff" />

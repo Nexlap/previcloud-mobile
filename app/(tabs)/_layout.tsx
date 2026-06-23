@@ -12,7 +12,6 @@ const TABS: TabDef[] = [
   { icon: 'file-text', label: 'Storico', path: '/(tabs)/storico' },
   { icon: null, label: '', path: '/(tabs)/nuovo' },
   { icon: 'users', label: 'Clienti', path: '/(tabs)/clienti' },
-  { icon: 'package', label: 'Prodotti', path: '/(tabs)/prodotti-digitali', dividerBefore: true },
   { icon: 'settings', label: 'Settings', path: '/screens/settings' },
 ]
 
