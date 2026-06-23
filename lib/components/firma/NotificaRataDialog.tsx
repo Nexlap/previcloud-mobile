@@ -1,4 +1,4 @@
-import { Alert, Linking, Modal, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Linking, Modal, Text, TouchableOpacity } from 'react-native'
 import { useRef, useState } from 'react'
 import { formatDataBreve, formatImportoEuro } from 'preventivoai-shared'
 import { creaLinkPagamentoRata } from '../../api/pdf'

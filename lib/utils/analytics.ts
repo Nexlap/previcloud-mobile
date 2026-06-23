@@ -10,7 +10,7 @@ export async function trackEvento(evento: string, schermata?: string, dati?: Rec
       schermata,
       dati
     })
-  } catch (e) {
+  } catch {
     // Silenzioso — non bloccare l'app per analytics
   }
 }
@@ -25,7 +25,7 @@ export async function trackSessione() {
     } else {
       await supabase.from('sessioni').insert({ user_id: user.id })
     }
-  } catch (e) {
+  } catch {
     // Silenzioso
   }
 }

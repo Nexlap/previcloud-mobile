@@ -1,4 +1,4 @@
-import { Alert, Modal, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Modal, Text, TouchableOpacity } from 'react-native'
 import { useRef, useState } from 'react'
 import type { Notifica } from '../../hooks/useNotifiche'
 import {

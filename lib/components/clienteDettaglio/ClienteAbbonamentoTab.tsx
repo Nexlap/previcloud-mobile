@@ -650,8 +650,6 @@ const styles = StyleSheet.create({
   rataCheck: { fontSize: 14, fontWeight: '700', color: '#0E9F8E' },
   abAggiungiBtn: { alignItems: 'center', padding: 12 },
   abAggiungiText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' },
-  abAzioneBtn: { flex: 1, borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  abAzioneBtnText: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
   rataNota: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   rataDataIncasso: { fontSize: 12, color: '#9CA3AF' },
   rataBarraContainer: { gap: 4 },

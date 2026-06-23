@@ -13,6 +13,7 @@ type Props = {
   onScegliLogo: () => void
 }
 
+// unused
 export function SettingsProfileCards({ form, logoUrl, uploadingLogo, onSetField, onPatchForm, onScegliLogo }: Props) {
   const t = useSettingsTheme()
   const ph = t.sub.color as string

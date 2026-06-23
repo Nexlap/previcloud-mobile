@@ -255,7 +255,6 @@ export default function Clienti() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
   addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#0E9F8E', justifyContent: 'center', alignItems: 'center' },

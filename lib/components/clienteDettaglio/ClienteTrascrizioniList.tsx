@@ -10,6 +10,7 @@ type Props = {
   formatDurata: (seconds: number | null) => string
 }
 
+// unused
 export function ClienteTrascrizioniList({
   trascrizioni,
   aperto,

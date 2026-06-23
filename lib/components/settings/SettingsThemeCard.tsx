@@ -3,6 +3,7 @@ import { useTheme } from '../../theme/ThemeContext'
 import { AppIcon } from '../icons/AppIcon'
 import { settingsStyles as styles } from './settingsStyles'
 
+// unused
 export function SettingsThemeCard() {
   const { isDark, setDark, colors } = useTheme()
 

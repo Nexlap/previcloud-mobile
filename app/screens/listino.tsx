@@ -16,7 +16,6 @@ import { ListinoSelectionBar } from '../../lib/components/listino/ListinoSelecti
 import { ListinoServiziList } from '../../lib/components/listino/ListinoServiziList'
 import { ListinoServizioModal, ServizioDraft } from '../../lib/components/listino/ListinoServizioModal'
 import { ListinoSmartModal } from '../../lib/components/listino/ListinoSmartModal'
-import { listinoStyles as styles } from '../../lib/components/listino/listinoStyles'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 const EMPTY_DRAFT: ServizioDraft = { nome: '', descrizione: '', costo: '', unita: 'cad' }

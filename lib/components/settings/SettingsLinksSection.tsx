@@ -12,6 +12,7 @@ type Props = {
   onSave: () => void
 }
 
+// unused
 export function SettingsLinksSection({ links, saving, onSave }: Props) {
   return (
     <>

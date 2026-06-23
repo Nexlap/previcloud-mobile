@@ -13,7 +13,6 @@ import { NuovoPagamentoModal } from '../../lib/components/nuovo/NuovoPagamentoMo
 import { NuovoPreventivoView } from '../../lib/components/nuovo/NuovoPreventivoView'
 import { NuovoRecapView } from '../../lib/components/nuovo/NuovoRecapView'
 import { NuovoSceltaModalita } from '../../lib/components/nuovo/NuovoSceltaModalita'
-import { nuovoStyles as styles } from '../../lib/components/nuovo/nuovoStyles'
 import { applicaRispostaChat, estraiNomeCliente, importoDaPreventivo } from '../../lib/features/nuovo/chat'
 import { parametriPDF } from '../../lib/features/nuovo/pdf'
 import { parsePreventivoTesto, trovaMetodoPagamentoDaNome } from '../../lib/builder/parsePreventivoText'

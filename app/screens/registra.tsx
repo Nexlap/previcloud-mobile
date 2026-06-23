@@ -1,6 +1,6 @@
 import { Audio } from 'expo-av'
 import Constants from 'expo-constants'
-import { router, useLocalSearchParams } from 'expo-router'
+import { router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator, Alert, Animated, StyleSheet,
@@ -8,11 +8,9 @@ import {
 } from 'react-native'
 import { sessionTokenRegistra, trascriviRegistrazione } from '../../lib/api/registra'
 import { getModificaSession } from '../../lib/features/modificaPreventivo/modificaSession'
-import { NuovoParams } from '../../lib/features/nuovo/types'
 import { errorMessage } from '../../lib/utils/errors'
 
 export default function RegistraVoce() {
-  const params = useLocalSearchParams<NuovoParams>()
   const [registrando, setRegistrando] = useState(false)
   const [trascrivendo, setTrascrivendo] = useState(false)
   const [token, setToken] = useState('')

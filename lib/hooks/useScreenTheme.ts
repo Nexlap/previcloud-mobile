@@ -22,7 +22,6 @@ export function useScreenTheme() {
       overflow: 'hidden',
     },
     title: { fontSize: 15, fontWeight: '600', color: colors.text },
-    text: { color: colors.text },
     textMuted: { color: colors.textMuted },
     rowBorder: { borderBottomWidth: 1, borderBottomColor: isDark ? colors.border : '#F3F4F6' },
     searchBox: {

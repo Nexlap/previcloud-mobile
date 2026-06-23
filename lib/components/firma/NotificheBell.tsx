@@ -20,7 +20,6 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
     count,
     erroreCaricamento,
     segnaTutteLette,
-    segnaLetta,
     rimanda,
     archivia,
     ricarica,

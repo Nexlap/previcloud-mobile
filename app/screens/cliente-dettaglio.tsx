@@ -11,11 +11,9 @@ import {
   RefreshControl, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { MESI_BREVI } from '../../lib/constants'
 import { creaLinkPagamentoRata, scaricaECondividiPdfPreventivo } from '../../lib/api/pdf'
 import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
 import { caricaCronologiaPreventivo, ripristinaVersionePreventivo } from '../../lib/api/storico'
-import { caricaContattiCliente } from '../../lib/api/firma'
 import { useInviiFirma } from '../../lib/hooks/useInviiFirma'
 import { caricaSettingsData } from '../../lib/api/settings'
 import { eventBus } from '../../lib/eventBus'
@@ -23,7 +21,7 @@ import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { Abbonamento, Cliente, Preventivo, PreventivoMadre, RataAbbonamento, Trascrizione } from '../../lib/types'
-import { formatImportoEuro, inputDateToIso, meseCorrenteString, oggiInputDate } from 'preventivoai-shared'
+import { formatImportoEuro, inputDateToIso, oggiInputDate } from 'preventivoai-shared'
 import {
   messaggioEliminaPreventiviMultipli,
   messaggioEliminaPreventivoSingolo,
@@ -463,6 +461,7 @@ export default function ClienteDettaglio() {
     }
   }
 
+  // unused
   function formatDurata(sec: number | null) {
     if (!sec) return '—'
     const m = Math.floor(sec / 60)

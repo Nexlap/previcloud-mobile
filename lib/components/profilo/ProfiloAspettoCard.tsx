@@ -2,6 +2,7 @@ import { Text, View } from 'react-native'
 import { AppIcon } from '../icons/AppIcon'
 import { profiloStyles as styles } from './profiloStyles'
 
+// unused
 export function ProfiloAspettoCard() {
   return (
     <View style={styles.card}>

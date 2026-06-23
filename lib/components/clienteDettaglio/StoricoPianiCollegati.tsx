@@ -9,6 +9,7 @@ type Props = {
   onApriPreventivo?: (preventivoId: string) => void
 }
 
+// unused
 export function StoricoPianiCollegati({ piani, preventivi, onApriPreventivo }: Props) {
   if (piani.length === 0) return null
 

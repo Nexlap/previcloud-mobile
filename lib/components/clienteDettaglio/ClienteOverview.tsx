@@ -161,10 +161,8 @@ export function ClienteTabs({ active, onChange }: TabsProps) {
 const styles = StyleSheet.create({
   header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backBtn: { padding: 4, width: 50 },
-  backText: { color: '#9CA3AF', fontSize: 22 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
   headerActions: { flexDirection: 'row', gap: 12, width: 50, justifyContent: 'flex-end' },
-  headerActionText: { fontSize: 18 },
   selectionBar: { backgroundColor: '#0D1B2A', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   selectionCancel: { padding: 4 },
   selectionCancelText: { color: '#9CA3AF', fontSize: 18 },

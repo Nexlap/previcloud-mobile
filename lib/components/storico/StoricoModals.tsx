@@ -1,7 +1,6 @@
 import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from 'react-native'
 import { STATI_PREVENTIVO } from '../../features/storico/constants'
 import { StatoPreventivoIcon } from '../icons/StatoPreventivoIcon'
-import { AppIcon } from '../icons/AppIcon'
 import { PreventivoSegnaPagatoSection } from '../preventivo/PreventivoSegnaPagatoSection'
 import { Cliente } from '../../types'
 import { storicoStyles as styles } from './storicoStyles'

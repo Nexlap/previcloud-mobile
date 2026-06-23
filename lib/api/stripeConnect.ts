@@ -13,9 +13,7 @@ const STRIPE_ONBOARDING_WEB_CALLBACK = 'https://preventivoai-web.vercel.app/stri
 
 /** Deep link in-app (deve coincidere con la rotta app/stripe-callback.tsx). */
 export function stripeCallbackUrl(): string {
-  const url = Linking.createURL('stripe-callback')
-  console.log('[STRIPE_DEBUG] deep link generato:', url)
-  return url
+  return Linking.createURL('stripe-callback')
 }
 
 async function authFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -43,8 +41,6 @@ export async function connettiAccount(): Promise<{ stripe_account_id: string }> 
 export async function creaOnboardingLink(): Promise<{ url: string }> {
   const return_url = STRIPE_ONBOARDING_WEB_CALLBACK
   const refresh_url = STRIPE_ONBOARDING_WEB_CALLBACK
-  console.log('[stripeConnect] creaOnboardingLink return_url:', return_url)
-  console.log('[stripeConnect] creaOnboardingLink refresh_url:', refresh_url)
   return authFetch('/api/stripe/onboarding-link', {
     method: 'POST',
     body: JSON.stringify({

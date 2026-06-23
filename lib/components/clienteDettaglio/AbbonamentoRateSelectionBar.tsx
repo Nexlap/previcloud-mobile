@@ -9,6 +9,7 @@ type Props = {
   onDelete: () => void
 }
 
+// unused
 export function AbbonamentoRateSelectionBar({ count, countLabel = 'selezionate', onCancel, onDelete }: Props) {
   return (
     <View style={styles.selectionBar}>

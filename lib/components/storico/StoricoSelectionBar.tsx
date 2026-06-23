@@ -10,6 +10,7 @@ type Props = {
   onMove: () => void
 }
 
+// unused
 export function StoricoSelectionBar({ count, onCancel, onDelete, onShare, onMove }: Props) {
   return (
     <View style={styles.selectionBar}>

@@ -314,7 +314,6 @@ const styles = StyleSheet.create({
   dividerText: { fontSize: 13, color: '#9CA3AF' },
   googleBtn: { flexDirection: 'row', alignItems: 'center' as const, justifyContent: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: '#E5E7EB', gap: 10 },
   googleIcon: { fontSize: 18, fontWeight: '700', color: '#EA4335' },
-  googleBtnText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500' },
   googleText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500' },
   biometricoBtn: { flexDirection: 'row', alignItems: 'center' as const, justifyContent: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: '#0E9F8E', gap: 10, marginBottom: 16 },
   biometricoBtnIcon: { fontSize: 22 },

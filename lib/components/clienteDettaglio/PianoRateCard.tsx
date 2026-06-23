@@ -774,7 +774,5 @@ const styles = StyleSheet.create({
   personalizzaSomma: { fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 4 },
   personalizzaSommaOk: { color: '#0E9F8E' },
   personalizzaSommaErr: { color: '#EF4444' },
-  personalizzaBtn: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, alignItems: 'center' },
-  personalizzaBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   modificaActions: { flexDirection: 'row', gap: 8 },
 })
