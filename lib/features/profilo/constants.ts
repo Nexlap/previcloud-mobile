@@ -10,5 +10,6 @@ export const PROFILO_COLORS = {
 export const APP_VERSION = '0.4.0'
 
 export const WEB_BASE_URL = 'https://preventivoai-web.vercel.app'
+export const WEB_PRODOTTI_URL = `${WEB_BASE_URL}/dashboard/prodotti`
 export const WEB_TERMINI_URL = `${WEB_BASE_URL}/termini`
 export const WEB_PRIVACY_URL = `${WEB_BASE_URL}/privacy`

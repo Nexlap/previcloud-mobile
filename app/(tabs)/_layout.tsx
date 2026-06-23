@@ -5,13 +5,14 @@ import { NotificaToastStack } from '../../lib/components/firma/NotificaToastStac
 import { NotificaAzioneHost } from '../../lib/components/firma/NotificaAzioneHost'
 import { useTheme } from '../../lib/theme/ThemeContext'
 
-type TabDef = { icon: AppIconName | null; label: string; path: string }
+type TabDef = { icon: AppIconName | null; label: string; path: string; dividerBefore?: boolean }
 
 const TABS: TabDef[] = [
   { icon: 'home', label: 'Home', path: '/(tabs)' },
   { icon: 'file-text', label: 'Storico', path: '/(tabs)/storico' },
   { icon: null, label: '', path: '/(tabs)/nuovo' },
   { icon: 'users', label: 'Clienti', path: '/(tabs)/clienti' },
+  { icon: 'package', label: 'Prodotti', path: '/(tabs)/prodotti-digitali', dividerBefore: true },
   { icon: 'settings', label: 'Settings', path: '/screens/settings' },
 ]
 
@@ -35,16 +36,25 @@ export default function TabsLayout() {
           }
           const isActive = pathname === tab.path || (tab.path === '/(tabs)' && pathname === '/')
           return (
-            <TouchableOpacity key={tab.path} style={styles.tabBtn} onPress={() => router.push(tab.path as never)} activeOpacity={0.7}>
-              <AppIcon name={tab.icon} size={22} color={isActive ? colors.tabActive : colors.tabInactive} />
-              <Text style={[
-                styles.tabLabel,
-                { color: isActive ? colors.tabActive : colors.tabInactive },
-                isActive && styles.tabLabelActive,
-              ]}>
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
+            <View key={tab.path} style={styles.tabSlot}>
+              {tab.dividerBefore ? (
+                <View style={[styles.tabDivider, { backgroundColor: colors.tabBarBorder }]} />
+              ) : null}
+              <TouchableOpacity
+                style={styles.tabBtn}
+                onPress={() => router.push(tab.path as never)}
+                activeOpacity={0.7}
+              >
+                <AppIcon name={tab.icon} size={22} color={isActive ? colors.tabActive : colors.tabInactive} />
+                <Text style={[
+                  styles.tabLabel,
+                  { color: isActive ? colors.tabActive : colors.tabInactive },
+                  isActive && styles.tabLabelActive,
+                ]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )
         })}
       </View>
@@ -54,10 +64,12 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    flexDirection: 'row', borderTopWidth: 1, paddingBottom: 24, paddingTop: 10, paddingHorizontal: 8,
+    flexDirection: 'row', borderTopWidth: 1, paddingBottom: 24, paddingTop: 10, paddingHorizontal: 6,
     alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 8,
   },
+  tabSlot: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  tabDivider: { width: 1, height: 24, marginRight: 1, borderRadius: 1, opacity: 0.9 },
   tabBtn: { flex: 1, alignItems: 'center', gap: 4 },
   tabLabel: { fontSize: 10, fontWeight: '500' },
   tabLabelActive: { fontWeight: '700' },
