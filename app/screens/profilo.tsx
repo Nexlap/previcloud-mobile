@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View
 } from 'react-native'
-import { attivaBiometrico, aggiornaPasswordAccount, aggiornaPasswordBiometrico, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, logoutAccount, sessioneCorrente, verificaPasswordAccount } from '../../lib/api/profilo'
+import { attivaBiometrico, aggiornaPasswordAccount, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, logoutAccount, sessioneCorrente, verificaPasswordAccount } from '../../lib/api/profilo'
 import { ProfiloAppCard } from '../../lib/components/profilo/ProfiloAppCard'
 import { ProfiloAvatarCard } from '../../lib/components/profilo/ProfiloAvatarCard'
 import { ProfiloCambiaPasswordModal } from '../../lib/components/profilo/ProfiloCambiaPasswordModal'
@@ -217,7 +217,6 @@ export default function Profilo() {
       return
     }
 
-    await aggiornaPasswordBiometrico(nuova)
     chiudiModalCambiaPassword()
     Alert.alert('Password aggiornata', 'La tua password è stata cambiata con successo.')
   }

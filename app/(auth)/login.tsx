@@ -8,6 +8,7 @@ import {
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { currentUserId, resetPassword, resolvePostAuthRoute, signInWithEmail, signUpWithEmail } from '../../lib/api/auth'
+import { supabase } from '../../lib/supabase'
 import { WEB_BASE_URL, WEB_TERMINI_URL } from '../../lib/features/profilo/constants'
 import { errorMessage } from '../../lib/utils/errors'
 
@@ -34,7 +35,9 @@ export default function Login() {
       const disponibile = await LocalAuthentication.hasHardwareAsync()
       const enrollato = await LocalAuthentication.isEnrolledAsync()
       setBiometricoDisponibile(disponibile && enrollato)
-      const attivato = await SecureStore.getItemAsync('biometrico_attivato')
+      const attivato =
+        (await SecureStore.getItemAsync('biometria_attiva')) ??
+        (await SecureStore.getItemAsync('biometrico_attivato'))
       if (attivato === 'true') setBiometricoAttivato(true)
     }
     checkBiometrico()
@@ -79,9 +82,10 @@ export default function Login() {
               { text: 'No', onPress: () => redirectAfterSignIn(userId) },
               {
                 text: 'Sì', onPress: async () => {
-                  await SecureStore.setItemAsync('saved_email', email)
-                  await SecureStore.setItemAsync('saved_password', password)
-                  await SecureStore.setItemAsync('biometrico_attivato', 'true')
+                  await SecureStore.setItemAsync('biometria_attiva', 'true')
+                  await SecureStore.deleteItemAsync('biometrico_attivato')
+                  await SecureStore.deleteItemAsync('saved_email')
+                  await SecureStore.deleteItemAsync('saved_password')
                   setBiometricoAttivato(true)
                   redirectAfterSignIn(userId)
                 }
@@ -105,17 +109,14 @@ export default function Login() {
         fallbackLabel: 'Usa password',
       })
       if (result.success) {
-        const savedEmail = await SecureStore.getItemAsync('saved_email')
-        const savedPassword = await SecureStore.getItemAsync('saved_password')
-        if (savedEmail && savedPassword) {
-          const { data, error } = await signInWithEmail(savedEmail, savedPassword)
-          if (error) {
-            Alert.alert('Errore', 'Sessione scaduta. Accedi con email e password.')
-            await SecureStore.deleteItemAsync('biometrico_attivato')
-            setBiometricoAttivato(false)
-          } else {
-            await redirectAfterSignIn(data.user?.id)
-          }
+        const { data, error } = await supabase.auth.refreshSession()
+        if (error || !data.session) {
+          Alert.alert('Errore', 'Sessione scaduta. Accedi con email e password.')
+          await SecureStore.deleteItemAsync('biometria_attiva')
+          await SecureStore.deleteItemAsync('biometrico_attivato')
+          setBiometricoAttivato(false)
+        } else {
+          await redirectAfterSignIn(data.session.user?.id)
         }
       }
     } catch (err: unknown) {
