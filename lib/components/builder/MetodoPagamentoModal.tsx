@@ -1,5 +1,6 @@
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { AppIcon } from '../icons/AppIcon'
+import { trackEvento } from '../../api/track'
 import { metodoPagamentoFeatherIcon } from '../../utils/metodoPagamentoIcon'
 
 type MetodoPagamento = {
@@ -69,7 +70,12 @@ export function MetodoPagamentoModal({
                 attivo && styles.clienteItemActive,
                 stripeDisabilitato && styles.clienteItemDisabled,
               ]}
-              onPress={() => { if (!stripeDisabilitato) onSelect(m) }}
+              onPress={() => {
+                if (!stripeDisabilitato) {
+                  void trackEvento('metodo_pagamento_selezionato', 'builder', { tipo: m.tipo })
+                  onSelect(m)
+                }
+              }}
               disabled={stripeDisabilitato}
             >
               <AppIcon name={metodoPagamentoFeatherIcon(m.tipo)} size={20} color="#6B7280" />

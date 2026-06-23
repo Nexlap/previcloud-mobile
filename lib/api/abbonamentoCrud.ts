@@ -1,6 +1,7 @@
 import { inputDateToIso, oggiInputDate } from 'preventivoai-shared'
 import { spostaAbbonamentiInCestino } from '../cestino'
 import { supabase } from '../supabase'
+import { trackEvento } from './track'
 import { RataAbbonamento } from '../types'
 
 export async function aggiornaAbbonamento(
@@ -53,6 +54,7 @@ export async function registraPagamentoRata(
     .update(aggiornamento)
     .eq('id', rataId)
 
+  if (!error) void trackEvento('pagamento_registrato', 'cliente_dettaglio')
   return { error, aggiornamento, nuovoSaldo }
 }
 

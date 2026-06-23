@@ -2,6 +2,7 @@ import { Linking, Share } from 'react-native'
 import { BACKEND_URL } from '../constants'
 import { supabase } from '../supabase'
 import { sessionToken } from './settings'
+import { trackEvento } from './track'
 
 export type CanaleFirma = 'whatsapp' | 'email' | 'link' | 'manuale'
 export type MetodoFirma = 'online' | 'manuale'
@@ -61,6 +62,7 @@ export async function inviaPreventivoPerFirma(preventivoId: string, canale: Cana
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || `Errore server (${res.status})`)
   if (data.error) throw new Error(data.error)
+  void trackEvento('firma_inviata', 'firma')
   return data as {
     invio_id: string
     url: string | null

@@ -1,6 +1,7 @@
 import { calcolaImportiRate, calcolaScadenzeRate } from 'preventivoai-shared'
 import { nomeDaPreventivoId, pianoAttivoSuPreventivo } from './abbonamentoHelpers'
 import { supabase } from '../supabase'
+import { trackEvento } from './track'
 
 export async function generaRataMeseCorrente(abbonamentoId: string, importo: number) {
   const ora = new Date()
@@ -117,6 +118,7 @@ export async function creaAbbonamento(
     await generaRataMeseCorrente(data.id, importo)
   }
 
+  void trackEvento('abbonamento_creato', 'cliente_dettaglio', { tipo: 'canone' })
   return { ok: true }
 }
 
@@ -181,5 +183,6 @@ export async function creaPianoRate(
     data.id,
     importi.map((importo, i) => ({ importo, ...scadenze[i] })),
   )
+  void trackEvento('abbonamento_creato', 'cliente_dettaglio', { tipo: 'rate' })
   return { ok: true }
 }

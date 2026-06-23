@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { trackEvento } from './track'
 
 type NuovoServizioInput = {
   nome: string
@@ -21,5 +22,7 @@ export async function creaServizioListino(input: NuovoServizioInput) {
     ordine: input.ordine,
   }
 
-  return supabase.from('servizi').insert(payload).select().single()
+  const result = await supabase.from('servizi').insert(payload).select().single()
+  if (!result.error) void trackEvento('servizio_manuale_aggiunto', 'listino')
+  return result
 }
