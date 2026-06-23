@@ -1,7 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  ActivityIndicator, RefreshControl, ScrollView, StyleSheet,
+  ActivityIndicator, Linking, RefreshControl, ScrollView, StyleSheet,
   Text, TouchableOpacity, View
 } from 'react-native'
 import { eventBus } from "../../lib/eventBus"
@@ -16,6 +17,9 @@ import { AppIcon, type AppIconName } from '../../lib/components/icons/AppIcon'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 type QuickItem = { icon: AppIconName; label: string; path: string }
+
+const BANNER_PRODOTTI_KEY = 'banner_prodotti_chiuso'
+const PRODOTTI_DIGITALI_URL = 'https://preventivoai-web.vercel.app/dashboard/prodotti'
 
 const QUICK_ITEMS: QuickItem[] = [
   { icon: 'users', label: 'Clienti', path: '/(tabs)/clienti' },
@@ -36,6 +40,13 @@ export default function Home() {
   const [minutiRisparmiati, setMinutiRisparmiati] = useState(0)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [bannerProdottiChiuso, setBannerProdottiChiuso] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    AsyncStorage.getItem(BANNER_PRODOTTI_KEY).then(val => {
+      setBannerProdottiChiuso(val === 'true')
+    })
+  }, [])
 
   useFocusEffect(useCallback(() => {
     trackEvento('schermata_aperta', 'home')
@@ -55,6 +66,17 @@ export default function Home() {
     setRefreshing(true)
     await carica()
     setRefreshing(false)
+  }
+
+  async function chiudiBannerProdotti() {
+    setBannerProdottiChiuso(true)
+    await AsyncStorage.setItem(BANNER_PRODOTTI_KEY, 'true')
+  }
+
+  async function apriProdottiDigitali() {
+    if (await Linking.canOpenURL(PRODOTTI_DIGITALI_URL)) {
+      await Linking.openURL(PRODOTTI_DIGITALI_URL)
+    }
   }
 
   async function carica() {
@@ -127,6 +149,36 @@ export default function Home() {
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>Minuti* risparmiati</Text>
           </View>
         </View>
+
+        {bannerProdottiChiuso === false ? (
+          <View style={styles.prodottiBannerWrap}>
+            <TouchableOpacity
+              style={[styles.prodottiBanner, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              onPress={apriProdottiDigitali}
+              activeOpacity={0.85}
+            >
+              <View style={styles.prodottiBannerGradientTeal} pointerEvents="none" />
+              <View style={[styles.prodottiBannerGradientFade, { backgroundColor: colors.surface }]} pointerEvents="none" />
+              <View style={styles.prodottiBannerInner}>
+                <Text style={styles.prodottiBannerIcon}>🛍️</Text>
+                <View style={styles.prodottiBannerText}>
+                  <Text style={[styles.prodottiBannerTitle, { color: colors.text }]}>Vendi i tuoi contenuti digitali</Text>
+                  <Text style={[styles.prodottiBannerSub, { color: colors.textMuted }]}>Guide, template, video — incassa online</Text>
+                </View>
+                <TouchableOpacity onPress={apriProdottiDigitali} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.prodottiBannerArrow}>→</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.prodottiBannerClose}
+              onPress={chiudiBannerProdotti}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Text style={[styles.prodottiBannerCloseText, { color: colors.textMuted }]}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         <View style={s.cardLg}>
           <View style={styles.sectionHeader}>
@@ -224,6 +276,41 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10, marginTop: 3, textAlign: 'center' },
   statTrend: { fontSize: 9, marginTop: 4, textAlign: 'center', fontWeight: '500' },
   statLabelOnDark: { color: 'rgba(255,255,255,0.7)' },
+  prodottiBannerWrap: { position: 'relative' },
+  prodottiBanner: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderLeftWidth: 3,
+    borderLeftColor: '#0E9F8E',
+    borderWidth: 1,
+  },
+  prodottiBannerGradientTeal: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(14, 159, 142, 0.1)',
+  },
+  prodottiBannerGradientFade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '35%',
+    right: 0,
+    opacity: 0.92,
+  },
+  prodottiBannerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingLeft: 12,
+    paddingRight: 28,
+    gap: 10,
+  },
+  prodottiBannerIcon: { fontSize: 22 },
+  prodottiBannerText: { flex: 1, gap: 2 },
+  prodottiBannerTitle: { fontSize: 14, fontWeight: '600' },
+  prodottiBannerSub: { fontSize: 11 },
+  prodottiBannerArrow: { fontSize: 18, color: '#0E9F8E', fontWeight: '600' },
+  prodottiBannerClose: { position: 'absolute', top: 6, right: 8, zIndex: 1, padding: 2 },
+  prodottiBannerCloseText: { fontSize: 12, lineHeight: 14 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   sectionHeaderLeft: { flex: 1, gap: 2, paddingRight: 8 },
   sectionSub: { fontSize: 11 },
