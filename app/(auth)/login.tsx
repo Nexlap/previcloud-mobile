@@ -12,8 +12,6 @@ import { supabase } from '../../lib/supabase'
 import { WEB_BASE_URL, WEB_TERMINI_URL } from '../../lib/features/profilo/constants'
 import { errorMessage } from '../../lib/utils/errors'
 
-WebBrowser.maybeCompleteAuthSession()
-
 /** Imposta `true` per riattivare tab e form di registrazione in-app. */
 const BETA_REGISTRAZIONE_APERTA = false
 
@@ -24,7 +22,6 @@ export default function Login() {
   const [mostraPassword, setMostraPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
-  const loadingGoogle = false
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
   const [accettaTermini, setAccettaTermini] = useState(false)
@@ -123,14 +120,6 @@ export default function Login() {
       Alert.alert('Errore', errorMessage(err))
     }
     setLoading(false)
-  }
-
-  async function handleGoogle() {
-    Alert.alert(
-      'Login con Google',
-      'Il login con Google sarà disponibile nella versione completa dell\'app. Per ora usa email e password.',
-      [{ text: 'OK' }]
-    )
   }
 
   async function recuperaPassword() {
@@ -250,26 +239,6 @@ export default function Login() {
               </Text>
             </Text>
           ) : null}
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>oppure</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.googleBtn, loadingGoogle && styles.btnDisabled]}
-            onPress={handleGoogle}
-            disabled={loadingGoogle}
-          >
-            {loadingGoogle
-              ? <ActivityIndicator color="#0D1B2A" />
-              : <>
-                  <Text style={styles.googleIcon}>G</Text>
-                  <Text style={styles.googleText}>Continua con Google</Text>
-                </>
-            }
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -310,12 +279,6 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   invitoText: { marginTop: 16, fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 19 },
   invitoLink: { color: '#0E9F8E', fontWeight: '600' },
-  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  dividerText: { fontSize: 13, color: '#9CA3AF' },
-  googleBtn: { flexDirection: 'row', alignItems: 'center' as const, justifyContent: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: '#E5E7EB', gap: 10 },
-  googleIcon: { fontSize: 18, fontWeight: '700', color: '#EA4335' },
-  googleText: { fontSize: 15, color: '#0D1B2A', fontWeight: '500' },
   biometricoBtn: { flexDirection: 'row', alignItems: 'center' as const, justifyContent: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: '#0E9F8E', gap: 10, marginBottom: 16 },
   biometricoBtnIcon: { fontSize: 22 },
   biometricoBtnText: { fontSize: 15, color: '#0E9F8E', fontWeight: '600' as const },
