@@ -7,7 +7,7 @@ import {
 import { eventBus } from "../../lib/eventBus"
 import { caricaHomeData } from '../../lib/api/home'
 import { Preventivo, Profile } from "../../lib/types"
-import { trackEvento } from "../../lib/utils/analytics"
+import { trackEvento } from "../../lib/api/track"
 import { formatImportoEuroVisuale, formatImportoDb } from 'preventivoai-shared'
 import { PreventivoStatoBadge } from '../../lib/components/preventivo/PreventivoStatoBadge'
 import { NotificheBell } from '../../lib/components/firma/NotificheBell'
@@ -38,7 +38,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false)
 
   useFocusEffect(useCallback(() => {
-    trackEvento('home_aperta', 'home')
+    trackEvento('schermata_aperta', 'home')
     carica()
   }, []))
 

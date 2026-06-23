@@ -2,6 +2,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { eliminaMetodoPagamento, caricaMetodiPagamento, MetodoPagamento, MetodoPagamentoForm, salvaMetodoPagamento, TipoPagamento } from '../../lib/api/pagamenti'
+import { trackEvento } from '../../lib/api/track'
 import { statoAccount, StripeAccountStato } from '../../lib/api/stripeConnect'
 import { StripeConnectCard } from '../../lib/components/settings/StripeConnectCard'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
@@ -31,6 +32,7 @@ export default function Pagamenti() {
   }, [])
 
   useFocusEffect(useCallback(() => {
+    trackEvento('schermata_aperta', 'pagamenti')
     void caricaStripeStato()
   }, [caricaStripeStato]))
 

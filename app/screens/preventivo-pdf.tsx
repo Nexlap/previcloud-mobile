@@ -43,7 +43,7 @@ import {
 } from '../../lib/api/preventivoPdf'
 import { statoAccount } from '../../lib/api/stripeConnect'
 import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo'
-import { trackEvento } from '../../lib/utils/analytics'
+import { trackEvento } from '../../lib/api/track'
 import { errorMessage } from '../../lib/utils/errors'
 import { resetBuilderState } from './builder'
 import { bozzaBuilderVuota, cancellaBozzaBuilder, caricaBozzaBuilder, salvaBozzaBuilder } from '../../lib/builder/draft'
@@ -138,7 +138,7 @@ export default function PreventivoPDF() {
   }
 
   useEffect(() => {
-    trackEvento('preview_pdf_aperta', 'preventivo-pdf')
+    trackEvento('schermata_aperta', 'preventivo_pdf')
     tokenPreventivoPdf().then(setToken)
     caricaTemplatePref()
     caricaClienti()

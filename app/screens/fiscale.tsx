@@ -6,6 +6,7 @@ import {
     Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { caricaProfiloFiscale, salvaProfiloFiscale } from '../../lib/api/fiscale'
+import { trackEvento } from '../../lib/api/track'
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 
@@ -86,6 +87,7 @@ export default function Fiscale() {
   useEffect(() => { profiloRef.current = profilo }, [profilo])
   useEffect(() => { featureAttivaRef.current = featureAttiva }, [featureAttiva])
 
+  useEffect(() => { trackEvento('schermata_aperta', 'fiscale') }, [])
   useEffect(() => { carica() }, [])
 
   useEffect(() => {

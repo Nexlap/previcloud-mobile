@@ -6,7 +6,7 @@ import { ActivityIndicator, Alert, ScrollView, Text, TextInput, View } from 'rea
 import { ServizioForm } from '../../lib/types'
 import { creaServizioListino } from '../../lib/api/servizi'
 import { sessionToken } from '../../lib/api/auth'
-import { trackEvento } from '../../lib/utils/analytics'
+import { trackEvento } from '../../lib/api/track'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { aggiornaServizioListino, caricaServiziListino, eliminaServiziListino, eliminaServizioListino, normalizzaServizioListino, parseCostoServizioManuale } from '../../lib/api/listino'
 import { avviaRegistrazioneListinoSmart, elaboraListinoDaTestoSmart, fermaRegistrazioneListinoSmart, scattaFotoListinoSmart, scegliFotoListinoSmart } from '../../lib/features/listino/media'
@@ -51,7 +51,7 @@ export default function Listino() {
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   useEffect(() => {
-    trackEvento('listino_aperto', 'listino')
+    trackEvento('schermata_aperta', 'listino')
     carica()
     sessionToken().then(setToken)
   }, [])

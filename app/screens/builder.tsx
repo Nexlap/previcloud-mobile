@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { creaServizioListino } from '../../lib/api/servizi';
 import { Cliente, ProfiloFiscale, Servizio, VocePreventivo } from '../../lib/types';
 import { eventBus } from '../../lib/eventBus';
-import { trackEvento } from '../../lib/utils/analytics';
+import { trackEvento } from '../../lib/api/track';
 import { formatImportoEuroVisuale } from 'preventivoai-shared';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
 import {
@@ -134,7 +134,7 @@ export default function Builder() {
   }
 
   useEffect(() => {
-    trackEvento('builder_aperto', 'builder')
+    trackEvento('schermata_aperta', 'builder')
     caricaServizi()
     caricaProfiloFiscale()
     caricaClienti()

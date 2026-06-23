@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
 import { BACKEND_URL } from '../constants'
 import { sessionToken } from './settings'
+import { trackEvento } from './track'
 
 // ── API calls per la generazione PDF ─────────────────────────────
 
@@ -38,6 +39,7 @@ export async function generaPDF(params: GeneraPDFParams): Promise<GeneraPDFResul
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error)
+  void trackEvento('pdf_generato', 'preventivo_pdf', { template: params.template })
   return data
 }
 
@@ -55,6 +57,7 @@ export async function generaPDFFile(params: GeneraPDFParams): Promise<GeneraPDFF
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error)
+  void trackEvento('pdf_generato', 'preventivo_pdf', { template: params.template })
   return data
 }
 

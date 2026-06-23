@@ -2,6 +2,7 @@ import { queryConFiltroCestino } from 'preventivoai-shared'
 import { caricaIncassiPerCliente } from './incassi'
 import { supabase } from '../supabase'
 import { Cliente } from '../types'
+import { trackEvento } from './track'
 
 async function eliminaDatiCollegatiClienti(clienteIds: string[]) {
   if (clienteIds.length === 0) return null
@@ -93,11 +94,17 @@ export async function creaCliente(dati: {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: new Error('Non autenticato') }
 
-  return supabase
+  const result = await supabase
     .from('clienti')
     .insert({ ...dati, user_id: user.id })
     .select()
     .single()
+
+  if (result.data && !result.error) {
+    void trackEvento('cliente_creato', 'clienti')
+  }
+
+  return result
 }
 
 export async function aggiornaCliente(id: string, dati: Partial<Cliente>) {

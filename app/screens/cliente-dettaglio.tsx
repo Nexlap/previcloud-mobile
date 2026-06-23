@@ -28,7 +28,7 @@ import {
   messaggioEliminaPreventiviMultipli,
   messaggioEliminaPreventivoSingolo,
 } from '../../lib/confermeElimina'
-import { trackEvento } from '../../lib/utils/analytics'
+import { trackEvento } from '../../lib/api/track'
 import { errorMessage } from '../../lib/utils/errors'
 import { ModificaPreventivoModal } from '../../lib/components/modificaPreventivo/ModificaPreventivoModal'
 import { useModificaPreventivoScelta } from '../../lib/features/modificaPreventivo/useModificaPreventivoScelta'
@@ -237,7 +237,7 @@ export default function ClienteDettaglio() {
   )
 
   useEffect(() => {
-    trackEvento('cliente_dettaglio_aperto', 'cliente-dettaglio')
+    trackEvento('schermata_aperta', 'cliente_dettaglio')
     carica()
   }, [])
 

@@ -14,7 +14,7 @@ import { useClienti } from "../../lib/hooks/useClienti"
 import { Cliente } from '../../lib/types'
 import { formatImportoEuro } from 'preventivoai-shared'
 import { inizialiCliente, labelPreventivi } from '../../lib/utils/cliente'
-import { trackEvento } from "../../lib/utils/analytics"
+import { trackEvento } from "../../lib/api/track"
 import { AppIcon } from '../../lib/components/icons/AppIcon'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
@@ -34,7 +34,7 @@ export default function Clienti() {
   const [salvandoModifica, setSalvandoModifica] = useState(false)
 
   useFocusEffect(useCallback(() => {
-    trackEvento('clienti_aperti', 'clienti')
+    trackEvento('schermata_aperta', 'clienti')
   }, []))
 
   function chiudiModalNuovoCliente() {

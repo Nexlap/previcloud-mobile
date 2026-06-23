@@ -29,7 +29,7 @@ import { StoricoPreventiviList } from '../../lib/components/storico/StoricoPreve
 import { MenuAzioniSheet } from '../../lib/components/MenuAzioniSheet'
 import { storicoStyles as styles } from '../../lib/components/storico/storicoStyles'
 import { Cliente, Preventivo } from '../../lib/types'
-import { trackEvento } from '../../lib/utils/analytics'
+import { trackEvento } from '../../lib/api/track'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 
 export default function Storico() {
@@ -78,7 +78,7 @@ export default function Storico() {
   }
 
   useFocusEffect(useCallback(() => {
-    trackEvento('storico_aperto', 'storico')
+    trackEvento('schermata_aperta', 'storico')
     caricaCollegamentiPianoPreventivi().then(setCollegamentiPiano)
     void caricaConteggioCestino()
     void caricaSettingsData().then(d => {
