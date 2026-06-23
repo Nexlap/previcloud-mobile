@@ -1,8 +1,8 @@
-import { Audio } from 'expo-av'
 import Constants from 'expo-constants'
 import { router } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, ScrollView, Text, TextInput, View } from 'react-native'
+import type { AudioRecorder } from '../../lib/audioRecording'
 import { ServizioForm } from '../../lib/types'
 import { creaServizioListino } from '../../lib/api/servizi'
 import { sessionToken } from '../../lib/api/auth'
@@ -34,7 +34,7 @@ export default function Listino() {
   const [elaborandoListino, setElaborandoListino] = useState(false)
   const [listinoTab, setListinoTab] = useState<'testo' | 'foto' | 'vocale'>('testo')
   const [registrando, setRegistrando] = useState(false)
-  const [recording, setRecording] = useState<Audio.Recording | null>(null)
+  const [recording, setRecording] = useState<AudioRecorder | null>(null)
   const [selezioneAttiva, setSelezioneAttiva] = useState(false)
   const [serviziSelezionati, setServiziSelezionati] = useState<string[]>([])
   const [ricerca, setRicerca] = useState('')

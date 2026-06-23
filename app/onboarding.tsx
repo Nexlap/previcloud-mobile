@@ -1,8 +1,8 @@
-import { Audio } from 'expo-av'
 import Constants from 'expo-constants'
 import { router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { Alert, BackHandler } from 'react-native'
+import type { AudioRecorder } from '../lib/audioRecording'
 import { elaboraServiziDaTesto } from '../lib/api/listinoSmart'
 import { completaOnboarding, generaPreviewOnboarding, tokenOnboarding } from '../lib/api/onboarding'
 import { OnboardingAziendaStep } from '../lib/components/onboarding/OnboardingAziendaStep'
@@ -41,7 +41,7 @@ export default function Onboarding() {
   const [nuovoServizio, setNuovoServizio] = useState({ nome: '', descrizione: '', costo: '', unita: 'ora' })
   const [listinoTab, setListinoTab] = useState<'testo' | 'foto' | 'vocale'>('testo')
   const [registrando, setRegistrando] = useState(false)
-  const [recording, setRecording] = useState<Audio.Recording | null>(null)
+  const [recording, setRecording] = useState<AudioRecorder | null>(null)
   const [elaborandoMedia, setElaborandoMedia] = useState(false)
 
   const [formPagamento, setFormPagamento] = useState<MetodoPagamentoForm>({

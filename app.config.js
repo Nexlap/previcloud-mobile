@@ -20,6 +20,7 @@ export default {
   "expo-router",
   "expo-secure-store",
   "expo-web-browser",
+  "expo-audio",
   "@react-native-community/datetimepicker"
     ],
 updates: {

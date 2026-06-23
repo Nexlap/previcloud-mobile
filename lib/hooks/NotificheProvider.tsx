@@ -19,7 +19,7 @@ import {
   segnaTutteLette,
   type Notifica,
   type NotificaToast,
-} from './useNotifiche'
+} from './notificheCore'
 
 const ORE_RIMANDA_DEFAULT = 24
 const MAX_TOASTS = 3

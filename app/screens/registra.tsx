@@ -1,4 +1,3 @@
-import { Audio } from 'expo-av'
 import Constants from 'expo-constants'
 import { router } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
@@ -7,6 +6,8 @@ import {
   Text, TouchableOpacity, View
 } from 'react-native'
 import { sessionTokenRegistra, trascriviRegistrazione } from '../../lib/api/registra'
+import type { AudioRecorder } from '../../lib/audioRecording'
+import { avviaRegistrazioneAudio, fermaRegistrazioneAudio } from '../../lib/audioRecording'
 import { getModificaSession } from '../../lib/features/modificaPreventivo/modificaSession'
 import { errorMessage } from '../../lib/utils/errors'
 
@@ -14,7 +15,7 @@ export default function RegistraVoce() {
   const [registrando, setRegistrando] = useState(false)
   const [trascrivendo, setTrascrivendo] = useState(false)
   const [token, setToken] = useState('')
-  const recordingRef = useRef<Audio.Recording | null>(null)
+  const recordingRef = useRef<AudioRecorder | null>(null)
   const pulseAnim = useRef(new Animated.Value(1)).current
   const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
@@ -46,15 +47,11 @@ export default function RegistraVoce() {
 
   async function avviaRegistrazione() {
     try {
-      const { status } = await Audio.requestPermissionsAsync()
-      if (status !== 'granted') {
+      const recording = await avviaRegistrazioneAudio()
+      if (!recording) {
         Alert.alert('Permesso negato', 'Serve accesso al microfono.')
         return
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true })
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      )
       recordingRef.current = recording
       setRegistrando(true)
     } catch {
@@ -67,8 +64,7 @@ export default function RegistraVoce() {
     setRegistrando(false)
     setTrascrivendo(true)
     try {
-      await recordingRef.current.stopAndUnloadAsync()
-      const uri = recordingRef.current.getURI()
+      const uri = await fermaRegistrazioneAudio(recordingRef.current)
       recordingRef.current = null
       if (!uri) throw new Error('File audio non trovato')
 

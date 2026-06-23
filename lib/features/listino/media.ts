@@ -1,5 +1,6 @@
-import { Audio } from 'expo-av'
 import * as ImagePicker from 'expo-image-picker'
+import type { AudioRecorder } from '../../audioRecording'
+import { avviaRegistrazioneAudio, fermaRegistrazioneAudio } from '../../audioRecording'
 import { elaboraServiziDaImmagine, elaboraServiziDaTesto, trascriviAudio } from '../../api/listinoSmart'
 import { inserisciServiziListino, preparaServiziDaAI, ServizioAI } from '../../api/listino'
 import { ServizioForm } from '../../types'
@@ -114,19 +115,14 @@ export async function scattaFotoServiziSmart(config: EstraiServiziConfig) {
 }
 
 export async function avviaRegistrazioneListinoSmart() {
-  const { status } = await Audio.requestPermissionsAsync()
-  if (status !== 'granted') return null
-  await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true })
-  const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY)
-  return recording
+  return avviaRegistrazioneAudio()
 }
 
 export async function fermaRegistrazioneListinoSmart(
-  recording: Audio.Recording,
+  recording: AudioRecorder,
   config: ListinoSmartConfig
 ) {
-  await recording.stopAndUnloadAsync()
-  const uri = recording.getURI()
+  const uri = await fermaRegistrazioneAudio(recording)
   if (!uri) return []
 
   const audioData = await fetch(uri)
@@ -144,11 +140,10 @@ export async function fermaRegistrazioneListinoSmart(
 }
 
 export async function fermaRegistrazioneServiziSmart(
-  recording: Audio.Recording,
+  recording: AudioRecorder,
   config: EstraiServiziConfig
 ) {
-  await recording.stopAndUnloadAsync()
-  const uri = recording.getURI()
+  const uri = await fermaRegistrazioneAudio(recording)
   if (!uri) return []
 
   const audioData = await fetch(uri)

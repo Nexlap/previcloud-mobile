@@ -1,4 +1,4 @@
-import { caricaCronologiaPreventivo } from './api/storico'
+import { caricaCronologiaPreventivo } from './api/preventivoCronologia'
 import { erroreColonnaDeletedAt } from 'preventivoai-shared'
 import { supabase } from './supabase'
 import type { Abbonamento, Preventivo } from './types'
