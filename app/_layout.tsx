@@ -1,8 +1,12 @@
 import { router, Stack } from 'expo-router'
+import * as Notifications from 'expo-notifications'
 import { useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
 import 'react-native-url-polyfill/auto'
 import { currentUserId, onSignedOut, resolvePostAuthRoute } from '../lib/api/auth'
+import { registraPushToken } from '../lib/api/pushNotifications'
+import { controllaVersioneMinima } from '../lib/api/versione'
+import { AggiornamentoObbligatorioModal } from '../lib/components/AggiornamentoObbligatorioModal'
 import { purgeCestinoScaduto } from '../lib/cestino'
 import { ThemeProvider, useTheme } from '../lib/theme/ThemeContext'
 import { ThemedStatusBar } from '../lib/theme/ThemedStatusBar'
@@ -23,7 +27,18 @@ function RootStack() {
   )
 }
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+})
+
 export default function RootLayout() {
+  const [aggiornaObbligatorio, setAggiornaObbligatorio] = useState(false)
   const [splashDone, setSplashDone] = useState(false)
   const fadeAnim = useRef(new Animated.Value(0)).current
   const scaleAnim = useRef(new Animated.Value(0.8)).current
@@ -52,9 +67,38 @@ export default function RootLayout() {
     return unsubscribe
   }, [])
 
+  useEffect(() => {
+    const subRicezione = Notifications.addNotificationReceivedListener(() => {
+      // Push ricevuta in foreground — il toast in-app via Realtime
+      // gestisce già la UI, non serve fare altro
+    })
+
+    const subTap = Notifications.addNotificationResponseReceivedListener((response) => {
+      const dati = response.notification.request.content.data as {
+        tipo?: string
+        riferimentoId?: string
+      }
+      // Navigazione al tap sulla push — solo se c'è un riferimentoId
+      if (dati?.riferimentoId) {
+        router.push(`/screens/preventivo-pdf?id=${dati.riferimentoId}`)
+      }
+    })
+
+    return () => {
+      subRicezione.remove()
+      subTap.remove()
+    }
+  }, [])
+
   async function checkSession() {
     const userId = await currentUserId()
     if (!userId) { completaSplash(); router.replace('/(auth)/login'); return }
+    if (userId) {
+      registraPushToken(userId)
+      controllaVersioneMinima().then((ok) => {
+        if (!ok) setAggiornaObbligatorio(true)
+      })
+    }
     trackSessione()
     void purgeCestinoScaduto()
     await redirectBasedOnProfile(userId)
@@ -66,6 +110,8 @@ export default function RootLayout() {
   }
 
   return (
+    <>
+      <AggiornamentoObbligatorioModal visibile={aggiornaObbligatorio} />
     <ThemeProvider>
       <NotificheProvider>
         <ThemedStatusBar />
@@ -86,6 +132,7 @@ export default function RootLayout() {
       )}
       </NotificheProvider>
     </ThemeProvider>
+    </>
   )
 }
 

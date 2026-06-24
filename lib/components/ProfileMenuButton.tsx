@@ -42,13 +42,13 @@ export function ProfileMenuButton({ nomeBreve: nomeProp, email: emailProp }: Pro
     })
   }, [])
 
-  async function inviaSegnalazione() {
-    if (!segnalazione.titolo.trim() || !segnalazione.descrizione.trim()) {
+  async function inviaSegnalazione(form: SegnalazioneForm) {
+    if (!form.titolo.trim() || !form.descrizione.trim()) {
       Alert.alert('Campi obbligatori', 'Inserisci titolo e descrizione')
       return
     }
     setInviandoSegnalazione(true)
-    const { error, user } = await inviaSegnalazioneSettings(segnalazione)
+    const { error, user } = await inviaSegnalazioneSettings(form)
     setInviandoSegnalazione(false)
     if (!user) return
     if (error) {
@@ -166,7 +166,7 @@ export function ProfileMenuButton({ nomeBreve: nomeProp, email: emailProp }: Pro
         inviando={inviandoSegnalazione}
         onClose={() => setMostraSegnalazione(false)}
         onChange={setSegnalazione}
-        onInvia={() => void inviaSegnalazione()}
+        onInvia={(form) => void inviaSegnalazione(form)}
       />
     </>
   )

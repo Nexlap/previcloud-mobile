@@ -221,13 +221,13 @@ export default function Profilo() {
     Alert.alert('Password aggiornata', 'La tua password è stata cambiata con successo.')
   }
 
-  async function inviaSegnalazione() {
-    if (!segnalazione.titolo.trim() || !segnalazione.descrizione.trim()) {
+  async function inviaSegnalazione(form: SegnalazioneForm) {
+    if (!form.titolo.trim() || !form.descrizione.trim()) {
       Alert.alert('Campi obbligatori', 'Inserisci titolo e descrizione')
       return
     }
     setInviandoSegnalazione(true)
-    const { error, user } = await inviaSegnalazioneSettings(segnalazione)
+    const { error, user } = await inviaSegnalazioneSettings(form)
     setInviandoSegnalazione(false)
     if (!user) return
     if (error) { Alert.alert('Errore', 'Impossibile inviare la segnalazione'); return }
@@ -306,7 +306,7 @@ export default function Profilo() {
         inviando={inviandoSegnalazione}
         onClose={() => setMostraSegnalazione(false)}
         onChange={setSegnalazione}
-        onInvia={() => void inviaSegnalazione()}
+        onInvia={(form) => void inviaSegnalazione(form)}
       />
     </View>
   )

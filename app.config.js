@@ -21,6 +21,14 @@ export default {
   "expo-secure-store",
   "expo-web-browser",
   "expo-audio",
+  [
+    "expo-notifications",
+    {
+      "icon": "./assets/images/icon.png",
+      "color": "#0D1B2A",
+      "androidMode": "default"
+    }
+  ],
   "@react-native-community/datetimepicker"
     ],
 updates: {

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native'
 import { supabase } from '../supabase'
 import { mergeMessaggiCliente, type MessaggiClienteTemplates } from 'preventivoai-shared'
 import { invalidaCacheMessaggiCliente } from '../messaggiCliente'
@@ -38,6 +39,47 @@ type SegnalazioneSettings = {
   titolo: string
   descrizione: string
   schermata: string
+  screenshotUri?: string
+}
+
+async function caricaScreenshot(userId: string, uri: string): Promise<string | null> {
+  try {
+    const ext = uri.split('.').pop() ?? 'jpg'
+    const path = `${userId}/${Date.now()}.${ext}`
+    const response = await fetch(uri)
+    const blob = await response.blob()
+    const arrayBuffer = await new Response(blob).arrayBuffer()
+    const { error } = await supabase.storage
+      .from('segnalazioni')
+      .upload(path, arrayBuffer, { contentType: `image/${ext}`, upsert: false })
+    if (error) return null
+    const { data } = supabase.storage.from('segnalazioni').getPublicUrl(path)
+    return data.publicUrl
+  } catch {
+    return null
+  }
+}
+
+export async function inviaSegnalazioneSettings(segnalazione: SegnalazioneSettings) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: null, user: null }
+
+  let screenshot_url: string | null = null
+  if (segnalazione.screenshotUri) {
+    screenshot_url = await caricaScreenshot(user.id, segnalazione.screenshotUri)
+  }
+
+  const { error } = await supabase.from('segnalazioni').insert({
+    user_id: user.id,
+    tipo: segnalazione.tipo,
+    titolo: segnalazione.titolo.trim(),
+    descrizione: segnalazione.descrizione.trim(),
+    schermata: segnalazione.schermata.trim() || null,
+    piattaforma: Platform.OS,
+    screenshot_url: screenshot_url ?? null,
+  })
+
+  return { error, user }
 }
 
 export function normalizzaFormProfilo(data: SettingsProfile): SettingsForm {
@@ -81,21 +123,6 @@ export async function salvaProfiloSettings(form: SettingsForm) {
     messaggi_cliente: messaggi,
   }).eq('id', user.id)
   if (!error) invalidaCacheMessaggiCliente()
-  return { error, user }
-}
-
-export async function inviaSegnalazioneSettings(segnalazione: SegnalazioneSettings) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: null, user: null }
-
-  const { error } = await supabase.from('segnalazioni').insert({
-    user_id: user.id,
-    tipo: segnalazione.tipo,
-    titolo: segnalazione.titolo.trim(),
-    descrizione: segnalazione.descrizione.trim(),
-    schermata: segnalazione.schermata.trim() || null,
-  })
-
   return { error, user }
 }
 

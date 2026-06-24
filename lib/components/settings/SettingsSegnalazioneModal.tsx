@@ -1,6 +1,7 @@
+import * as ImagePicker from 'expo-image-picker'
 import { usePathname } from 'expo-router'
-import { useEffect, useRef } from 'react'
-import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { ActivityIndicator, Image, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { etichettaSchermata } from '../../api/segnalazioni'
 import { SEGNALAZIONE_TIPI } from '../../features/settings/constants'
 import { settingsStyles as styles } from './settingsStyles'
@@ -10,6 +11,7 @@ export type SegnalazioneForm = {
   titolo: string
   descrizione: string
   schermata: string
+  screenshotUri?: string
 }
 
 type Props = {
@@ -18,12 +20,13 @@ type Props = {
   inviando: boolean
   onClose: () => void
   onChange: (updater: (prev: SegnalazioneForm) => SegnalazioneForm) => void
-  onInvia: () => void
+  onInvia: (form: SegnalazioneForm) => void
 }
 
 export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onClose, onChange, onInvia }: Props) {
   const pathname = usePathname()
   const eraVisibileRef = useRef(false)
+  const [screenshotUri, setScreenshotUri] = useState<string | null>(null)
 
   useEffect(() => {
     if (visible && !eraVisibileRef.current) {
@@ -31,6 +34,25 @@ export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onC
     }
     eraVisibileRef.current = visible
   }, [visible, pathname, onChange])
+
+  async function selezionaScreenshot() {
+    const permesso = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!permesso.granted) return
+    const risultato = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      allowsEditing: false,
+    })
+    if (!risultato.canceled && risultato.assets[0]) {
+      setScreenshotUri(risultato.assets[0].uri)
+    }
+  }
+
+  function inviaSegnalazione() {
+    onInvia({ ...segnalazione, screenshotUri: screenshotUri ?? undefined })
+  }
+
+  const screenshotNome = screenshotUri?.split('/').pop() ?? 'screenshot'
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -40,7 +62,7 @@ export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onC
             <Text style={styles.modalClose}>✕</Text>
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Segnala un problema</Text>
-          <TouchableOpacity onPress={onInvia} disabled={inviando}>
+          <TouchableOpacity onPress={inviaSegnalazione} disabled={inviando}>
             {inviando
               ? <ActivityIndicator color="#0E9F8E" size="small" />
               : <Text style={styles.modalSave}>Invia</Text>
@@ -72,6 +94,30 @@ export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onC
               value={segnalazione.descrizione}
               onChangeText={v => onChange(s => ({ ...s, descrizione: v }))}
               placeholder="Descrivi il problema nel dettaglio..." placeholderTextColor="#9CA3AF" multiline />
+          </View>
+          <View style={styles.fieldGroup}>
+            <TouchableOpacity
+              style={[styles.fieldInput, { paddingVertical: 12, alignItems: 'center' }]}
+              onPress={selezionaScreenshot}
+            >
+              <Text style={{ color: '#0E9F8E', fontSize: 14, fontWeight: '600' }}>
+                Allega screenshot (opzionale)
+              </Text>
+            </TouchableOpacity>
+            {screenshotUri != null && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                <Image
+                  source={{ uri: screenshotUri }}
+                  style={{ width: 40, height: 40, borderRadius: 6 }}
+                />
+                <Text style={{ flex: 1, fontSize: 12, color: '#4B5563' }} numberOfLines={1}>
+                  {screenshotNome}
+                </Text>
+                <TouchableOpacity onPress={() => setScreenshotUri(null)} hitSlop={8}>
+                  <Text style={{ fontSize: 16, color: '#9CA3AF' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>SCHERMATA (opzionale)</Text>
