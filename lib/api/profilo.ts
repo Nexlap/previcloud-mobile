@@ -1,5 +1,6 @@
 import * as LocalAuthentication from 'expo-local-authentication'
 import * as SecureStore from 'expo-secure-store'
+import { BACKEND_URL } from '../constants'
 import { supabase } from '../supabase'
 
 const BIOMETRIA_ATTIVA_KEY = 'biometria_attiva'
@@ -82,4 +83,22 @@ export async function logoutAccount() {
 export async function sessioneCorrente() {
   const { data: { session } } = await supabase.auth.getSession()
   return session
+}
+
+export async function eliminaAccount() {
+  const session = await sessioneCorrente()
+  if (!session) throw new Error('Sessione non valida. Effettua di nuovo il login.')
+
+  const res = await fetch(`${BACKEND_URL}/api/elimina-account`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ confirm: 'ELIMINA' }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || !data.success) throw new Error(data.error || 'Impossibile eliminare account')
+  return true
 }

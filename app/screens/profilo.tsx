@@ -1,10 +1,9 @@
-import Constants from 'expo-constants'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import {
   ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View
 } from 'react-native'
-import { attivaBiometrico, aggiornaPasswordAccount, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, logoutAccount, sessioneCorrente, verificaPasswordAccount } from '../../lib/api/profilo'
+import { attivaBiometrico, aggiornaPasswordAccount, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, eliminaAccount, logoutAccount, verificaPasswordAccount } from '../../lib/api/profilo'
 import { ProfiloAppCard } from '../../lib/components/profilo/ProfiloAppCard'
 import { ProfiloAvatarCard } from '../../lib/components/profilo/ProfiloAvatarCard'
 import { ProfiloCambiaPasswordModal } from '../../lib/components/profilo/ProfiloCambiaPasswordModal'
@@ -36,7 +35,6 @@ export default function Profilo() {
   const [mostraSegnalazione, setMostraSegnalazione] = useState(false)
   const [segnalazione, setSegnalazione] = useState<SegnalazioneForm>({ tipo: 'bug', titolo: '', descrizione: '', schermata: '' })
   const [inviandoSegnalazione, setInviandoSegnalazione] = useState(false)
-  const backendUrl = Constants.expoConfig?.extra?.backendUrl
 
   useEffect(() => { carica() }, [])
 
@@ -73,26 +71,7 @@ export default function Profilo() {
   async function eliminaAccountConfermato() {
     setEliminandoAccount(true)
     try {
-      if (!backendUrl) {
-        Alert.alert('Errore', 'Backend non configurato.')
-        setEliminandoAccount(false)
-        return
-      }
-
-      const session = await sessioneCorrente()
-      if (!session) {
-        Alert.alert('Errore', 'Sessione non valida. Effettua di nuovo il login.')
-        setEliminandoAccount(false)
-        return
-      }
-
-      const res = await fetch(`${backendUrl}/api/elimina-account`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || 'Impossibile eliminare account')
-
+      await eliminaAccount()
       await logoutAccount()
       router.replace('/(auth)/login')
     } catch (err: unknown) {

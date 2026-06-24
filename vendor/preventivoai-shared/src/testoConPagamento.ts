@@ -96,8 +96,10 @@ export type TestoConPagamentoParams = {
   rateAccontoValore?: string
   metodoPagamento: MetodoPagamentoTesto | null
   token: string
-  creaLinkPagamento: (importo: number, titolo: string, token: string) => Promise<string>
+  preventivoId: string
+  creaLinkPagamento: (preventivoId: string, titolo: string, token: string) => Promise<{ payment_url: string; stripe_session_id: string }>
   accontoLinkPrecomputato?: string
+  onStripeSessionCreated?: (sessionId: string) => void
 }
 
 export async function testoConPagamento({
@@ -118,8 +120,10 @@ export async function testoConPagamento({
   rateAccontoValore = '',
   metodoPagamento,
   token,
+  preventivoId,
   creaLinkPagamento,
   accontoLinkPrecomputato,
+  onStripeSessionCreated,
 }: TestoConPagamentoParams): Promise<string> {
   let testoBase = testo
 
@@ -165,10 +169,15 @@ export async function testoConPagamento({
     : ''
 
   if (metodoPagamento.tipo === 'stripe') {
-    const link = accontoSaldoRate && accontoLinkPrecomputato
-      ? accontoLinkPrecomputato
-      : await creaLinkPagamento(importoPagamento, 'Preventivo', token)
-    return `${testoBase}\nPAGAMENTO: Online con carta${rigaAccontoRichiesto}\nLINK PAGAMENTO: ${link}`
+    if (accontoSaldoRate && accontoLinkPrecomputato) {
+      return `${testoBase}\nPAGAMENTO: Online con carta${rigaAccontoRichiesto}\nLINK PAGAMENTO: ${accontoLinkPrecomputato}`
+    }
+    if (!preventivoId) {
+      return `${testoBase}\nPAGAMENTO: Online con carta${rigaAccontoRichiesto}\nLINK PAGAMENTO: [PAGAMENTO_ONLINE]`
+    }
+    const result = await creaLinkPagamento(preventivoId, 'Preventivo', token)
+    onStripeSessionCreated?.(result.stripe_session_id)
+    return `${testoBase}\nPAGAMENTO: Online con carta${rigaAccontoRichiesto}\nLINK PAGAMENTO: ${result.payment_url}`
   }
 
   let extra = `\nPAGAMENTO: ${metodoPagamento.nome}${rigaAccontoRichiesto}`

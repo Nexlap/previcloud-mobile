@@ -4,6 +4,7 @@ import { testoConPagamento as testoConPagamentoShared } from 'preventivoai-share
 
 type TestoConPagamentoParams = {
   testo: string
+  preventivoId: string
   abbonamentoAttivo: boolean
   abVisibileNelPDF: boolean
   abImporto: string

@@ -74,15 +74,20 @@ export async function salvaPDF(pdfBase64: string, token: string): Promise<string
   return data.pdf_url as string
 }
 
-export async function creaLinkPagamento(importo: number, descrizione: string, token: string): Promise<string> {
+export async function creaLinkPagamento(
+  preventivoId: string,
+  descrizione: string,
+  token: string,
+): Promise<{ payment_url: string; stripe_session_id: string }> {
   const res = await fetch(`${BACKEND_URL}/api/crea-link-pagamento`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({ importo, descrizione })
+    body: JSON.stringify({ preventivo_id: preventivoId, descrizione }),
   })
-  const data = await res.json()
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Errore server (${res.status})`)
   if (data.error) throw new Error(data.error)
-  return data.payment_url
+  return { payment_url: data.payment_url, stripe_session_id: data.stripe_session_id }
 }
 
 export async function creaLinkPagamentoRata(rataId: string, clienteNome: string, token: string): Promise<string> {

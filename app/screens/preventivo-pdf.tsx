@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { generaPDF as generaPDFApi, generaPDFFile, salvaPDF as salvaPDFApi } from "../../lib/api/pdf"
+import { generaPDF as generaPDFApi, generaPDFFile, salvaPDF as salvaPDFApi, creaLinkPagamento } from "../../lib/api/pdf"
 import {
   PreventivoPdfClienteButton,
   PreventivoPdfFooter,
@@ -23,7 +23,8 @@ import { PreventivoPdfPreviewCard } from '../../lib/components/preventivoPdf/Pre
 import { PreventivoPdfSuccessModal, type PdfSuccessInvio } from '../../lib/components/preventivoPdf/PreventivoPdfSuccessModal'
 import { PreventivoPdfTemplatePicker } from '../../lib/components/preventivoPdf/PreventivoPdfTemplatePicker'
 import { eventBus } from '../../lib/eventBus'
-import { scalaHtmlPreview, testoConPagamento } from '../../lib/features/preventivoPdf/text'
+import { scalaHtmlPreview } from '../../lib/features/preventivoPdf/text'
+import { testoConPagamento } from 'preventivoai-shared'
 import { importoDaTesto, meseCorrenteString, parseImportoEuro, validaPianiPagamento } from 'preventivoai-shared'
 import {
   aggiornaTitoloPreventivo,
@@ -45,6 +46,7 @@ import { statoAccount } from '../../lib/api/stripeConnect'
 import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo'
 import { trackEvento } from '../../lib/api/track'
 import { errorMessage } from '../../lib/utils/errors'
+import { supabase } from '../../lib/supabase'
 import { resetBuilderState } from './builder'
 import { bozzaBuilderVuota, cancellaBozzaBuilder, caricaBozzaBuilder, salvaBozzaBuilder } from '../../lib/builder/draft'
 import { builderState } from '../../lib/builder/state'
@@ -213,10 +215,11 @@ export default function PreventivoPDF() {
     })
   }
 
-  async function buildTestoConPagamento() {
+  async function buildTestoConPagamento(preventivoId: string) {
     const importoRate = importoTotaleNum > 0 ? importoTotaleNum : (importoDaTesto(testo) ?? 0)
     return testoConPagamento({
       testo,
+      preventivoId,
       abbonamentoAttivo,
       abVisibileNelPDF,
       abImporto,
@@ -230,6 +233,7 @@ export default function PreventivoPDF() {
       rateMeseInizio: parseInt(rateMeseInizio, 10) || 0,
       metodoPagamento: metodoPagamentoSelezionato,
       token,
+      creaLinkPagamento,
     })
   }
 
@@ -238,7 +242,7 @@ export default function PreventivoPDF() {
     setCaricandoPreview(true)
     try {
       const data = await generaPDFApi({
-        testo: await buildTestoConPagamento(),
+        testo: await buildTestoConPagamento(''),
         template,
         token,
         versione_padre_id: null,
@@ -301,8 +305,8 @@ export default function PreventivoPDF() {
     }
     setGenerando(true)
     try {
-      const testoFinale = await buildTestoConPagamento()
-      const data = await generaPDFFile({
+      let testoFinale = await buildTestoConPagamento('')
+      let data = await generaPDFFile({
         testo: testoFinale,
         template,
         token,
@@ -310,7 +314,7 @@ export default function PreventivoPDF() {
         cliente_id: clienteSelezionato?.id || '',
         nascondi_prezzi: nascondiPrezzi,
       })
-      const uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
+      let uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
       await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as FileSystem.EncodingType })
 
       let pdfUrl = ''
@@ -325,8 +329,36 @@ export default function PreventivoPDF() {
       const titoloAuto = clienteSelezionato
         ? `Preventivo ${clienteSelezionato.nome}`
         : `Preventivo ${new Date().toLocaleDateString('it-IT')}`
-      const idSalvato = await salvaSuSupabase(data.versione, titoloAuto, pdfUrl)
+      const idSalvato = await salvaSuSupabase(data.versione, titoloAuto, pdfUrl, testoFinale)
       if (idSalvato) setPreventivoSalvatoId(idSalvato)
+
+      if (idSalvato && metodoPagamentoSelezionato?.tipo === 'stripe') {
+        const { payment_url } = await creaLinkPagamento(idSalvato, 'Preventivo', token)
+        testoFinale = testoFinale.replace('[PAGAMENTO_ONLINE]', payment_url)
+        data = await generaPDFFile({
+          testo: testoFinale,
+          template,
+          token,
+          versione_padre_id: versione_padre_id || null,
+          cliente_id: clienteSelezionato?.id || '',
+          nascondi_prezzi: nascondiPrezzi,
+        })
+        uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
+        await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as FileSystem.EncodingType })
+        try {
+          pdfUrl = await salvaPDFApi(data.pdf_base64, token)
+          uploadOk = !!pdfUrl
+        } catch {
+          uploadOk = false
+        }
+        await supabase
+          .from('preventivi')
+          .update({
+            testo_preventivo: testoFinale,
+            pdf_url: pdfUrl || null,
+          })
+          .eq('id', idSalvato)
+      }
 
       resetBuilderState()
       void cancellaBozzaBuilder()
@@ -384,12 +416,13 @@ export default function PreventivoPDF() {
     setTimeout(() => setMostraModalTitolo(true), 400)
   }
 
-  async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = ''): Promise<string | null> {
+  async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = '', testoSalvataggio?: string): Promise<string | null> {
     const importoParam = importo_totale ? parseImportoEuro(String(importo_totale)) : null
-    const importo = importoDaTesto(testo)
+    const testoDaSalvare = testoSalvataggio ?? testo
+    const importo = importoDaTesto(testoDaSalvare)
       ?? (importoParam != null && !Number.isNaN(importoParam) ? importoParam : null)
     return salvaPreventivoPdf({
-      testo,
+      testo: testoDaSalvare,
       template,
       versione: ver,
       versionePadreId: versione_padre_id || null,
