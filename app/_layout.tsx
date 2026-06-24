@@ -39,6 +39,8 @@ Notifications.setNotificationHandler({
 
 export default function RootLayout() {
   const [aggiornaObbligatorio, setAggiornaObbligatorio] = useState(false)
+  const [versioneInstallata, setVersioneInstallata] = useState<string>()
+  const [versioneMinima, setVersioneMinima] = useState<string>()
   const [splashDone, setSplashDone] = useState(false)
   const fadeAnim = useRef(new Animated.Value(0)).current
   const scaleAnim = useRef(new Animated.Value(0.8)).current
@@ -95,8 +97,12 @@ export default function RootLayout() {
     if (!userId) { completaSplash(); router.replace('/(auth)/login'); return }
     if (userId) {
       registraPushToken(userId)
-      controllaVersioneMinima().then((ok) => {
-        if (!ok) setAggiornaObbligatorio(true)
+      controllaVersioneMinima().then((risultato) => {
+        if (!risultato.ok) {
+          setVersioneInstallata(risultato.installata)
+          setVersioneMinima(risultato.minima)
+          setAggiornaObbligatorio(true)
+        }
       })
     }
     trackSessione()
@@ -111,7 +117,11 @@ export default function RootLayout() {
 
   return (
     <>
-      <AggiornamentoObbligatorioModal visibile={aggiornaObbligatorio} />
+      <AggiornamentoObbligatorioModal
+        visibile={aggiornaObbligatorio}
+        versioneInstallata={versioneInstallata}
+        versioneMinima={versioneMinima}
+      />
     <ThemeProvider>
       <NotificheProvider>
         <ThemedStatusBar />

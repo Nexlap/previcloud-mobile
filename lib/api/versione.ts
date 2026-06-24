@@ -7,6 +7,12 @@ export type VersioneMinima = {
   ios: string
 }
 
+export type RisultatoVersioneMinima = {
+  ok: boolean
+  installata: string
+  minima: string
+}
+
 function confrontaVersioni(installata: string, minima: string): boolean {
   // Ritorna true se installata >= minima
   const toNumeri = (v: string) => v.split('.').map(Number)
@@ -17,15 +23,19 @@ function confrontaVersioni(installata: string, minima: string): boolean {
   return iC >= mC
 }
 
-export async function controllaVersioneMinima(): Promise<boolean> {
+export async function controllaVersioneMinima(): Promise<RisultatoVersioneMinima> {
   try {
     const risposta = await fetch(`${BACKEND_URL}/api/versione-minima`)
     const dati: VersioneMinima = await risposta.json()
     const versioneInstallata = Constants.expoConfig?.version ?? '1.0.0'
     const versioneMinima = dati.android
-    return confrontaVersioni(versioneInstallata, versioneMinima)
+    return {
+      ok: confrontaVersioni(versioneInstallata, versioneMinima),
+      installata: versioneInstallata,
+      minima: versioneMinima,
+    }
   } catch {
     // Se il backend non risponde, non bloccare l'app
-    return true
+    return { ok: true, installata: '', minima: '' }
   }
 }
