@@ -19,12 +19,13 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
 type Props = {
   form: SettingsForm
   logoUrl: string
+  logoCacheKey: number
   uploadingLogo: boolean
   onSetField: (key: string, val: string) => void
   onScegliLogo: () => void
 }
 
-export function SettingsIdentitaSection({ form, logoUrl, uploadingLogo, onSetField, onScegliLogo }: Props) {
+export function SettingsIdentitaSection({ form, logoUrl, logoCacheKey, uploadingLogo, onSetField, onScegliLogo }: Props) {
   const t = useSettingsTheme()
   const ph = t.sub.color as string
   const [expanded, setExpanded] = useState(true)
@@ -65,8 +66,9 @@ export function SettingsIdentitaSection({ form, logoUrl, uploadingLogo, onSetFie
             {subTab === 'logo' ? (
               <>
                 <Text style={[styles.cardSub, t.sub]}>Appare nell'intestazione di tutti i preventivi PDF</Text>
+                <Text style={[styles.cardSub, t.sub]}>Risoluzione consigliata: 400×100px, sfondo trasparente o bianco.</Text>
                 {logoUrl ? (
-                  <Image source={{ uri: logoUrl }} style={[styles.logoPreview, { backgroundColor: t.input.backgroundColor }]} resizeMode="contain" />
+                  <Image source={{ uri: logoUrl + '?v=' + logoCacheKey }} style={[styles.logoPreview, { backgroundColor: t.input.backgroundColor }]} resizeMode="contain" />
                 ) : (
                   <View style={[styles.logoPlaceholder, { backgroundColor: t.input.backgroundColor, borderColor: t.input.borderColor }]}>
                     <Text style={[styles.logoPlaceholderText, t.sub]}>Nessun logo caricato</Text>

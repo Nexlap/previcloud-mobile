@@ -1,7 +1,7 @@
 import Constants from 'expo-constants'
 import * as ImagePicker from 'expo-image-picker'
-import { router, useNavigation } from 'expo-router'
-import { useEffect, useRef, useState } from 'react'
+import { router, useFocusEffect, useNavigation } from 'expo-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EventArg, NavigationAction } from '@react-navigation/native'
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
@@ -20,6 +20,7 @@ import { useTheme } from '../../lib/theme/ThemeContext'
 import { TONI } from '../../lib/features/settings/constants'
 import { MESSAGGI_CLIENTE_DEFAULT } from 'preventivoai-shared'
 import { errorMessage } from '../../lib/utils/errors'
+import { emitAggiornaProfilo } from '../../lib/eventBus'
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 
@@ -42,6 +43,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [logoUrl, setLogoUrl] = useState('')
+  const [logoCacheKey, setLogoCacheKey] = useState(Date.now())
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [token, setToken] = useState('')
   const [modificheNonSalvate, setModificheNonSalvate] = useState(false)
@@ -55,6 +57,10 @@ export default function Settings() {
     void carica()
     sessionToken().then(setToken)
   }, [])
+
+  useFocusEffect(useCallback(() => {
+    void carica()
+  }, []))
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e: BeforeRemoveEvent) => {
@@ -82,7 +88,10 @@ export default function Settings() {
       setForm(data.form)
       formIniziale.current = data.form
     }
-    if (data.logoUrl) setLogoUrl(data.logoUrl)
+    if (data.logoUrl) {
+      setLogoUrl(data.logoUrl)
+      setLogoCacheKey(Date.now())
+    }
     setLoading(false)
   }
 
@@ -107,19 +116,9 @@ export default function Settings() {
     setModificheNonSalvate(true)
   }
 
-  async function scegliLogo() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla galleria.'); return }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true, aspect: [4, 1], quality: 0.3, base64: true, exif: false,
-    })
-    if (result.canceled || !result.assets[0]) return
-
+  async function proseguiUpload(asset: ImagePicker.ImagePickerAsset) {
     setUploadingLogo(true)
     try {
-      const asset = result.assets[0]
       if (!asset.base64) throw new Error('Impossibile leggere l\'immagine')
       const sizeKB = (asset.base64.length * 0.75) / 1024
       if (sizeKB > 500) { Alert.alert('Immagine troppo grande', 'Max 500KB'); setUploadingLogo(false); return }
@@ -131,12 +130,29 @@ export default function Settings() {
         mimeType: asset.mimeType || 'image/jpeg',
       })
       setLogoUrl(nuovoLogoUrl)
+      setLogoCacheKey(Date.now())
       setModificheNonSalvate(true)
+      emitAggiornaProfilo()
       Alert.alert('Logo caricato', 'Apparirà su tutti i tuoi preventivi PDF.')
     } catch (err: unknown) {
       Alert.alert('Errore', errorMessage(err))
     }
     setUploadingLogo(false)
+  }
+
+  async function scegliLogo() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') { Alert.alert('Permesso negato', 'Serve accesso alla galleria.'); return }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+      base64: true,
+      exif: false,
+    })
+    if (result.canceled || !result.assets[0]) return
+    await proseguiUpload(result.assets[0])
   }
 
   if (loading) return (
@@ -153,6 +169,7 @@ export default function Settings() {
         <SettingsIdentitaSection
           form={form}
           logoUrl={logoUrl}
+          logoCacheKey={logoCacheKey}
           uploadingLogo={uploadingLogo}
           onSetField={set}
           onScegliLogo={scegliLogo}
