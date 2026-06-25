@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Cliente } from '../../types'
 import { formatImportoEuroVisuale } from 'preventivoai-shared'
@@ -57,36 +58,47 @@ export function ClienteSelectionBar({ count, onCancel, onMove, onDelete }: Selec
 }
 
 export function ClienteInfoCard({ cliente }: { cliente: Cliente }) {
+  const [espanso, setEspanso] = useState(false)
+
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => setEspanso(v => !v)}
+      activeOpacity={0.85}
+    >
       <View style={styles.avatarRow}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{(cliente.nome || 'C').charAt(0).toUpperCase()}</Text>
         </View>
-        <View style={styles.avatarInfo}>
-          <Text style={styles.clienteNome}>{cliente.nome || ''}</Text>
-          {cliente.telefono ? (
-            <View style={styles.infoRow}>
-              <AppIcon name="phone" size={14} color="#9CA3AF" />
-              <Text style={styles.clienteInfo}>{cliente.telefono}</Text>
-            </View>
-          ) : null}
-          {cliente.email ? (
-            <View style={styles.infoRow}>
-              <AppIcon name="mail" size={14} color="#9CA3AF" />
-              <Text style={styles.clienteInfo}>{cliente.email}</Text>
-            </View>
-          ) : null}
-          {cliente.indirizzo ? (
-            <View style={styles.infoRow}>
-              <AppIcon name="map-pin" size={14} color="#9CA3AF" />
-              <Text style={styles.clienteInfo}>{cliente.indirizzo}</Text>
-            </View>
-          ) : null}
-          {cliente.note && <Text style={styles.clienteNote}>{cliente.note}</Text>}
+        <View style={styles.headerRow}>
+          <View style={styles.avatarInfo}>
+            <Text style={styles.clienteNome}>{cliente.nome || ''}</Text>
+            {cliente.telefono ? (
+              <View style={styles.infoRow}>
+                <AppIcon name="phone" size={14} color="#9CA3AF" />
+                <Text style={styles.clienteInfo}>{cliente.telefono}</Text>
+              </View>
+            ) : null}
+            {espanso && cliente.email ? (
+              <View style={styles.infoRow}>
+                <AppIcon name="mail" size={14} color="#9CA3AF" />
+                <Text style={styles.clienteInfo}>{cliente.email}</Text>
+              </View>
+            ) : null}
+            {espanso && cliente.indirizzo ? (
+              <View style={styles.infoRow}>
+                <AppIcon name="map-pin" size={14} color="#9CA3AF" />
+                <Text style={styles.clienteInfo}>{cliente.indirizzo}</Text>
+              </View>
+            ) : null}
+            {espanso && cliente.note ? <Text style={styles.clienteNote}>{cliente.note}</Text> : null}
+          </View>
+          <View style={styles.chevron}>
+            <AppIcon name={espanso ? 'chevron-up' : 'chevron-down'} size={16} color="#9CA3AF" />
+          </View>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   )
 }
 
@@ -176,9 +188,11 @@ const styles = StyleSheet.create({
   avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
   avatarText: { color: '#fff', fontSize: 22, fontWeight: '700' },
   avatarInfo: { flex: 1, gap: 3 },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', flex: 1 },
+  chevron: { paddingLeft: 8 },
   clienteNome: { fontSize: 18, fontWeight: '700', color: '#0D1B2A' },
-  clienteInfo: { fontSize: 13, color: '#6B7280', flex: 1 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  clienteInfo: { fontSize: 13, color: '#6B7280', flex: 1, flexShrink: 1, flexWrap: 'wrap' },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
   clienteNote: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', marginTop: 4 },
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', minWidth: 0 },
