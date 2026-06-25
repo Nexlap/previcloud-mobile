@@ -24,6 +24,7 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
     archivia,
     ricarica,
     clearToasts,
+    visteLocalmente,
   } = useNotifiche()
   const [listaAperta, setListaAperta] = useState(false)
 
@@ -91,20 +92,23 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
             ) : (
               notifiche.map(n => {
                 const rimandata = notificaInRimando(n)
+                const nonAncoraVista = !n.letta && !visteLocalmente.has(n.id)
                 return (
-                  <View key={n.id} style={{ borderBottomWidth: 1, borderBottomColor: '#F9FAFB' }}>
+                  <View key={n.id} style={{ borderBottomWidth: 1, borderBottomColor: '#F9FAFB', opacity: nonAncoraVista ? 1 : 0.5 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingRight: 8 }}>
                       <TouchableOpacity
                         onPress={() => void apriNotifica(n)}
                         style={{ flex: 1, flexDirection: 'row', padding: 16, gap: 10 }}
                       >
-                        <View style={{
-                          width: 8, height: 8, borderRadius: 4, marginTop: 6,
-                          backgroundColor: rimandata ? '#D1D5DB' : '#0E9F8E',
-                        }} />
+                        {nonAncoraVista ? (
+                          <View style={{
+                            width: 8, height: 8, borderRadius: 4, marginTop: 6,
+                            backgroundColor: rimandata ? '#D1D5DB' : '#0E9F8E',
+                          }} />
+                        ) : null}
                         <View style={{ flex: 1 }}>
                           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                            <Text style={{ fontWeight: '700', fontSize: 14, color: '#0D1B2A' }}>{n.titolo}</Text>
+                            <Text style={{ fontWeight: nonAncoraVista ? '700' : '400', fontSize: 14, color: '#0D1B2A' }}>{n.titolo}</Text>
                             {rimandata ? (
                               <View style={{ backgroundColor: '#FEF3C7', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
                                 <Text style={{ fontSize: 10, fontWeight: '700', color: '#92400E' }}>RIMANDATA</Text>

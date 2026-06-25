@@ -29,6 +29,7 @@ function toastToNotifica(t: NotificaToast): Notifica {
     messaggio: t.messaggio,
     payload: t.payload,
     letta: false,
+    archiviata: false,
     snooze_until: null,
     created_at: new Date().toISOString(),
   }

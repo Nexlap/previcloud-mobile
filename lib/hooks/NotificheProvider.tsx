@@ -11,6 +11,7 @@ import {
 import { AppState } from 'react-native'
 import { supabase } from '../supabase'
 import {
+  archiviaNotifica,
   buildToast,
   caricaNotificheCampanella,
   contaBadgeCampanella,
@@ -40,6 +41,7 @@ type NotificheContextValue = {
   rimuoviToast: (id: string) => void
   clearToasts: () => void
   marcaVistaLocale: (id: string) => void
+  visteLocalmente: Set<string>
 }
 
 const NotificheContext = createContext<NotificheContextValue | null>(null)
@@ -242,7 +244,7 @@ export function NotificheProvider({ children }: { children: ReactNode }) {
   }, [ricarica])
 
   const archivia = useCallback(async (id: string) => {
-    await segnaNotificaLetta(id)
+    await archiviaNotifica(id)
     await ricarica()
   }, [ricarica])
 
@@ -260,6 +262,7 @@ export function NotificheProvider({ children }: { children: ReactNode }) {
     rimuoviToast,
     clearToasts,
     marcaVistaLocale,
+    visteLocalmente,
   }
 
   return (

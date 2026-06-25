@@ -30,6 +30,7 @@ export type Notifica = {
   messaggio: string
   payload: NotificaPayloadRata & NotificaPayloadFirma & Record<string, unknown>
   letta: boolean
+  archiviata: boolean
   snooze_until: string | null
   created_at: string
 }
@@ -85,7 +86,8 @@ export async function caricaNotificheCampanella(): Promise<
     .from('notifiche')
     .select('*')
     .eq('user_id', user.id)
-    .eq('letta', false)
+    .eq('archiviata', false)
+    .order('letta', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(50)
   if (error) {
@@ -124,6 +126,14 @@ export async function segnaTutteLette() {
     .update({ letta: true })
     .eq('user_id', user.id)
     .eq('letta', false)
+  if (error) throw new Error(error.message)
+}
+
+export async function archiviaNotifica(id: string) {
+  const { error } = await supabase
+    .from('notifiche')
+    .update({ archiviata: true })
+    .eq('id', id)
   if (error) throw new Error(error.message)
 }
 
