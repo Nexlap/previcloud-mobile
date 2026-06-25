@@ -575,7 +575,7 @@ export default function Builder() {
         cliente_id: clienteSelezionato?.id || params.cliente_id || '',
         metodo_pagamento_id: mpId,
         metodo_pagamento_nessuno: metodoPagamentoNessuno ? '1' : '0',
-        importo_totale: totaleConIva.toFixed(0),
+        importo_totale: totaleConSconto.toFixed(0),
         versione_padre_id: modifica?.versionePadreId || params.versione_padre_id || '',
         ab_attivo: abbonamentoAttivo ? '1' : '0',
         ab_importo: abImporto,
@@ -596,6 +596,15 @@ export default function Builder() {
   const totaleTrasferte = calcolaTotaleTrasferte(trasferte)
   const totaleBase = calcolaTotaleVoci(voci) + calcolaTotaleTrasferte(trasferte)
   const totaleConIva = includiIva ? (totale + totaleTrasferte) * 1.22 : (totale + totaleTrasferte)
+  const importoSconto = (() => {
+    if (!scontoAttivo || !scontoValore) return 0
+    const val = parseFloat(scontoValore.replace(',', '.'))
+    if (isNaN(val) || val <= 0) return 0
+    return scontoTipo === 'percentuale'
+      ? totaleConIva * (val / 100)
+      : Math.min(val, totaleConIva)
+  })()
+  const totaleConSconto = Math.max(0, totaleConIva - importoSconto)
   const f = calcolaFiscale()
   const fmt = formatImportoEuroVisuale
 
@@ -726,7 +735,7 @@ export default function Builder() {
       {keyboardHeight === 0 && (
         <GeneraPdfButton
           disabled={voci.length === 0}
-          totaleConIva={totaleConIva}
+          totaleConIva={totaleConSconto}
           onPress={generaPDF}
           bottomInset={insets.bottom}
         />

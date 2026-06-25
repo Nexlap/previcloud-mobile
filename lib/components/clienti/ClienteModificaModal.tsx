@@ -6,6 +6,7 @@ export type ClienteModificaForm = {
   nome: string
   telefono: string
   email: string
+  indirizzo: string
   note: string
 }
 
@@ -66,6 +67,17 @@ export function ClienteModificaModal({ visible, dati, salvando, onClose, onChang
               autoCapitalize="none"
             />
 
+            <Text style={styles.fieldLabel}>INDIRIZZO</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={dati.indirizzo}
+              onChangeText={indirizzo => onChange(prev => ({ ...prev, indirizzo }))}
+              placeholder="Indirizzo"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="default"
+              autoCapitalize="words"
+            />
+
             <Text style={styles.fieldLabel}>NOTE</Text>
             <TextInput
               style={[styles.fieldInput, styles.fieldTextarea]}
@@ -96,6 +108,7 @@ export function clienteToModificaForm(c: Cliente): ClienteModificaForm {
     nome: c.nome,
     telefono: c.telefono || '',
     email: c.email || '',
+    indirizzo: c.indirizzo || '',
     note: c.note || '',
   }
 }

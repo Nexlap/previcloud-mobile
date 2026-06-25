@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Modal, Pressable, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Modal, Pressable, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import * as Sharing from 'expo-sharing'
 import { caricaContattiCliente } from '../../api/firma'
+import { aggiornaTitoloPreventivo, segnaPreventivoInviato } from '../../api/preventivoPdf'
+import { eventBus } from '../../eventBus'
 import { caricaSettingsData } from '../../api/settings'
 import { trackEvento } from '../../utils/analytics'
 import { buildMessaggioCondividiPdf } from 'preventivoai-shared'
@@ -15,6 +17,8 @@ export type PdfSuccessInvio = {
   nomeCliente?: string
   haStripe?: boolean
   uploadOnlineOk: boolean
+  titoloIniziale?: string
+  segnaInviatoDisponibile?: boolean
 }
 
 type Props = {
@@ -31,18 +35,70 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
   const [emailCliente, setEmailCliente] = useState<string | null | undefined>()
   const [telefonoCliente, setTelefonoCliente] = useState<string | null | undefined>()
   const [condivisionePdf, setCondivisionePdf] = useState(false)
+  const [titolo, setTitolo] = useState(invio?.titoloIniziale || '')
+  const [segnaInviato, setSegnaInviato] = useState(false)
+  const [feedback, setFeedback] = useState('')
   const condivisionePdfRef = useRef(false)
+  const titoloSalvatoRef = useRef('')
+  const salvaTitoloInCorsoRef = useRef(false)
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!visible) {
       setMostraFirmaModal(false)
+      setSegnaInviato(false)
+      setFeedback('')
+      if (feedbackTimeoutRef.current) {
+        clearTimeout(feedbackTimeoutRef.current)
+        feedbackTimeoutRef.current = null
+      }
       return
     }
+    const iniziale = invio?.titoloIniziale?.trim() || ''
+    setTitolo(iniziale)
+    setSegnaInviato(false)
+    titoloSalvatoRef.current = iniziale
     void caricaSettingsData().then(d => {
       const nome = d?.form?.nome_azienda || ''
       setNomeAzienda(nome.split(' ')[0] || nome)
     })
-  }, [visible])
+  }, [visible, invio?.titoloIniziale])
+
+  function mostraFeedback(msg: string) {
+    setFeedback(msg)
+    if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current)
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setFeedback('')
+      feedbackTimeoutRef.current = null
+    }, 2500)
+  }
+
+  async function salvaTitoloSeModificato(valore?: string): Promise<void> {
+    const nuovo = (valore ?? titolo).trim()
+    if (!invio?.preventivoId || nuovo === titoloSalvatoRef.current || salvaTitoloInCorsoRef.current) return
+    salvaTitoloInCorsoRef.current = true
+    try {
+      await aggiornaTitoloPreventivo(invio.preventivoId, nuovo)
+      titoloSalvatoRef.current = nuovo
+      setTitolo(nuovo)
+    } finally {
+      salvaTitoloInCorsoRef.current = false
+    }
+  }
+
+  async function chiudiModal() {
+    try {
+      await salvaTitoloSeModificato()
+    } catch {
+      Alert.alert('Errore', 'Impossibile salvare il nome.')
+      return
+    }
+    if (segnaInviato && invio?.preventivoId) {
+      await segnaPreventivoInviato(invio.preventivoId)
+      eventBus.emit('aggiorna-home')
+    }
+    onClose()
+  }
 
   const haStripe = Boolean(invio?.haStripe)
   const uploadOk = Boolean(invio?.uploadOnlineOk)
@@ -76,6 +132,24 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
     setMostraFirmaModal(true)
   }
 
+  async function apriPdf() {
+    if (!pdfUri) return
+    try {
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('Errore', 'Impossibile aprire il PDF da questo dispositivo.')
+        return
+      }
+      await Sharing.shareAsync(pdfUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Apri preventivo',
+        UTI: 'com.adobe.pdf',
+      })
+      mostraFeedback('PDF aperto.')
+    } catch {
+      Alert.alert('Errore', 'Impossibile aprire il PDF')
+    }
+  }
+
   async function condividiPdf() {
     if (!pdfUri || condivisionePdfRef.current) return
     condivisionePdfRef.current = true
@@ -105,6 +179,9 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
         UTI: 'com.adobe.pdf',
       })
       trackEvento('pdf_condiviso', 'preventivo-pdf')
+      mostraFeedback('Condivisione avviata.')
+    } catch {
+      Alert.alert('Errore', 'Impossibile condividere il PDF.')
     } finally {
       condivisionePdfRef.current = false
       setCondivisionePdf(false)
@@ -113,16 +190,20 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
 
   return (
     <>
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={() => void chiudiModal()}>
         <View style={styles.overlay}>
-          <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Chiudi" />
+          <Pressable
+            style={styles.backdrop}
+            onPress={() => void chiudiModal()}
+            accessibilityRole="button"
+            accessibilityLabel="Chiudi"
+          />
           <View style={styles.box}>
             <View style={styles.iconCircle}>
               <Text style={styles.iconCheck}>{'\u2713'}</Text>
             </View>
 
             <Text style={styles.title}>Preventivo generato!</Text>
-            {dettaglio ? <Text style={styles.dettaglio}>{dettaglio}</Text> : null}
 
             {!uploadOk ? (
               <View style={styles.alertBox}>
@@ -132,6 +213,35 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
                   viene caricato online. Chiudi e clicca di nuovo «Genera PDF» per riprovare.
                 </Text>
               </View>
+            ) : null}
+
+            {invio?.preventivoId ? (
+              <View style={styles.titoloGroup}>
+                <Text style={styles.titoloLabel}>Nome preventivo</Text>
+                <Text style={styles.titoloHint}>Compare in storico e nella cartella cliente</Text>
+                <TextInput
+                  style={styles.titoloInput}
+                  value={titolo}
+                  onChangeText={setTitolo}
+                  onBlur={() => void salvaTitoloSeModificato()}
+                  placeholder="es. PRV-2026-0153"
+                  placeholderTextColor="#9CA3AF"
+                  autoCapitalize="words"
+                />
+              </View>
+            ) : null}
+
+            {invio?.segnaInviatoDisponibile ? (
+              <TouchableOpacity
+                style={styles.inviataRow}
+                onPress={() => setSegnaInviato(v => !v)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, segnaInviato && styles.checkboxChecked]}>
+                  {segnaInviato && <Text style={styles.checkboxTick}>{'\u2713'}</Text>}
+                </View>
+                <Text style={styles.inviataLabel}>Segna come inviato</Text>
+              </TouchableOpacity>
             ) : null}
 
             <Text style={styles.sectionTitle}>Come lo invii al cliente?</Text>
@@ -167,10 +277,16 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
                 <Text style={styles.btnPdfSub}>
                   {`Allegato PDF classico.${haStripe ? ' Il link Stripe è già in fondo al documento.' : ''}`}
                 </Text>
+
+                <TouchableOpacity style={styles.btnSecondary} activeOpacity={0.85} onPress={() => void apriPdf()}>
+                  <Text style={styles.btnSecondaryText}>Apri PDF</Text>
+                </TouchableOpacity>
               </>
             ) : null}
 
-            <TouchableOpacity style={styles.btnChiudi} activeOpacity={0.85} onPress={onClose}>
+            {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
+
+            <TouchableOpacity style={styles.btnChiudi} activeOpacity={0.85} onPress={() => void chiudiModal()}>
               <Text style={styles.btnChiudiText}>Chiudi</Text>
             </TouchableOpacity>
           </View>
@@ -187,7 +303,7 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
           nomeAzienda={nomeAzienda}
           haStripe={haStripe}
           onClose={() => setMostraFirmaModal(false)}
-          onInviato={onClose}
+          onInviato={() => void chiudiModal()}
         />
       ) : null}
     </>
@@ -243,6 +359,26 @@ const styles = StyleSheet.create({
   },
   alertTitle: { fontSize: 13, fontWeight: '600', color: '#991B1B' },
   alertText: { marginTop: 4, fontSize: 12, color: '#991B1B', lineHeight: 17 },
+  titoloGroup: { marginTop: 16 },
+  titoloLabel: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
+  titoloHint: { marginTop: 2, fontSize: 11, color: '#9CA3AF' },
+  titoloInput: {
+    marginTop: 8,
+    backgroundColor: '#F7F8FA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0D1B2A',
+    fontFamily: 'monospace',
+  },
+  inviataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4, marginTop: 12 },
+  inviataLabel: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center' },
+  checkboxChecked: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
+  checkboxTick: { color: '#fff', fontSize: 13, fontWeight: '700' },
   sectionTitle: { marginTop: 18, fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
   btnFirma: {
     marginTop: 10,
@@ -261,6 +397,22 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   btnPdfSub: { marginTop: 4, paddingHorizontal: 2, fontSize: 12, color: '#6B7280', lineHeight: 16 },
+  btnSecondary: {
+    marginTop: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  btnSecondaryText: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
+  feedback: {
+    marginTop: 12,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0E9F8E',
+  },
   btnChiudi: { marginTop: 16, paddingVertical: 10, alignItems: 'center' },
   btnChiudiText: { fontSize: 14, fontWeight: '600', color: '#9CA3AF' },
 })

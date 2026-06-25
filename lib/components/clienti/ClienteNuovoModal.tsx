@@ -5,6 +5,7 @@ export type NuovoClienteForm = {
   nome: string
   telefono: string
   email: string
+  indirizzo: string
   note: string
 }
 
@@ -62,6 +63,16 @@ export function ClienteNuovoModal({ visible, dati, salvando, onClose, onChange, 
               placeholderTextColor={COLORS.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"
+            />
+            <Text style={styles.fieldLabel}>INDIRIZZO</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={dati.indirizzo}
+              onChangeText={v => onChange(c => ({ ...c, indirizzo: v }))}
+              placeholder="Indirizzo"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="default"
+              autoCapitalize="words"
             />
             <Text style={styles.fieldLabel}>NOTE</Text>
             <TextInput

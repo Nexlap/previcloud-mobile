@@ -23,14 +23,14 @@ export default function Clienti() {
   const { clienti, loading, refreshing, onRefresh, aggiungiCliente, eliminaCliente, aggiornaCliente } = useClienti()
   const [cerca, setCerca] = useState('')
   const [mostraForm, setMostraForm] = useState(false)
-  const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', note: '' })
+  const [nuovoCliente, setNuovoCliente] = useState({ nome: '', telefono: '', email: '', indirizzo: '', note: '' })
   const [salvando, setSalvando] = useState(false)
   const [selezioneAttiva, setSelezioneAttiva] = useState(false)
   const [clientiSelezionati, setClientiSelezionati] = useState<string[]>([])
   const [clientiEliminati, setClientiEliminati] = useState<string[]>([])
   const [menuCliente, setMenuCliente] = useState<Cliente | null>(null)
   const [clienteModifica, setClienteModifica] = useState<Cliente | null>(null)
-  const [datiModifica, setDatiModifica] = useState<ClienteModificaForm>({ nome: '', telefono: '', email: '', note: '' })
+  const [datiModifica, setDatiModifica] = useState<ClienteModificaForm>({ nome: '', telefono: '', email: '', indirizzo: '', note: '' })
   const [salvandoModifica, setSalvandoModifica] = useState(false)
 
   useFocusEffect(useCallback(() => {
@@ -39,7 +39,7 @@ export default function Clienti() {
 
   function chiudiModalNuovoCliente() {
     setMostraForm(false)
-    setNuovoCliente({ nome: '', telefono: '', email: '', note: '' })
+    setNuovoCliente({ nome: '', telefono: '', email: '', indirizzo: '', note: '' })
   }
 
   function apriModalNuovoCliente() {

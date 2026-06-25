@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { generaPDF as generaPDFApi, generaPDFFile, salvaPDF as salvaPDFApi, creaLinkPagamento } from "../../lib/api/pdf"
 import {
   PreventivoPdfClienteButton,
@@ -12,7 +13,6 @@ import { PreventivoPdfHeader } from '../../lib/components/preventivoPdf/Preventi
 import {
   PreventivoPdfClienteModal,
   PreventivoPdfPagamentoModal,
-  PreventivoPdfTitoloModal,
 } from '../../lib/components/preventivoPdf/PreventivoPdfModals'
 import { BuilderPagamentoRateCard } from '../../lib/components/builder/BuilderPagamentoRateCard'
 import {
@@ -27,7 +27,6 @@ import { scalaHtmlPreview } from '../../lib/features/preventivoPdf/text'
 import { testoConPagamento } from 'preventivoai-shared'
 import { importoDaTesto, meseCorrenteString, parseImportoEuro, validaPianiPagamento } from 'preventivoai-shared'
 import {
-  aggiornaTitoloPreventivo,
   caricaClientePreventivo,
   caricaClientiPreventivo,
   caricaMetodiPagamentoPreventivo,
@@ -39,7 +38,6 @@ import {
   MetodoPagamento,
   salvaPreventivoPdf,
   salvaTemplatePreferito,
-  segnaPreventivoInviato,
   tokenPreventivoPdf,
 } from '../../lib/api/preventivoPdf'
 import { statoAccount } from '../../lib/api/stripeConnect'
@@ -92,6 +90,7 @@ export default function PreventivoPDF() {
     rate_visibile,
   } = useLocalSearchParams<Params>()
 
+  const insets = useSafeAreaInsets()
   const [testo] = useState(testoParam || '')
   const [template, setTemplate] = useState('pulito')
   const [generando, setGenerando] = useState(false)
@@ -101,9 +100,6 @@ export default function PreventivoPDF() {
   const [mostraModalCliente, setMostraModalCliente] = useState(false)
   const [nuovoNomeCliente, setNuovoNomeCliente] = useState('')
   const [modalTab, setModalTab] = useState<'esistente' | 'nuovo'>('esistente')
-  const [titolo, setTitolo] = useState('')
-  const [mostraModalTitolo, setMostraModalTitolo] = useState(false)
-  const [preventivoSalvatoId, setPreventivoSalvatoId] = useState<string | null>(null)
   const [nascondiPrezzi, setNascondiPrezzi] = useState(builderState.nascondiPrezzi)
   const [htmlPreview, setHtmlPreview] = useState('')
   const [caricandoPreview, setCaricandoPreview] = useState(false)
@@ -123,12 +119,12 @@ export default function PreventivoPDF() {
   const [rateMeseInizio, setRateMeseInizio] = useState(meseCorrenteString())
   const [rateVisibileNelPDF, setRateVisibileNelPDF] = useState(true)
   const previewTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [segnaInviato, setSegnaInviato] = useState(false)
   const [modalPdfSuccesso, setModalPdfSuccesso] = useState<{
     pdfUri: string
     dettaglio: string
     invio: PdfSuccessInvio
   } | null>(null)
+  const [mostraToastSalvato, setMostraToastSalvato] = useState(false)
 
   async function caricaStripeStato() {
     try {
@@ -330,7 +326,7 @@ export default function PreventivoPDF() {
         ? `Preventivo ${clienteSelezionato.nome}`
         : `Preventivo ${new Date().toLocaleDateString('it-IT')}`
       const idSalvato = await salvaSuSupabase(data.versione, titoloAuto, pdfUrl, testoFinale)
-      if (idSalvato) setPreventivoSalvatoId(idSalvato)
+      const numeroPreventivo = data.numeroPreventivo || ''
 
       if (idSalvato && metodoPagamentoSelezionato?.tipo === 'stripe') {
         const { payment_url } = await creaLinkPagamento(idSalvato, 'Preventivo', token)
@@ -393,7 +389,6 @@ export default function PreventivoPDF() {
         }
       }
 
-      setTitolo(clienteSelezionato ? `Preventivo ${clienteSelezionato.nome}` : '')
       setModalPdfSuccesso({
         pdfUri: uri,
         dettaglio: 'Preventivo salvato sul dispositivo.',
@@ -403,6 +398,8 @@ export default function PreventivoPDF() {
           nomeCliente: clienteSelezionato?.nome,
           haStripe: testoFinale.includes('LINK PAGAMENTO:'),
           uploadOnlineOk: uploadOk,
+          titoloIniziale: numeroPreventivo || titoloAuto,
+          segnaInviatoDisponibile: true,
         },
       })
     } catch (err: unknown) {
@@ -413,7 +410,8 @@ export default function PreventivoPDF() {
 
   function chiudiModalPdfSuccesso() {
     setModalPdfSuccesso(null)
-    setTimeout(() => setMostraModalTitolo(true), 400)
+    setMostraToastSalvato(true)
+    setTimeout(() => setMostraToastSalvato(false), 2500)
   }
 
   async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = '', testoSalvataggio?: string): Promise<string | null> {
@@ -433,24 +431,9 @@ export default function PreventivoPDF() {
     })
   }
 
-  async function aggiornaTitolo(nuovoTitolo: string) {
-    if (!preventivoSalvatoId || !nuovoTitolo.trim()) return
-    await aggiornaTitoloPreventivo(preventivoSalvatoId, nuovoTitolo)
-  }
-
   async function salvaTemplate(tmpl: string) {
     setTemplate(tmpl)
     await salvaTemplatePreferito(tmpl)
-  }
-
-  async function chiudiTitoloModal(conSalvataggio: boolean) {
-    setMostraModalTitolo(false)
-    if (conSalvataggio) await aggiornaTitolo(titolo)
-    if (segnaInviato && preventivoSalvatoId) {
-      await segnaPreventivoInviato(preventivoSalvatoId)
-      eventBus.emit('aggiorna-home')
-    }
-    setSegnaInviato(false)
   }
 
   return (
@@ -530,16 +513,6 @@ export default function PreventivoPDF() {
         onAggiungiCliente={aggiungiESelezionaCliente}
       />
 
-      <PreventivoPdfTitoloModal
-        visible={mostraModalTitolo}
-        titolo={titolo}
-        segnaInviato={segnaInviato}
-        onChangeTitolo={setTitolo}
-        onToggleSegnaInviato={() => setSegnaInviato(v => !v)}
-        onSave={() => chiudiTitoloModal(true)}
-        onSkip={() => chiudiTitoloModal(false)}
-      />
-
       <PreventivoPdfSuccessModal
         visible={modalPdfSuccesso !== null}
         dettaglio={modalPdfSuccesso?.dettaglio}
@@ -547,6 +520,30 @@ export default function PreventivoPDF() {
         invio={modalPdfSuccesso?.invio}
         onClose={chiudiModalPdfSuccesso}
       />
+
+      {mostraToastSalvato && (
+        <View style={{
+          position: 'absolute',
+          bottom: 24 + insets.bottom,
+          left: 24,
+          right: 24,
+          backgroundColor: '#0E9F8E',
+          borderRadius: 12,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          alignItems: 'center',
+          shadowColor: '#000',
+          shadowOpacity: 0.12,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 2 },
+          elevation: 6,
+          zIndex: 100,
+        }}>
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>
+            Preventivo salvato con successo
+          </Text>
+        </View>
+      )}
     </View>
   )
 }

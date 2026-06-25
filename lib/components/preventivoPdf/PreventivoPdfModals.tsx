@@ -175,61 +175,6 @@ export function PreventivoPdfClienteModal({
   )
 }
 
-type TitoloModalProps = {
-  visible: boolean
-  titolo: string
-  segnaInviato: boolean
-  onChangeTitolo: (titolo: string) => void
-  onToggleSegnaInviato: () => void
-  onSave: () => void
-  onSkip: () => void
-}
-
-export function PreventivoPdfTitoloModal({
-  visible,
-  titolo,
-  segnaInviato,
-  onChangeTitolo,
-  onToggleSegnaInviato,
-  onSave,
-  onSkip,
-}: TitoloModalProps) {
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.titoloOverlay}>
-        <View style={styles.titoloBox}>
-          <Text style={styles.titoloTitle}>Preventivo salvato {'\u2713'}</Text>
-          <Text style={styles.titoloSub}>Puoi dargli un nome più preciso</Text>
-          <TextInput
-            style={styles.titoloInput}
-            value={titolo}
-            onChangeText={onChangeTitolo}
-            placeholder="es. Preventivo caldaia Mario"
-            placeholderTextColor="#9CA3AF"
-            autoFocus
-          />
-          <TouchableOpacity
-            style={styles.inviataRow}
-            onPress={onToggleSegnaInviato}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.checkbox, segnaInviato && styles.checkboxChecked]}>
-              {segnaInviato && <Text style={styles.checkboxTick}>{'\u2713'}</Text>}
-            </View>
-            <Text style={styles.inviataLabel}>Segna come inviato</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.titoloSaveBtn} onPress={onSave}>
-            <Text style={styles.titoloSaveBtnText}>Salva</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.titoloSkipBtn} onPress={onSkip}>
-            <Text style={styles.titoloSkipText}>Va bene così</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  )
-}
-
 const styles = StyleSheet.create({
   modalContainer: { flex: 1, backgroundColor: '#F7F8FA' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 56, backgroundColor: '#0D1B2A' },
@@ -259,18 +204,4 @@ const styles = StyleSheet.create({
   generateBtnDisabled: { opacity: 0.5 },
   modalSkipBtn: { padding: 12, alignItems: 'center' as const },
   modalSkipText: { fontSize: 13, color: '#9CA3AF' },
-  titoloOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center' as const, alignItems: 'center' as const, padding: 24 },
-  titoloBox: { backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '100%', gap: 12 },
-  titoloTitle: { fontSize: 17, fontWeight: '600' as const, color: '#0D1B2A', textAlign: 'center' as const },
-  titoloSub: { fontSize: 12, color: '#9CA3AF', textAlign: 'center' as const },
-  titoloInput: { backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
-  titoloSaveBtn: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, alignItems: 'center' as const },
-  titoloSaveBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' as const },
-  titoloSkipBtn: { padding: 10, alignItems: 'center' as const },
-  titoloSkipText: { fontSize: 13, color: '#9CA3AF' },
-  inviataRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
-  inviataLabel: { fontSize: 14, color: '#0D1B2A', fontWeight: '500' },
-  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center' },
-  checkboxChecked: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
-  checkboxTick: { color: '#fff', fontSize: 13, fontWeight: '700' },
 })

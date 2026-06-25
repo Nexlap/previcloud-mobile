@@ -90,13 +90,21 @@ export async function creaCliente(dati: {
   telefono: string
   email: string
   note: string
+  indirizzo?: string
 }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: new Error('Non autenticato') }
 
   const result = await supabase
     .from('clienti')
-    .insert({ ...dati, user_id: user.id })
+    .insert({
+      nome: dati.nome,
+      telefono: dati.telefono,
+      email: dati.email,
+      note: dati.note,
+      indirizzo: dati.indirizzo || null,
+      user_id: user.id,
+    })
     .select()
     .single()
 
@@ -107,6 +115,11 @@ export async function creaCliente(dati: {
   return result
 }
 
-export async function aggiornaCliente(id: string, dati: Partial<Cliente>) {
-  return supabase.from('clienti').update(dati).eq('id', id)
+export async function aggiornaCliente(
+  id: string,
+  dati: Partial<Pick<Cliente, 'nome' | 'telefono' | 'email' | 'note' | 'indirizzo'>>,
+) {
+  const payload = { ...dati }
+  if (dati.indirizzo !== undefined) payload.indirizzo = dati.indirizzo || null
+  return supabase.from('clienti').update(payload).eq('id', id)
 }
