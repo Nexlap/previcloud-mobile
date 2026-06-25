@@ -1,0 +1,59 @@
+﻿SHARED exists: True
+VENDOR exists: True
+
+========== 1. FILES ONLY IN SHARED (not in vendor) ==========
+(none)
+
+Count: 0
+
+========== 2. FILES ONLY IN VENDOR (not in SHARED) ==========
+(none)
+
+Count: 0
+
+========== 3. COMMON FILES - HASH COMPARISON ==========
+Common files: 28 | IDENTICAL: 27 | DIFF: 1
+
+FILE | STATUS | SUMMARY
+-----|--------|--------
+.gitignore | IDENTICAL | -
+BUSINESS_RULES.md | IDENTICAL | -
+package.json | IDENTICAL | -
+src/abbonamentoRate.ts | IDENTICAL | -
+src/calcolaAccontoSaldoPiano.ts | IDENTICAL | -
+src/confermeElimina.ts | IDENTICAL | -
+src/costanti.ts | IDENTICAL | -
+src/dateFormat.ts | IDENTICAL | -
+src/fiscaleCalcolo.ts | IDENTICAL | -
+src/generaTestoPreventivoBuilder.ts | IDENTICAL | -
+src/giornoScadenza.ts | IDENTICAL | -
+src/importo.ts | IDENTICAL | -
+src/importoBase.ts | DIFF | + ... statLine = (& git diff --no-index --stat "$sPath" "$vPath" 2>&1 | Out ...
+src/incasso.ts | IDENTICAL | -
+src/index.ts | IDENTICAL | -
+src/messaggiCliente.ts | IDENTICAL | -
+src/modificaPreventivo/apriModificaPreventivo.ts | IDENTICAL | -
+src/modificaPreventivo/constants.ts | IDENTICAL | -
+src/modificaPreventivo/modificaSession.ts | IDENTICAL | -
+src/parsePreventivoTesto.ts | IDENTICAL | -
+src/preventiviVisibili.ts | IDENTICAL | -
+src/preventivoMadre.ts | IDENTICAL | -
+src/preventivoPdfPiani.ts | IDENTICAL | -
+src/serviziDaTesto.ts | IDENTICAL | -
+src/statoPiano.ts | IDENTICAL | -
+src/testoConPagamento.ts | IDENTICAL | -
+src/validaPianiPagamento.ts | IDENTICAL | -
+tsconfig.json | IDENTICAL | -
+
+========== DIFF FILES DETAIL (git diff --stat) ==========
+--- src/importoBase.ts ---
+git.exe : warning: in the working copy of 
+'C:\Users\Lele\Desktop\PreventivoAI\MOBILE\preventivoai-mobile\vendor\preventivoai-shared\src\importoBase.ts', LF will 
+be replaced by CRLF the next time Git touches it
+In C:\Users\Lele\AppData\Local\Temp\ps-script-72fb043c-0101-4e9a-95b6-a146453750e9.ps1:196 car:15
++ ...   $detail = & git diff --no-index --stat "$sPath" "$vPath" 2>&1 | Out ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+

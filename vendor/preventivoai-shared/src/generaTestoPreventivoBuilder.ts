@@ -37,6 +37,11 @@ function parseCosto(raw: string): number {
   return parseImportoEuro(raw) ?? 0
 }
 
+export type ScontoPreventivo = {
+  tipo: 'percentuale' | 'fisso'
+  valore: number
+}
+
 export function generaTestoPreventivoBuilder(params: {
   nomeCliente: string
   voci: VoceBuilderTesto[]
@@ -44,6 +49,7 @@ export function generaTestoPreventivoBuilder(params: {
   includiIva: boolean
   noteExtra: string
   metodoPagamentoSelezionato?: MetodoPagamentoBuilder | null
+  sconto?: ScontoPreventivo | null
 }): string {
   const {
     nomeCliente,
@@ -52,6 +58,7 @@ export function generaTestoPreventivoBuilder(params: {
     includiIva,
     noteExtra,
     metodoPagamentoSelezionato = null,
+    sconto = null,
   } = params
   const oggi = new Date().toLocaleDateString('it-IT')
   let testo = `PREVENTIVO\nData: ${oggi}  |  Validita': 30 giorni\n`
@@ -79,9 +86,29 @@ export function generaTestoPreventivoBuilder(params: {
     })
   }
   const totaleFinale = calcolaTotaleVoci(voci) + calcolaTotaleTrasferte(trasferte)
+  const haSconto = sconto != null && sconto.valore > 0
+  let importoSconto = 0
+  let labelSconto = ''
+  if (haSconto) {
+    if (sconto.tipo === 'percentuale') {
+      importoSconto = totaleFinale * (sconto.valore / 100)
+      labelSconto = `Sconto ${sconto.valore}%`
+    } else {
+      importoSconto = sconto.valore
+      labelSconto = 'Sconto'
+    }
+  }
+  const totaleLordo = totaleFinale
+  const totaleNetto = haSconto ? Math.max(0, totaleFinale - importoSconto) : totaleFinale
   testo += `\nRIEPILOGO:\n`
   if (includiIva) {
-    testo += `Imponibile: \u20AC${formatImportoEuroVisuale(totaleFinale)}\nIVA 22%: \u20AC${formatImportoEuroVisuale(totaleFinale * 0.22)}\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nTOTALE: \u20AC${formatImportoEuroVisuale(totaleFinale * 1.22)}\n`
+    if (haSconto) {
+      testo += `Imponibile: \u20AC${formatImportoEuroVisuale(totaleNetto)}\nIVA 22%: \u20AC${formatImportoEuroVisuale(totaleNetto * 0.22)}\nTOTALE LORDO: \u20AC${formatImportoEuroVisuale(totaleLordo * 1.22)}\n${labelSconto}: -\u20AC${formatImportoEuroVisuale(importoSconto)}\nTOTALE: \u20AC${formatImportoEuroVisuale(totaleNetto * 1.22)}\n`
+    } else {
+      testo += `Imponibile: \u20AC${formatImportoEuroVisuale(totaleFinale)}\nIVA 22%: \u20AC${formatImportoEuroVisuale(totaleFinale * 0.22)}\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nTOTALE: \u20AC${formatImportoEuroVisuale(totaleFinale * 1.22)}\n`
+    }
+  } else if (haSconto) {
+    testo += `TOTALE LORDO: \u20AC${formatImportoEuroVisuale(totaleLordo)}\n${labelSconto}: -\u20AC${formatImportoEuroVisuale(importoSconto)}\nTOTALE: \u20AC${formatImportoEuroVisuale(totaleNetto)}\n`
   } else {
     testo += `TOTALE: \u20AC${formatImportoEuroVisuale(totaleFinale)}\n`
   }

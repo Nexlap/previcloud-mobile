@@ -8,7 +8,7 @@ import { creaServizioListino } from '../../lib/api/servizi';
 import { Cliente, ProfiloFiscale, Servizio, VocePreventivo } from '../../lib/types';
 import { eventBus } from '../../lib/eventBus';
 import { trackEvento } from '../../lib/api/track';
-import { formatImportoEuroVisuale } from 'preventivoai-shared';
+import { formatImportoEuroVisuale, calcolaTotaleVoci, calcolaTotaleTrasferte } from 'preventivoai-shared';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
 import {
   applicaBozzaABuilderState,
@@ -24,13 +24,14 @@ import {
 } from '../../lib/builder/draft';
 import { caricaClientiBuilder, caricaMetodiPagamentoBuilder, caricaProfiloFiscaleBuilder, caricaServiziBuilder, creaClienteBuilder, metodoContantiDefault } from '../../lib/builder/data';
 import { statoAccount } from '../../lib/api/stripeConnect';
-import { calcolaFiscalePreventivo, calcolaLordoDaNetto as calcolaLordoDaNettoBuilder, calcolaTotaleTrasferte, calcolaTotaleVoci } from '../../lib/builder/fiscale';
+import { calcolaFiscalePreventivo, calcolaLordoDaNetto as calcolaLordoDaNettoBuilder } from '../../lib/builder/fiscale';
 import { parsePreventivoTesto, collegaVociAlListino, trovaMetodoPagamentoDaNome, vociParsedConServizioId } from '../../lib/builder/parsePreventivoText';
 import { risolviModifica } from '../../lib/features/modificaPreventivo/modificaSession';
 import { generaTestoPreventivoBuilder } from '../../lib/builder/preventivoText';
 import { TrasfertaBuilder } from '../../lib/builder/types';
 import { VoceCustomModal } from '../../lib/components/builder/VoceCustomModal';
 import { TrasferteCard } from '../../lib/components/builder/TrasferteCard';
+import { ScontoCard } from '../../lib/components/builder/ScontoCard';
 import { PagamentoCard } from '../../lib/components/builder/PagamentoCard';
 import { MetodoPagamentoModal } from '../../lib/components/builder/MetodoPagamentoModal';
 import { ServiziListinoCard } from '../../lib/components/builder/ServiziListinoCard';
@@ -72,6 +73,9 @@ export default function Builder() {
   const [nuovaSpesaNome, setNuovaSpesaNome] = useState(builderState.nuovaSpesaNome)
   const [nuovaSpesaImporto, setNuovaSpesaImporto] = useState(builderState.nuovaSpesaImporto)
   const [nuoviKm, setNuoviKm] = useState(builderState.nuoviKm)
+  const [scontoAttivo, setScontoAttivo] = useState(builderState.scontoAttivo)
+  const [scontoTipo, setScontoTipo] = useState<'percentuale' | 'fisso'>(builderState.scontoTipo)
+  const [scontoValore, setScontoValore] = useState(builderState.scontoValore)
   const [abbonamentoAttivo, setAbbonamentoAttivo] = useState(builderState.abbonamentoAttivo)
   const [abImporto, setAbImporto] = useState(builderState.abImporto)
   const [abGiorno, setAbGiorno] = useState(builderState.abGiorno)
@@ -158,6 +162,15 @@ export default function Builder() {
     setIncludiIva(parsed.includiIva)
     setTrasferte(parsed.trasferte)
     setMostraTrasferte(parsed.trasferte.length > 0)
+    if (parsed.sconto) {
+      setScontoAttivo(true)
+      setScontoTipo(parsed.sconto.tipo)
+      setScontoValore(String(parsed.sconto.valore))
+    } else {
+      setScontoAttivo(false)
+      setScontoTipo('percentuale')
+      setScontoValore('')
+    }
     setPagamentoImportato(parsed.pagamentoNome)
 
     const clienteId = modifica?.clienteId || params.cliente_id
@@ -188,6 +201,9 @@ export default function Builder() {
     builderState.nuovaSpesaNome = nuovaSpesaNome
     builderState.nuovaSpesaImporto = nuovaSpesaImporto
     builderState.nuoviKm = nuoviKm
+    builderState.scontoAttivo = scontoAttivo
+    builderState.scontoTipo = scontoTipo
+    builderState.scontoValore = scontoValore
     builderState.abbonamentoAttivo = abbonamentoAttivo
     builderState.abImporto = abImporto
     builderState.abGiorno = abGiorno
@@ -201,7 +217,7 @@ export default function Builder() {
     builderState.rateVisibileNelPDF = rateVisibileNelPDF
     builderState.metodoPagamentoNessuno = metodoPagamentoNessuno
     builderState.metodoPagamentoId = metodoPagamentoNessuno ? null : (metodoPagamentoSelezionato?.id ?? null)
-  }, [voci, nomeCliente, noteExtra, includiIva, trasferte, mostraTrasferte, nuovaSpesaNome, nuovaSpesaImporto, nuoviKm, abbonamentoAttivo, abImporto, abGiorno, abMeseInizio, abMensilita, abVisibileNelPDF, pagamentoRateAttivo, rateNumero, rateGiornoScadenza, rateMeseInizio, rateVisibileNelPDF, metodoPagamentoNessuno, metodoPagamentoSelezionato])
+  }, [voci, nomeCliente, noteExtra, includiIva, trasferte, mostraTrasferte, nuovaSpesaNome, nuovaSpesaImporto, nuoviKm, scontoAttivo, scontoTipo, scontoValore, abbonamentoAttivo, abImporto, abGiorno, abMeseInizio, abMensilita, abVisibileNelPDF, pagamentoRateAttivo, rateNumero, rateGiornoScadenza, rateMeseInizio, rateVisibileNelPDF, metodoPagamentoNessuno, metodoPagamentoSelezionato])
 
   useEffect(() => {
     const reset = () => ripristina()
@@ -283,6 +299,9 @@ export default function Builder() {
     nuovaSpesaNome,
     nuovaSpesaImporto,
     nuoviKm,
+    scontoAttivo,
+    scontoTipo,
+    scontoValore,
     abbonamentoAttivo,
     abImporto,
     abGiorno,
@@ -371,6 +390,9 @@ export default function Builder() {
         nuovaSpesaNome,
         nuovaSpesaImporto,
         nuoviKm,
+        scontoAttivo,
+        scontoTipo,
+        scontoValore,
         abbonamentoAttivo,
         abImporto,
         abGiorno,
@@ -402,6 +424,9 @@ export default function Builder() {
     setNuovaSpesaNome(draft.nuovaSpesaNome)
     setNuovaSpesaImporto(draft.nuovaSpesaImporto)
     setNuoviKm(draft.nuoviKm)
+    setScontoAttivo(draft.scontoAttivo ?? false)
+    setScontoTipo(draft.scontoTipo ?? 'percentuale')
+    setScontoValore(draft.scontoValore ?? '')
     setAbbonamentoAttivo(draft.abbonamentoAttivo)
     setAbImporto(draft.abImporto)
     setAbGiorno(draft.abGiorno)
@@ -447,6 +472,9 @@ export default function Builder() {
     setNuovaSpesaNome('')
     setNuovaSpesaImporto('')
     setNuoviKm('')
+    setScontoAttivo(false)
+    setScontoTipo('percentuale')
+    setScontoValore('')
     setAbbonamentoAttivo(false)
     setAbImporto('')
     setAbGiorno('1')
@@ -521,6 +549,7 @@ export default function Builder() {
   }
 
   function generaTestoPreventivo() {
+    const valoreSconto = parseFloat(scontoValore.replace(',', '.'))
     return generaTestoPreventivoBuilder({
       nomeCliente,
       voci,
@@ -528,6 +557,9 @@ export default function Builder() {
       includiIva,
       noteExtra,
       metodoPagamentoSelezionato: metodoPagamentoNessuno ? null : metodoPagamentoSelezionato,
+      sconto: scontoAttivo && scontoValore && valoreSconto > 0
+        ? { tipo: scontoTipo, valore: valoreSconto }
+        : null,
     })
   }
 
@@ -562,6 +594,7 @@ export default function Builder() {
 
   const totale = calcolaTotale()
   const totaleTrasferte = calcolaTotaleTrasferte(trasferte)
+  const totaleBase = calcolaTotaleVoci(voci) + calcolaTotaleTrasferte(trasferte)
   const totaleConIva = includiIva ? (totale + totaleTrasferte) * 1.22 : (totale + totaleTrasferte)
   const f = calcolaFiscale()
   const fmt = formatImportoEuroVisuale
@@ -651,6 +684,16 @@ export default function Builder() {
           setNuovaSpesaNome={setNuovaSpesaNome}
           nuovaSpesaImporto={nuovaSpesaImporto}
           setNuovaSpesaImporto={setNuovaSpesaImporto}
+        />
+
+        <ScontoCard
+          scontoAttivo={scontoAttivo}
+          scontoTipo={scontoTipo}
+          scontoValore={scontoValore}
+          onToggle={() => setScontoAttivo(v => !v)}
+          onChangeTipo={setScontoTipo}
+          onChangeValore={setScontoValore}
+          totaleBase={totaleBase}
         />
 
         <NoteAggiuntiveCard

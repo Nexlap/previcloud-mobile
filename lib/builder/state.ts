@@ -25,6 +25,9 @@ export const builderState: BuilderMemoryState = {
   metodoPagamentoNessuno: false,
   metodoPagamentoId: null,
   nascondiPrezzi: false,
+  scontoAttivo: false,
+  scontoTipo: 'percentuale',
+  scontoValore: '',
 }
 
 export function resetBuilderState() {
@@ -51,4 +54,7 @@ export function resetBuilderState() {
   builderState.metodoPagamentoNessuno = false
   builderState.metodoPagamentoId = null
   builderState.nascondiPrezzi = false
+  builderState.scontoAttivo = false
+  builderState.scontoTipo = 'percentuale'
+  builderState.scontoValore = ''
 }

@@ -18,6 +18,11 @@ export type TrasfertaParsed = {
   esente: boolean
 }
 
+export type ScontoPreventivoParsed = {
+  tipo: 'percentuale' | 'fisso'
+  valore: number
+}
+
 export type ParsedPreventivoTesto = {
   nomeCliente: string
   voci: VocePreventivoParsed[]
@@ -25,6 +30,7 @@ export type ParsedPreventivoTesto = {
   includiIva: boolean
   noteExtra: string
   pagamentoNome: string
+  sconto?: ScontoPreventivoParsed | null
 }
 
 export type ServizioListinoRef = {
@@ -67,6 +73,20 @@ export function collegaVociAlListino(voci: VocePreventivoParsed[], servizi: Serv
   })
 }
 
+function parseScontoDaRiga(riga: string): ScontoPreventivoParsed | null {
+  const matchPercentuale = riga.match(/^Sconto\s+(\d+)%/i)
+  if (matchPercentuale) {
+    const valore = parseInt(matchPercentuale[1], 10)
+    return valore > 0 ? { tipo: 'percentuale', valore } : null
+  }
+  const importoRaw = riga
+    .replace(/^(SCONTO:|Sconto)\s*/i, '')
+    .replace(/^-?\s*€?\s*/, '')
+    .trim()
+  const importo = parseImportoEuro(importoRaw)
+  return importo != null && importo > 0 ? { tipo: 'fisso', valore: importo } : null
+}
+
 export function parsePreventivoTesto(testo: string): ParsedPreventivoTesto {
   const righe = testo.split('\n').map(r => r.trim()).filter(Boolean)
 
@@ -74,6 +94,7 @@ export function parsePreventivoTesto(testo: string): ParsedPreventivoTesto {
   let noteExtra = ''
   let pagamentoNome = ''
   let includiIva = false
+  let sconto: ScontoPreventivoParsed | null = null
   const voci: VocePreventivoParsed[] = []
   const trasferte: TrasfertaParsed[] = []
 
@@ -209,6 +230,13 @@ export function parsePreventivoTesto(testo: string): ParsedPreventivoTesto {
       includiIva = true
       continue
     }
+    if (riga.startsWith('TOTALE LORDO:')) {
+      continue
+    }
+    if (riga.startsWith('SCONTO:') || riga.startsWith('Sconto')) {
+      sconto = parseScontoDaRiga(riga)
+      continue
+    }
     if (riga.startsWith('Note:')) {
       noteExtra = riga.replace('Note:', '').trim()
       continue
@@ -222,7 +250,7 @@ export function parsePreventivoTesto(testo: string): ParsedPreventivoTesto {
   pushServizio()
   pushRimborso()
 
-  return { nomeCliente, voci, trasferte, includiIva, noteExtra, pagamentoNome }
+  return { nomeCliente, voci, trasferte, includiIva, noteExtra, pagamentoNome, sconto }
 }
 
 export function trovaMetodoPagamentoDaNome<T extends { nome: string }>(metodi: T[], pagamentoNome: string): T | null {

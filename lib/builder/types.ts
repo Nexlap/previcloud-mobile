@@ -34,4 +34,7 @@ export type BuilderMemoryState = {
   metodoPagamentoNessuno: boolean
   metodoPagamentoId: string | null
   nascondiPrezzi: boolean
+  scontoAttivo: boolean
+  scontoTipo: 'percentuale' | 'fisso'
+  scontoValore: string
 }

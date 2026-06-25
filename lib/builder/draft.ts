@@ -77,6 +77,9 @@ export function applicaBozzaABuilderState(draft: BuilderDraft) {
   builderState.metodoPagamentoNessuno = draft.metodoPagamentoNessuno
   builderState.metodoPagamentoId = draft.metodoPagamentoId
   builderState.nascondiPrezzi = draft.nascondiPrezzi ?? false
+  builderState.scontoAttivo = draft.scontoAttivo ?? false
+  builderState.scontoTipo = draft.scontoTipo ?? 'percentuale'
+  builderState.scontoValore = draft.scontoValore ?? ''
 }
 
 export async function caricaBozzaBuilder(): Promise<BuilderDraft | null> {
