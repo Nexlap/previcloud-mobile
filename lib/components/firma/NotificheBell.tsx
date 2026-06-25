@@ -24,13 +24,43 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
     archivia,
     ricarica,
     clearToasts,
-    visteLocalmente,
   } = useNotifiche()
   const [listaAperta, setListaAperta] = useState(false)
+  const [nonAncoraNotate, setNonAncoraNotate] = useState<Set<string>>(
+    () => new Set(),
+  )
+  const [nonAncoraAperte, setNonAncoraAperte] = useState<Set<string>>(
+    () => new Set(),
+  )
 
   useFocusEffect(useCallback(() => {
     void ricarica()
   }, [ricarica]))
+
+  useEffect(() => {
+    setNonAncoraNotate(prev => {
+      let changed = false
+      const next = new Set(prev)
+      for (const n of notifiche) {
+        if (!n.letta && !next.has(n.id)) {
+          next.add(n.id)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+    setNonAncoraAperte(prev => {
+      let changed = false
+      const next = new Set(prev)
+      for (const n of notifiche) {
+        if (!n.letta && !next.has(n.id)) {
+          next.add(n.id)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [notifiche])
 
   useEffect(() => {
     if (!listaAperta) return
@@ -47,6 +77,16 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
   function apriNotifica(n: Notifica) {
     setListaAperta(false)
     apriNotificaUi(n)
+  }
+
+  function apriNotificaConMarca(n: Notifica) {
+    setNonAncoraAperte(prev => {
+      if (!prev.has(n.id)) return prev
+      const next = new Set(prev)
+      next.delete(n.id)
+      return next
+    })
+    void apriNotifica(n)
   }
 
   return (
@@ -92,23 +132,24 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
             ) : (
               notifiche.map(n => {
                 const rimandata = notificaInRimando(n)
-                const nonAncoraVista = !n.letta && !visteLocalmente.has(n.id)
+                const mostraDot = nonAncoraNotate.has(n.id) && !rimandata
+                const titoloBold = nonAncoraAperte.has(n.id) && !rimandata
                 return (
-                  <View key={n.id} style={{ borderBottomWidth: 1, borderBottomColor: '#F9FAFB', opacity: nonAncoraVista ? 1 : 0.5 }}>
+                  <View key={n.id} style={{ borderBottomWidth: 1, borderBottomColor: '#F9FAFB', opacity: mostraDot || titoloBold ? 1 : 0.5 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingRight: 8 }}>
                       <TouchableOpacity
-                        onPress={() => void apriNotifica(n)}
+                        onPress={() => apriNotificaConMarca(n)}
                         style={{ flex: 1, flexDirection: 'row', padding: 16, gap: 10 }}
                       >
-                        {nonAncoraVista ? (
+                        {mostraDot ? (
                           <View style={{
                             width: 8, height: 8, borderRadius: 4, marginTop: 6,
-                            backgroundColor: rimandata ? '#D1D5DB' : '#0E9F8E',
+                            backgroundColor: '#0E9F8E',
                           }} />
                         ) : null}
                         <View style={{ flex: 1 }}>
                           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                            <Text style={{ fontWeight: nonAncoraVista ? '700' : '400', fontSize: 14, color: '#0D1B2A' }}>{n.titolo}</Text>
+                            <Text style={{ fontWeight: titoloBold ? '700' : '400', fontSize: 14, color: '#0D1B2A' }}>{n.titolo}</Text>
                             {rimandata ? (
                               <View style={{ backgroundColor: '#FEF3C7', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 }}>
                                 <Text style={{ fontSize: 10, fontWeight: '700', color: '#92400E' }}>RIMANDATA</Text>
