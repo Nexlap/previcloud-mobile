@@ -72,23 +72,41 @@ export function ClienteInfoCard({ cliente }: { cliente: Cliente }) {
         </View>
         <View style={styles.headerRow}>
           <View style={styles.avatarInfo}>
-            <Text style={styles.clienteNome}>{cliente.nome || ''}</Text>
+            <Text
+              style={styles.clienteNome}
+              numberOfLines={espanso ? undefined : 1}
+              ellipsizeMode={espanso ? undefined : 'tail'}
+            >
+              {cliente.nome || ''}
+            </Text>
             {cliente.telefono ? (
               <View style={styles.infoRow}>
-                <AppIcon name="phone" size={14} color="#9CA3AF" />
-                <Text style={styles.clienteInfo}>{cliente.telefono}</Text>
+                <View style={styles.infoIcon}>
+                  <AppIcon name="phone" size={14} color="#9CA3AF" />
+                </View>
+                <Text
+                  style={[styles.clienteInfo, { flex: 1, flexShrink: 1 }]}
+                  numberOfLines={espanso ? undefined : 1}
+                  ellipsizeMode={espanso ? undefined : 'tail'}
+                >
+                  {cliente.telefono}
+                </Text>
               </View>
             ) : null}
             {espanso && cliente.email ? (
               <View style={styles.infoRow}>
-                <AppIcon name="mail" size={14} color="#9CA3AF" />
-                <Text style={styles.clienteInfo}>{cliente.email}</Text>
+                <View style={styles.infoIcon}>
+                  <AppIcon name="mail" size={14} color="#9CA3AF" />
+                </View>
+                <Text style={[styles.clienteInfo, { flex: 1, flexShrink: 1 }]}>{cliente.email}</Text>
               </View>
             ) : null}
             {espanso && cliente.indirizzo ? (
               <View style={styles.infoRow}>
-                <AppIcon name="map-pin" size={14} color="#9CA3AF" />
-                <Text style={styles.clienteInfo}>{cliente.indirizzo}</Text>
+                <View style={styles.infoIcon}>
+                  <AppIcon name="map-pin" size={14} color="#9CA3AF" />
+                </View>
+                <Text style={[styles.clienteInfo, { flex: 1, flexShrink: 1 }]}>{cliente.indirizzo}</Text>
               </View>
             ) : null}
             {espanso && cliente.note ? <Text style={styles.clienteNote}>{cliente.note}</Text> : null}
@@ -187,12 +205,13 @@ const styles = StyleSheet.create({
   avatarRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
   avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
   avatarText: { color: '#fff', fontSize: 22, fontWeight: '700' },
-  avatarInfo: { flex: 1, gap: 3 },
+  avatarInfo: { flex: 1, minWidth: 0, gap: 3 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', flex: 1 },
   chevron: { paddingLeft: 8 },
   clienteNome: { fontSize: 18, fontWeight: '700', color: '#0D1B2A' },
   clienteInfo: { fontSize: 13, color: '#6B7280', flex: 1, flexShrink: 1, flexWrap: 'wrap' },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  infoRow: { flexDirection: 'row', flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 6 },
+  infoIcon: { marginTop: 2, flexShrink: 0 },
   clienteNote: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', marginTop: 4 },
   statsRow: { flexDirection: 'row', gap: 10 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', minWidth: 0 },
