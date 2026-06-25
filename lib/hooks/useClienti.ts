@@ -40,7 +40,7 @@ export function useClienti() {
     const { data, error } = await creaCliente(dati)
     if (error) { Alert.alert('Errore', error.message); return false }
 
-    setClienti(c => [...c, { ...data, totale_preventivi: 0, num_preventivi: 0 }])
+    setClienti(c => [...c, { ...data, num_preventivi: 0 }])
     return true
   }
 

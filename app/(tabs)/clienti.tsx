@@ -12,7 +12,6 @@ import { LongPressAwareTouchableOpacity } from '../../lib/components/LongPressAw
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { useClienti } from "../../lib/hooks/useClienti"
 import { Cliente } from '../../lib/types'
-import { formatImportoEuro } from 'preventivoai-shared'
 import { inizialiCliente, labelPreventivi } from '../../lib/utils/cliente'
 import { trackEvento } from "../../lib/api/track"
 import { AppIcon } from '../../lib/components/icons/AppIcon'
@@ -192,9 +191,6 @@ export default function Clienti() {
                     {labelPreventivi(c.num_preventivi || 0)}
                   </Text>
                 </View>
-                {(c.totale_preventivi || 0) > 0 && (
-                  <Text style={styles.clienteStatImporto}>€{formatImportoEuro(c.totale_preventivi ?? 0, 0)}</Text>
-                )}
               </View>
               {!selezioneAttiva ? (
                 <TouchableOpacity
@@ -277,7 +273,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   preventiviBadgeText: { fontSize: 11, fontWeight: '600' },
-  clienteStatImporto: { fontSize: 12, color: '#0E9F8E', fontWeight: '600' },
   menuBtn: { paddingHorizontal: 4, paddingVertical: 8 },
   menuPuntini: { fontSize: 22, lineHeight: 24 },
 })

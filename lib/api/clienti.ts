@@ -1,5 +1,4 @@
 import { queryConFiltroCestino } from 'preventivoai-shared'
-import { caricaIncassiPerCliente } from './incassi'
 import { supabase } from '../supabase'
 import { Cliente } from '../types'
 import { trackEvento } from './track'
@@ -63,8 +62,6 @@ export async function caricaClientiConStats(): Promise<Cliente[] | null> {
 
   if (!data) return []
 
-  const incassiPerCliente = await caricaIncassiPerCliente(user.id)
-
   return Promise.all(data.map(async (c) => {
     const base = () =>
       supabase
@@ -79,7 +76,6 @@ export async function caricaClientiConStats(): Promise<Cliente[] | null> {
 
     return {
       ...c,
-      totale_preventivi: incassiPerCliente[c.id] || 0,
       num_preventivi: count || 0,
     }
   }))

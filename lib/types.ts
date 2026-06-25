@@ -26,7 +26,6 @@ export interface Cliente {
   indirizzo: string | null
   note?: string | null
   created_at?: string
-  totale_preventivi?: number
   num_preventivi?: number
 }
 
