@@ -14,12 +14,12 @@ import {
   copiaLinkFirma,
   buildMessaggioFirmaInvio,
   buildOggettoFirmaInvio,
-  isFirmaManuale,
   isFirmaOnline,
   ottieniUrlFirma,
   ottieniUrlInvioFirma,
   registraFirmaManuale,
   statoFirmaInvio,
+  testoFirmaCompletata,
 } from '../../api/firma'
 import { CanaleCondivisioneButton } from './CanaleCondivisioneButton'
 
@@ -226,7 +226,6 @@ export function FirmaDettaglioModal({
       : sf === 'attesa' ? 'Condividi link firma'
         : 'Firma digitale'
 
-  const firmatoManuale = sf === 'firmato' && isFirmaManuale(invio)
   const firmatoOnline = sf === 'firmato' && isFirmaOnline(invio)
 
   return (
@@ -239,7 +238,7 @@ export function FirmaDettaglioModal({
           {sf === 'firmato' && invio ? (
             <View style={{ marginTop: 16, borderRadius: 12, borderWidth: 1, borderColor: '#A7F3D0', backgroundColor: '#ECFDF5', padding: 12 }}>
               <Text style={{ fontWeight: '700', color: '#065F46' }}>
-                {firmatoManuale ? 'Firmato a mano' : 'Firmato online'} il {new Date(invio.firmato_at!).toLocaleDateString('it-IT')}
+                {testoFirmaCompletata(invio)}
               </Text>
               {urlDocumentiFirma.loading ? (
                 <Text style={{ marginTop: 8, fontSize: 13, color: '#047857' }}>Caricamento documenti…</Text>

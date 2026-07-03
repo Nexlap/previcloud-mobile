@@ -1,4 +1,5 @@
 import { Linking, Share } from 'react-native'
+import { formatDataBreve, formatOraBreve } from 'preventivoai-shared'
 import { BACKEND_URL } from '../constants'
 import { supabase } from '../supabase'
 import { sessionToken } from './settings'
@@ -97,6 +98,12 @@ export async function registraFirmaManuale(preventivoId: string, input?: FirmaMa
     firma_immagine_url: string | null
     metodo_firma: MetodoFirma
   }
+}
+
+export function testoFirmaCompletata(invio?: PreventivoInvio): string | null {
+  if (!invio?.firmato_at) return null
+  const tipo = isFirmaManuale(invio) ? 'Firmato a mano' : 'Firmato online'
+  return `${tipo} il ${formatDataBreve(invio.firmato_at)} alle ${formatOraBreve(invio.firmato_at)}`
 }
 
 export function labelFirmaFirmata(invio?: PreventivoInvio) {
