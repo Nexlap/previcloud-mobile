@@ -1,6 +1,6 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import { spostaPreventiviInCestino } from '../cestino'
-import { queryConFiltroCestino } from 'preventivoai-shared'
+import { queryConFiltroCestino } from 'previcloud-shared'
 import { Cliente } from '../types'
 import { supabase } from '../supabase'
 import { caricaCronologiaPreventivo } from './preventivoCronologia'

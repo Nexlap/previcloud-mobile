@@ -1,1 +1,1 @@
-export { serviziDaTesto } from 'preventivoai-shared'
+export { serviziDaTesto } from 'previcloud-shared'

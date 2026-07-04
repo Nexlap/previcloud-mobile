@@ -1,4 +1,4 @@
-import { formatImportoEuro } from 'preventivoai-shared'
+import { formatImportoEuro } from 'previcloud-shared'
 
 type VoceDemo = { nome: string; dettagli: [string, string]; prezzo: number }
 type DemoPreventivo = {

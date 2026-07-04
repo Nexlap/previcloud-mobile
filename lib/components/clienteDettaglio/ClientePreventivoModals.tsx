@@ -129,7 +129,7 @@ export function ClientePreventivoModals({
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(13,27,42,0.4)', justifyContent: 'center', alignItems: 'center', padding: 32 },
   modalBox: { backgroundColor: '#fff', borderRadius: 20, padding: 20, width: '100%' },
   modalTitle: { fontSize: 16, fontWeight: '600', color: '#0D1B2A', marginBottom: 16, textAlign: 'center' },
   modalOption: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },

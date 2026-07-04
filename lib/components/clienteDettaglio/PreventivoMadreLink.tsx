@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { dataPreventivoMadre, titoloPreventivoMadre } from 'preventivoai-shared'
+import { dataPreventivoMadre, titoloPreventivoMadre } from 'previcloud-shared'
 import { TitoloConData } from './TitoloConData'
 
 export type PreventivoMadreInfo = {
@@ -95,5 +95,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  freccia: { fontSize: 14, color: '#0E9F8E', fontWeight: '700' },
+  freccia: { fontSize: 14, color: '#0B7A6D', fontWeight: '700' },
 })

@@ -3,7 +3,7 @@ import { supabase } from '../supabase'
 import {
   creaAbbonamentoDaPreventivo as creaAbbonamentoCore,
   creaPianoRateDaPreventivo as creaPianoRateCore,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'
 import { preventivoPianiDb } from './preventivoPdfPianiDb'
 
 export type ClientePreventivo = { id: string, nome: string }

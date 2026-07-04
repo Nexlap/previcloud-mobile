@@ -62,7 +62,7 @@ export function PagamentoCard({
       </TouchableOpacity>
       {metodiPagamento.length <= 1 && (
         <TouchableOpacity onPress={onConfigura}>
-          <Text style={{ fontSize: 13, color: '#0E9F8E', textAlign: 'center', paddingTop: 10 }}>Configura altri metodi di pagamento →</Text>
+          <Text style={{ fontSize: 13, color: '#0B7A6D', textAlign: 'center', paddingTop: 10 }}>Configura altri metodi di pagamento →</Text>
         </TouchableOpacity>
       )}
     </View>

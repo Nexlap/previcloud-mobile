@@ -18,7 +18,7 @@ import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 import {
   MESSAGGI_CLIENTE_DEFAULT,
   type MessaggiClienteTemplates,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'
 import { caricaMessaggiCliente } from '../../lib/messaggiCliente'
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>

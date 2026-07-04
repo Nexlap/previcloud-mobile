@@ -7,7 +7,7 @@ export {
   MESI_FULL,
   TEMPLATES,
   UNITA_MISURA,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'
 
 // ── URL Backend ────────────────────────────────────────────────────
 export const BACKEND_URL = Constants.expoConfig?.extra?.backendUrl as string
@@ -16,6 +16,9 @@ export const BACKEND_URL = Constants.expoConfig?.extra?.backendUrl as string
 export const COLORS = {
   primary: '#0D1B2A',
   accent: '#0E9F8E',
+  // Variante più scura del teal, usata come colore testo/icona su sfondi chiari
+  // per garantire un contrasto WCAG AA (il teal puro è ~3.3:1 su bianco).
+  accentInk: '#0B7A6D',
   background: '#F7F8FA',
   white: '#fff',
   border: '#E5E7EB',

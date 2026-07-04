@@ -36,13 +36,13 @@ export function ClienteCard({ clienteSelezionato, onOpenCliente, onClearCliente 
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10, shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   cardSub: { fontSize: 12, color: '#9CA3AF', marginTop: -6 },
   clienteSelezionatoBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#0E9F8E' },
   clienteSelezionatoNome: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
   clienteSelezionatoInfo: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   clienteAggiungiBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F7F8FA', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed' as const },
-  clienteAggiungiIcon: { fontSize: 20, color: '#0E9F8E', fontWeight: '600' },
+  clienteAggiungiIcon: { fontSize: 20, color: '#0B7A6D', fontWeight: '600' },
   clienteAggiungiText: { fontSize: 14, color: '#6B7280' },
 })

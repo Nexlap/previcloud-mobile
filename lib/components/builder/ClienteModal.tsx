@@ -80,7 +80,7 @@ export function ClienteModal({
                 <View style={{ alignItems: 'center', paddingTop: 40 }}>
                   <Text style={{ fontSize: 14, color: '#9CA3AF' }}>Nessun cliente trovato</Text>
                   <TouchableOpacity onPress={() => setModalTab('nuovo')} style={{ marginTop: 8 }}>
-                    <Text style={{ fontSize: 14, color: '#0E9F8E', fontWeight: '600' }}>Aggiungi nuovo →</Text>
+                    <Text style={{ fontSize: 14, color: '#0B7A6D', fontWeight: '600' }}>Aggiungi nuovo →</Text>
                   </TouchableOpacity>
                 </View>
               }
@@ -96,7 +96,7 @@ export function ClienteModal({
                     <Text style={styles.clienteItemNome}>{item.nome}</Text>
                     {item.email ? <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{item.email}</Text> : null}
                   </View>
-                  {clienteSelezionato?.id === item.id && <Text style={{ color: '#0E9F8E', fontSize: 16 }}>✓</Text>}
+                  {clienteSelezionato?.id === item.id && <Text style={{ color: '#0B7A6D', fontSize: 16 }}>✓</Text>}
                 </TouchableOpacity>
               )}
             />

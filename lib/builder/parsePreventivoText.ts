@@ -6,4 +6,4 @@ export {
   type ParsedPreventivoTesto,
   type VocePreventivoParsed,
   type TrasfertaParsed,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'

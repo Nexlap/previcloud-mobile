@@ -6,7 +6,7 @@ import { aggiornaTitoloPreventivo, segnaPreventivoInviato } from '../../api/prev
 import { eventBus } from '../../eventBus'
 import { caricaSettingsData } from '../../api/settings'
 import { trackEvento } from '../../utils/analytics'
-import { buildMessaggioCondividiPdf } from 'preventivoai-shared'
+import { buildMessaggioCondividiPdf } from 'previcloud-shared'
 import { caricaMessaggiCliente } from '../../messaggiCliente'
 import { InviaFirmaModal } from '../firma/InviaFirmaModal'
 import { CanaleCondivisioneButton } from '../firma/CanaleCondivisioneButton'
@@ -324,6 +324,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 24,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 4,
   },
   iconCircle: {
     alignSelf: 'center',
@@ -334,7 +339,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  iconCheck: { fontSize: 28, color: '#0E9F8E', fontWeight: '700' },
+  iconCheck: { fontSize: 28, color: '#0B7A6D', fontWeight: '700' },
   title: {
     marginTop: 16,
     fontSize: 20,
@@ -411,7 +416,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     fontWeight: '600',
-    color: '#0E9F8E',
+    color: '#0B7A6D',
   },
   btnChiudi: { marginTop: 16, paddingVertical: 10, alignItems: 'center' },
   btnChiudiText: { fontSize: 14, fontWeight: '600', color: '#9CA3AF' },

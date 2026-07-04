@@ -5,4 +5,4 @@ export {
   calcolaFiscalePreventivo,
   calcolaLordoDaNetto,
   type RisultatoFiscale,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'

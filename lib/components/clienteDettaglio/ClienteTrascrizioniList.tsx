@@ -57,7 +57,7 @@ export function ClienteTrascrizioniList({
 const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 40 },
   emptyText: { fontSize: 14, color: '#9CA3AF', marginBottom: 12 },
-  chiamataCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
+  chiamataCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   chiamataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
   chiamataTitolo: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
   chiamataData: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },

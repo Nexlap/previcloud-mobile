@@ -1,4 +1,4 @@
 export {
   MODIFICA_VERSIONE_ALTERNATIVA_LABEL,
   MODIFICA_VERSIONE_MODAL_SUB,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'

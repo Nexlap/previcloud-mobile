@@ -100,7 +100,7 @@ export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onC
               style={[styles.fieldInput, { paddingVertical: 12, alignItems: 'center' }]}
               onPress={selezionaScreenshot}
             >
-              <Text style={{ color: '#0E9F8E', fontSize: 14, fontWeight: '600' }}>
+              <Text style={{ color: '#0B7A6D', fontSize: 14, fontWeight: '600' }}>
                 Allega screenshot (opzionale)
               </Text>
             </TouchableOpacity>
@@ -127,7 +127,7 @@ export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onC
           </View>
           <View style={styles.infoBox}>
             <Text style={styles.infoBoxText}>
-              Le segnalazioni vengono analizzate entro 24-48 ore. Grazie per aiutarci a migliorare PreventivoAI!
+              Le segnalazioni vengono analizzate entro 24-48 ore. Grazie per aiutarci a migliorare PreviCloud!
             </Text>
           </View>
         </ScrollView>

@@ -7,7 +7,7 @@ import {
   proteggiModificaMessaggio,
   serializzaMessaggioSegmenti,
   type TipoMessaggioCliente,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'
 import { useSettingsTheme } from '../../hooks/useSettingsTheme'
 import { settingsStyles as styles } from './settingsStyles'
 
@@ -169,5 +169,5 @@ const editorStyles = {
     paddingVertical: 4,
     borderWidth: 1,
   },
-  insertChipText: { fontSize: 11, color: '#0E9F8E', fontWeight: '600' as const },
+  insertChipText: { fontSize: 11, color: '#0B7A6D', fontWeight: '600' as const },
 }

@@ -1,7 +1,7 @@
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { UNITA_OPTIONS } from '../../features/listino/constants'
 import { useScreenTheme } from '../../hooks/useScreenTheme'
-import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { formatImportoEuroVisuale } from 'previcloud-shared'
 import { listinoStyles as styles } from './listinoStyles'
 
 export type ServizioDraft = {

@@ -4,7 +4,7 @@ import { COLORS, MESI_BREVI } from '../../constants'
 import { AnnoPicker, GiornoScadenzaPicker, MeseInizioPicker } from '../pickers/DatePartPickers'
 import { InputDatePicker } from '../pickers/InputDatePicker'
 import { Preventivo, RataAbbonamento } from '../../types'
-import { formatImportoEuro, parseImportoEuro } from 'preventivoai-shared'
+import { formatImportoEuro, parseImportoEuro } from 'previcloud-shared'
 import { PreventivoPicker } from './PreventivoPicker'
 
 type Props = {
@@ -319,7 +319,7 @@ export function ClienteAbbonamentoModals({
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(13,27,42,0.4)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalBox: { backgroundColor: COLORS.white, borderRadius: 20, padding: 20, width: '100%', maxHeight: '85%' },
   modalTitle: { fontSize: 16, fontWeight: '600', color: COLORS.primary, marginBottom: 16, textAlign: 'center' },
   modalCancel: { paddingTop: 14, alignItems: 'center' },

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 
-import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { formatImportoEuroVisuale } from 'previcloud-shared'
 import { AppIcon } from '../icons/AppIcon'
 
 type Props = {
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
-  totalValue: { fontSize: 18, fontWeight: '700', color: '#0E9F8E' },
+  totalValue: { fontSize: 18, fontWeight: '700', color: '#0B7A6D' },
   generateBtn: { backgroundColor: '#0D1B2A', borderRadius: 16, padding: 16, alignItems: 'center' as const },
   generateBtnDisabled: { opacity: 0.4 },
   generateBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },

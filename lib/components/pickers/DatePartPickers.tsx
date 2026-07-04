@@ -10,7 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { COLORS, labelMese } from '../../constants'
-import { clampGiornoAlMese, giorniInMese, giornoValidoPerMese } from 'preventivoai-shared'
+import { clampGiornoAlMese, giorniInMese, giornoValidoPerMese } from 'previcloud-shared'
 import { AppIcon } from '../icons/AppIcon'
 
 const MESI = Array.from({ length: 12 }, (_, i) => i + 1)
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   placeholder: { color: COLORS.textMuted },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(13,27,42,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,

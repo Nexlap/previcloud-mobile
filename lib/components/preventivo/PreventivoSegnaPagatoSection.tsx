@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native'
-import { formatData, inputDateToIso, oggiInputDate } from 'preventivoai-shared'
+import { formatData, inputDateToIso, oggiInputDate } from 'previcloud-shared'
 import { InputDatePicker } from '../pickers/InputDatePicker'
 
 type Props = {

@@ -5,7 +5,7 @@ import type { VoceMenuAzione } from '../MenuAzioniSheet'
 import { mostraMenuAzioniAlert } from '../../utils/mostraMenuAzioniAlert'
 import { MESI_BREVI } from '../../constants'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
-import { formatDataBreve, formatImportoEuro, giornoScadenzaEffettivo, labelScadenzaRataDaPiano, titoloHeaderPiano, analizzaStatoPiano, ordinaPianiPerStato } from 'preventivoai-shared'
+import { formatDataBreve, formatImportoEuro, giornoScadenzaEffettivo, labelScadenzaRataDaPiano, titoloHeaderPiano, analizzaStatoPiano, ordinaPianiPerStato } from 'previcloud-shared'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PianoVuotoState } from './PianoVuotoState'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
@@ -43,7 +43,7 @@ type Props = {
 }
 
 function badgeCanone(stato: RataAbbonamento['stato']) {
-  if (stato === 'incassato') return { label: 'Incassato', bg: '#D1FAE5', color: '#0E9F8E' }
+  if (stato === 'incassato') return { label: 'Incassato', bg: '#D1FAE5', color: '#0B7A6D' }
   if (stato === 'in_ritardo') return { label: 'In ritardo', bg: '#FEE2E2', color: '#EF4444' }
   if (stato === 'parziale') return { label: 'Parziale', bg: '#FEF3C7', color: '#D97706' }
   return { label: 'Da incassare', bg: '#F3F4F6', color: '#6B7280' }
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
   abHeaderTesto: { flex: 1, minWidth: 0 },
   abHeaderNome: { fontSize: 15, fontWeight: '700', color: '#0D1B2A', flexShrink: 1 },
   abHeaderSub: { fontSize: 12, color: '#6B7280', marginTop: 4 },
-  abHeaderHint: { fontSize: 12, color: '#0E9F8E', marginTop: 4, fontWeight: '500' },
+  abHeaderHint: { fontSize: 12, color: '#0B7A6D', marginTop: 4, fontWeight: '500' },
   abHeaderHintConcluso: { color: '#047857' },
   sezioneConclusiLabel: {
     fontSize: 11,
@@ -627,15 +627,15 @@ const styles = StyleSheet.create({
   },
   abHeaderArrow: { fontSize: 12, color: '#9CA3AF' },
   menuPuntini: { fontSize: 22, color: '#9CA3AF', lineHeight: 24 },
-  rataCardCorrente: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: '#0E9F8E', padding: 14, gap: 10 },
+  rataCardCorrente: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: '#0E9F8E', padding: 14, gap: 10, shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
   rataCardSelected: { backgroundColor: '#F0FDF4' },
   rataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   rataMese: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
-  rataMeseTag: { fontSize: 10, fontWeight: '600', color: '#0E9F8E', backgroundColor: '#F0FDF4', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  rataMeseTag: { fontSize: 10, fontWeight: '600', color: '#0B7A6D', backgroundColor: '#F0FDF4', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   rataImporto: { fontSize: 15, fontWeight: '700', color: '#0D1B2A' },
   abGeneraBtn: { backgroundColor: '#F7F8FA', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  abGeneraBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' },
-  section: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
+  abGeneraBtnText: { fontSize: 13, color: '#0B7A6D', fontWeight: '500' },
+  section: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#F7F8FA' },
   sectionTitle: { fontSize: 12, fontWeight: '600', color: '#6B7280', letterSpacing: 0.6, textTransform: 'uppercase' },
   sectionArrow: { fontSize: 10, color: '#9CA3AF' },
@@ -647,9 +647,9 @@ const styles = StyleSheet.create({
   rataMiniDetail: { marginTop: 10, gap: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 10 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   badgeText: { fontSize: 10, fontWeight: '600' },
-  rataCheck: { fontSize: 14, fontWeight: '700', color: '#0E9F8E' },
+  rataCheck: { fontSize: 14, fontWeight: '700', color: '#0B7A6D' },
   abAggiungiBtn: { alignItems: 'center', padding: 12 },
-  abAggiungiText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' },
+  abAggiungiText: { fontSize: 13, color: '#0B7A6D', fontWeight: '500' },
   rataNota: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   rataDataIncasso: { fontSize: 12, color: '#9CA3AF' },
   rataBarraContainer: { gap: 4 },
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
   rataBarraResiduo: { fontSize: 11, color: '#EF4444', fontWeight: '500' },
   rataAzioni: { flexDirection: 'row', gap: 8 },
   rataAzioneBtn: { flex: 1, borderRadius: 10, padding: 9, alignItems: 'center', borderWidth: 1, borderColor: '#0E9F8E' },
-  rataAzioneBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600' },
+  rataAzioneBtnText: { fontSize: 13, color: '#0B7A6D', fontWeight: '600' },
   reminderBtnCompact: { flex: 0, paddingHorizontal: 12, borderColor: '#25D366' },
   reminderBtnCompactText: { fontSize: 13, color: '#25D366', fontWeight: '600' },
 })

@@ -230,7 +230,7 @@ export function FirmaDettaglioModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity activeOpacity={1} onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 }}>
+      <TouchableOpacity activeOpacity={1} onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(13,27,42,0.4)', justifyContent: 'center', padding: 20 }}>
         <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20 }}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: '#0D1B2A' }}>{titolo}</Text>
           <Text style={{ marginTop: 6, color: '#6B7280', fontSize: 14 }}>Cliente: {nomeCliente}</Text>
@@ -252,7 +252,7 @@ export function FirmaDettaglioModal({
               ) : null}
               {urlDocumentiFirma.pdf ? (
                 <TouchableOpacity onPress={() => void Linking.openURL(urlDocumentiFirma.pdf!)} style={{ marginTop: 8 }}>
-                  <Text style={{ color: '#0E9F8E', fontWeight: '600' }}>Apri PDF firmato</Text>
+                  <Text style={{ color: '#0B7A6D', fontWeight: '600' }}>Apri PDF firmato</Text>
                 </TouchableOpacity>
               ) : null}
               {!urlDocumentiFirma.loading && !urlDocumentiFirma.pdf && !urlDocumentiFirma.img && (invio.pdf_firmato_url || invio.firma_immagine_url) ? (
@@ -309,7 +309,7 @@ export function FirmaDettaglioModal({
                 onPress={() => void segnaFirmatoManuale()}
                 style={{ marginTop: 10, borderWidth: 1, borderColor: '#99F6E4', backgroundColor: '#F0FDFA', borderRadius: 12, padding: 14, alignItems: 'center' }}
               >
-                <Text style={{ fontWeight: '700', color: '#0E9F8E' }}>
+                <Text style={{ fontWeight: '700', color: '#0B7A6D' }}>
                   {loading === 'manuale' ? '...' : 'Segna firmato a mano'}
                 </Text>
               </TouchableOpacity>
@@ -325,7 +325,7 @@ export function FirmaDettaglioModal({
             </View>
           ) : null}
 
-          {feedback ? <Text style={{ marginTop: 10, color: '#0E9F8E', fontSize: 13 }}>{feedback}</Text> : null}
+          {feedback ? <Text style={{ marginTop: 10, color: '#0B7A6D', fontSize: 13 }}>{feedback}</Text> : null}
 
           <TouchableOpacity onPress={onClose} style={{ marginTop: 16, alignItems: 'center' }}>
             <Text style={{ color: '#6B7280' }}>Chiudi</Text>

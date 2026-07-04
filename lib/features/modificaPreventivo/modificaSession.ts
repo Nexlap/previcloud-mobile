@@ -3,4 +3,4 @@ export {
   getModificaSession,
   clearModificaSession,
   risolviModifica,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'

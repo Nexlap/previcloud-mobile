@@ -1,5 +1,5 @@
 import { spostaPreventiviInCestino } from '../cestino'
-import { queryConFiltroCestino } from 'preventivoai-shared'
+import { queryConFiltroCestino } from 'previcloud-shared'
 import { Cliente, Trascrizione } from '../types'
 import { supabase } from '../supabase'
 

@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Abbonamento, PreventivoMadre } from '../../types'
-import { dataPreventivoMadre, rimuoviDataDaNomePiano, titoloPreventivoMadre } from 'preventivoai-shared'
+import { dataPreventivoMadre, rimuoviDataDaNomePiano, titoloPreventivoMadre } from 'previcloud-shared'
 import { TitoloConData } from './TitoloConData'
 
 type Props = {
@@ -58,6 +58,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     overflow: 'hidden',
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   titolo: {
     fontSize: 12,
@@ -82,5 +87,5 @@ const styles = StyleSheet.create({
   sub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   subTitolo: { fontSize: 12, fontWeight: '500', color: '#9CA3AF' },
   subData: { fontSize: 12, fontWeight: '600', color: '#9CA3AF' },
-  freccia: { fontSize: 14, color: '#0E9F8E', fontWeight: '600', flexShrink: 0 },
+  freccia: { fontSize: 14, color: '#0B7A6D', fontWeight: '600', flexShrink: 0 },
 })

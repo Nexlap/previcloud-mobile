@@ -1,6 +1,6 @@
 import { Alert, Linking, Modal, Text, TouchableOpacity } from 'react-native'
 import { useRef, useState } from 'react'
-import { formatDataBreve, formatImportoEuro } from 'preventivoai-shared'
+import { formatDataBreve, formatImportoEuro } from 'previcloud-shared'
 import { creaLinkPagamentoRata } from '../../api/pdf'
 import { sessioneClienteDettaglio } from '../../api/clienteDettaglio'
 import { supabase } from '../../supabase'
@@ -86,7 +86,7 @@ export function NotificaRataDialog({ notifica, visible, onClose, onRimanda, onCo
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity activeOpacity={1} onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 }}>
+      <TouchableOpacity activeOpacity={1} onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(13,27,42,0.4)', justifyContent: 'center', padding: 20 }}>
         <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20 }}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: '#0D1B2A' }}>{notifica.titolo}</Text>
           <Text style={{ marginTop: 8, color: '#6B7280', fontSize: 14, lineHeight: 20 }}>{notifica.messaggio}</Text>

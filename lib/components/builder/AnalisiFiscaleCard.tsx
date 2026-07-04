@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { RisultatoFiscale } from '../../builder/types'
 import { ProfiloFiscale, VocePreventivo } from '../../types'
-import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { formatImportoEuroVisuale } from 'previcloud-shared'
 import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type Props = {
@@ -218,7 +218,7 @@ export function AnalisiFiscaleCard({
             </TouchableOpacity>
           )}
           {lordomCalcolato !== null && voci.length === 0 && (
-            <Text style={{ fontSize: 12, color: '#0E9F8E', marginTop: 4 }}>
+            <Text style={{ fontSize: 12, color: '#0B7A6D', marginTop: 4 }}>
               Lordo da fatturare: €{formatImportoEuroVisuale(lordomCalcolato)} — aggiungi servizi per applicare
             </Text>
           )}
@@ -239,6 +239,6 @@ const styles = StyleSheet.create({
   fiscaleNeg: { fontSize: 13, color: '#EF4444' },
   fiscaleSep: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 4 },
   fiscaleNetto: { fontSize: 14, fontWeight: '700', color: '#0D1B2A', flex: 1 },
-  fiscaleNettoVal: { fontSize: 16, fontWeight: '700', color: '#0E9F8E' },
+  fiscaleNettoVal: { fontSize: 16, fontWeight: '700', color: '#0B7A6D' },
   fiscaleDisclaimer: { fontSize: 10, color: '#9CA3AF', fontStyle: 'italic' as const, marginTop: 6 },
 })

@@ -1,6 +1,6 @@
 import { creaLinkPagamento } from '../../api/pdf'
 import { MetodoPagamento } from '../../api/preventivoPdf'
-import { testoConPagamento as testoConPagamentoShared } from 'preventivoai-shared'
+import { testoConPagamento as testoConPagamentoShared } from 'previcloud-shared'
 
 export { scalaHtmlPreview } from './pdfPreviewPaginata'
 

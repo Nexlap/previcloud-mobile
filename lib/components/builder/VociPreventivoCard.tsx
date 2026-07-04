@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { VocePreventivo } from '../../types'
-import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { formatImportoEuroVisuale } from 'previcloud-shared'
 import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type Props = {
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   voceMoltiply: { fontSize: 16, color: '#9CA3AF', marginTop: 12 },
   voceUguale: { fontSize: 16, color: '#9CA3AF', marginTop: 12 },
   voceTotaleBox: { flex: 1, gap: 2 },
-  voceTotale: { fontSize: 16, fontWeight: '700', color: '#0E9F8E', textAlign: 'center' as const, paddingVertical: 8 },
+  voceTotale: { fontSize: 16, fontWeight: '700', color: '#0B7A6D', textAlign: 'center' as const, paddingVertical: 8 },
   ivaSection: {
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
@@ -128,6 +128,6 @@ const styles = StyleSheet.create({
   riepilogoVal: { fontSize: 13, color: '#374151' },
   riepilogoTotale: { borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 8, marginTop: 4 },
   riepilogoTotaleLabel: { fontSize: 15, fontWeight: '700', color: '#0D1B2A' },
-  riepilogoTotaleVal: { fontSize: 18, fontWeight: '700', color: '#0E9F8E' },
-  forfettarioNote: { fontSize: 11, color: '#0E9F8E', fontStyle: 'italic' as const, marginTop: 4 },
+  riepilogoTotaleVal: { fontSize: 18, fontWeight: '700', color: '#0B7A6D' },
+  forfettarioNote: { fontSize: 11, color: '#0B7A6D', fontStyle: 'italic' as const, marginTop: 4 },
 })

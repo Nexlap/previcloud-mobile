@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons'
 import { InviaFirmaChip } from '../firma/InviaFirmaChip'
 import { PreventivoStatoBadge } from './PreventivoStatoBadge'
 import type { Preventivo } from '../../types'
-import { formatImportoDb, formatDataBreve } from 'preventivoai-shared'
+import { formatImportoDb, formatDataBreve } from 'previcloud-shared'
 
 type Props = {
   preventivo: Preventivo
@@ -154,6 +154,6 @@ const styles = StyleSheet.create({
   },
   selezioneIcon: {
     fontSize: 18,
-    color: '#0E9F8E',
+    color: '#0B7A6D',
   },
 })

@@ -9,7 +9,7 @@ export type StripeAccountStato = {
   stripe_charges_enabled: boolean
 }
 
-const STRIPE_ONBOARDING_WEB_CALLBACK = 'https://preventivoai-web.vercel.app/stripe-callback'
+const STRIPE_ONBOARDING_WEB_CALLBACK = 'https://previcloud.it/stripe-callback'
 
 /** Deep link in-app (deve coincidere con la rotta app/stripe-callback.tsx). */
 export function stripeCallbackUrl(): string {

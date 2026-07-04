@@ -6,7 +6,7 @@ import {
   anteprimaMessaggio,
   type MessaggiClienteTemplates,
   type ScenarioMessaggio,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'
 import { useSettingsTheme } from '../../hooks/useSettingsTheme'
 import { FirmaReminderPanel } from './FirmaReminderPanel'
 import { MessaggioTemplateEditor } from './MessaggioTemplateEditor'
@@ -66,7 +66,7 @@ export function MessaggiClienteEditor({
               <Text
                 style={[
                   styles.settingsSubTabText,
-                  { color: scenario === s.id ? '#0E9F8E' : t.sub.color },
+                  { color: scenario === s.id ? '#0B7A6D' : t.sub.color },
                   scenario === s.id && { fontWeight: '700' },
                 ]}
                 numberOfLines={2}
@@ -102,7 +102,7 @@ export function MessaggiClienteEditor({
           </View>
         ))}
         <TouchableOpacity onPress={ripristinaScenario} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
-          <Text style={{ fontSize: 13, color: '#0E9F8E', fontWeight: '600' }}>Ripristina predefinito</Text>
+          <Text style={{ fontSize: 13, color: '#0B7A6D', fontWeight: '600' }}>Ripristina predefinito</Text>
         </TouchableOpacity>
       </SectionCard>
 

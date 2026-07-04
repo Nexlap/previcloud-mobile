@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
-const STORAGE_KEY = 'preventivoai-theme'
+const STORAGE_KEY = 'previcloud-theme'
 
 export type ThemeColors = {
   bg: string
@@ -14,6 +14,10 @@ export type ThemeColors = {
   tabInactive: string
   tabActive: string
   icon: string
+  accent: string
+  // Teal scurito per testo/icone su sfondi chiari (contrasto WCAG AA).
+  accentInk: string
+  shadowColor: string
 }
 
 const LIGHT: ThemeColors = {
@@ -27,6 +31,9 @@ const LIGHT: ThemeColors = {
   tabInactive: '#9CA3AF',
   tabActive: '#0D1B2A',
   icon: '#6B7280',
+  accent: '#0E9F8E',
+  accentInk: '#0B7A6D',
+  shadowColor: '#0D1B2A',
 }
 
 const DARK: ThemeColors = {
@@ -40,6 +47,9 @@ const DARK: ThemeColors = {
   tabInactive: '#64748B',
   tabActive: '#F1F5F9',
   icon: '#94A3B8',
+  accent: '#14B8A6',
+  accentInk: '#5EEAD4',
+  shadowColor: '#000000',
 }
 
 type ThemeContextValue = {

@@ -23,5 +23,5 @@ export function RipristinaVersioneLink({ versione, onRipristina }: Props) {
 
 const styles = StyleSheet.create({
   link: { alignSelf: 'flex-start', paddingVertical: 4 },
-  linkText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500', textDecorationLine: 'underline' },
+  linkText: { fontSize: 13, color: '#0B7A6D', fontWeight: '500', textDecorationLine: 'underline' },
 })

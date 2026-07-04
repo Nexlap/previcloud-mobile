@@ -1,7 +1,7 @@
 import { MESI_BREVI } from '../constants'
 import { supabase } from '../supabase'
 import { Abbonamento, RataAbbonamento } from '../types'
-import { calcolaImportiRate, formatImportoEuro, nuovoStatoDopoImportoRata, rateScaduteDaSegnalare } from 'preventivoai-shared'
+import { calcolaImportiRate, formatImportoEuro, nuovoStatoDopoImportoRata, rateScaduteDaSegnalare } from 'previcloud-shared'
 
 export type ImportiAlert = { title: string; message: string }
 

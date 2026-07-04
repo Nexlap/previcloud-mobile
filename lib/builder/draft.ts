@@ -3,7 +3,7 @@ import { supabase } from '../supabase'
 import { builderState } from './state'
 import type { BuilderMemoryState } from './types'
 
-export const BUILDER_DRAFT_KEY = 'preventivoai-builder-draft'
+export const BUILDER_DRAFT_KEY = 'previcloud-builder-draft'
 
 export type BuilderDraft = BuilderMemoryState & {
   clienteSelezionatoId: string

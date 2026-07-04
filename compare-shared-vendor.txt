@@ -48,7 +48,7 @@ tsconfig.json | IDENTICAL | -
 ========== DIFF FILES DETAIL (git diff --stat) ==========
 --- src/importoBase.ts ---
 git.exe : warning: in the working copy of 
-'C:\Users\Lele\Desktop\PreventivoAI\MOBILE\preventivoai-mobile\vendor\preventivoai-shared\src\importoBase.ts', LF will 
+'C:\Users\Lele\Desktop\PreventivoAI\MOBILE\preventivoai-mobile\vendor\previcloud-shared\src\importoBase.ts', LF will 
 be replaced by CRLF the next time Git touches it
 In C:\Users\Lele\AppData\Local\Temp\ps-script-72fb043c-0101-4e9a-95b6-a146453750e9.ps1:196 car:15
 + ...   $detail = & git diff --no-index --stat "$sPath" "$vPath" 2>&1 | Out ...

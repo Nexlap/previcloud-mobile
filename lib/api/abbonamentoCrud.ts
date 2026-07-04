@@ -1,4 +1,4 @@
-import { inputDateToIso, oggiInputDate } from 'preventivoai-shared'
+import { inputDateToIso, oggiInputDate } from 'previcloud-shared'
 import { spostaAbbonamentiInCestino } from '../cestino'
 import { supabase } from '../supabase'
 import { trackEvento } from './track'

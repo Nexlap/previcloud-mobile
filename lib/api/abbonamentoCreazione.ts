@@ -1,4 +1,4 @@
-import { calcolaImportiRate, calcolaScadenzeRate } from 'preventivoai-shared'
+import { calcolaImportiRate, calcolaScadenzeRate } from 'previcloud-shared'
 import { nomeDaPreventivoId, pianoAttivoSuPreventivo } from './abbonamentoHelpers'
 import { supabase } from '../supabase'
 import { trackEvento } from './track'

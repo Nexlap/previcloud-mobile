@@ -90,6 +90,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   labelAccent: {
-    color: '#0E9F8E',
+    color: '#0B7A6D',
   },
 })

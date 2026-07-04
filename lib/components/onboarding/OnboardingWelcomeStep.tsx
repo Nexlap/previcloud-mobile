@@ -10,7 +10,7 @@ export function OnboardingWelcomeStep({ onStart }: Props) {
     <View style={styles.container}>
       <View style={styles.welcomeContent}>
         <Text style={styles.welcomeEmoji}>🎉</Text>
-        <Text style={styles.welcomeTitle}>Benvenuto in{'\n'}PreventivoAI</Text>
+        <Text style={styles.welcomeTitle}>Benvenuto in{'\n'}PreviCloud</Text>
         <Text style={styles.welcomeSub}>
           In 2 minuti configuro il tuo profilo.{'\n'}
           Poi generi preventivi professionali{'\n'}

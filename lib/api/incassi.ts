@@ -1,4 +1,4 @@
-import { queryConFiltroCestino, incassoSingoliPreventivi, sommaImportoRate } from 'preventivoai-shared'
+import { queryConFiltroCestino, incassoSingoliPreventivi, sommaImportoRate } from 'previcloud-shared'
 import { supabase } from '../supabase'
 
 type RataIncassoRow = {

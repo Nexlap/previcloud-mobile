@@ -107,7 +107,7 @@ export function ClienteNuovoModal({ visible, dati, salvando, onClose, onChange, 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(13,27,42,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,

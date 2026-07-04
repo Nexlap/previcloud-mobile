@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { Abbonamento, PreventivoMadre, RataAbbonamento } from '../../types'
-import { analizzaStatoPiano, ordinaPianiPerStato } from 'preventivoai-shared'
+import { analizzaStatoPiano, ordinaPianiPerStato } from 'previcloud-shared'
 import { PianoRateCard } from './PianoRateCard'
 import { PianoVuotoState } from './PianoVuotoState'
 

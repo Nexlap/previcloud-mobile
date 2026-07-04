@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   cardIcon: { fontSize: 22 },
   cardTitle: { fontSize: 15, fontWeight: '600' },
   cardSub: { fontSize: 12, marginTop: 2 },
-  default: { fontSize: 11, color: '#0E9F8E', fontWeight: '700', marginTop: 3 },
+  default: { fontSize: 11, color: '#0B7A6D', fontWeight: '700', marginTop: 3 },
   action: { fontSize: 18, padding: 4 },
   modal: { flex: 1 },
   modalHeader: { paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },

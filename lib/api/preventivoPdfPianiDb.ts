@@ -1,6 +1,6 @@
 import { supabase } from '../supabase'
-import { erroreColonnaDeletedAt } from 'preventivoai-shared'
-import type { PreventivoPianiDb } from 'preventivoai-shared'
+import { erroreColonnaDeletedAt } from 'previcloud-shared'
+import type { PreventivoPianiDb } from 'previcloud-shared'
 
 async function esistePianoAttivo(preventivoId: string): Promise<boolean> {
   const { data, error } = await supabase

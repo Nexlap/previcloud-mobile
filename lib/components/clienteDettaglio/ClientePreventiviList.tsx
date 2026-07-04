@@ -10,7 +10,7 @@ import { RipristinaVersioneLink } from '../preventivo/RipristinaVersioneLink'
 import { FirmaStatoBadge, mostraPulsanteInviaFirma } from '../firma/FirmaStatoBadge'
 import { registraFirmaManuale, statoFirmaInvio } from '../../api/firma'
 import { Preventivo } from '../../types'
-import { formatImportoDb, formatDataBreveConOra } from 'preventivoai-shared'
+import { formatImportoDb, formatDataBreveConOra } from 'previcloud-shared'
 import { IconLabel } from '../icons/IconLabel'
 import { errorMessage } from '../../utils/errors'
 
@@ -311,7 +311,7 @@ export function ClientePreventiviList({
 const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 40 },
   emptyText: { fontSize: 14, color: '#9CA3AF', marginBottom: 12 },
-  prevCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
+  prevCard: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   prevCardHighlight: { borderWidth: 1.5 },
   prevCardInner: { overflow: 'hidden' },
   prevCardOld: { opacity: 0.6 },
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   prevDetail: { padding: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6', gap: 10 },
   prevTesto: { fontSize: 12, color: '#6B7280', lineHeight: 18, fontFamily: 'monospace' },
   cronologiaBtn: { paddingVertical: 8, alignItems: 'center' },
-  cronologiaBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' },
+  cronologiaBtnText: { fontSize: 13, color: '#0B7A6D', fontWeight: '500' },
   cronologiaItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F7F8FA', borderRadius: 8, padding: 10 },
   cronologiaVer: { fontSize: 13, fontWeight: '700', color: '#9CA3AF' },
   cronologiaData: { fontSize: 12, color: '#9CA3AF' },

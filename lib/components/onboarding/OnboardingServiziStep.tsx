@@ -1,6 +1,6 @@
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { ServizioForm } from '../../types'
-import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { formatImportoEuroVisuale } from 'previcloud-shared'
 import { ESEMPI_LISTINO, UNITA } from '../../features/onboarding/constants'
 import { OnboardingStepper } from './OnboardingStepper'
 import { onboardingStyles as styles } from './onboardingStyles'

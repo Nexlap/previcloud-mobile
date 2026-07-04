@@ -253,7 +253,7 @@ export default function Clienti() {
 const styles = StyleSheet.create({
   header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#0E9F8E', justifyContent: 'center', alignItems: 'center' },
+  addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#0E9F8E', justifyContent: 'center', alignItems: 'center', shadowColor: '#0E9F8E', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 2 },
   addBtnText: { color: '#fff', fontSize: 20, fontWeight: '300' },
   scroll: { flex: 1 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 12 },

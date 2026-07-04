@@ -3,9 +3,9 @@ import {
   MESSAGGI_CLIENTE_DEFAULT,
   mergeMessaggiCliente,
   type MessaggiClienteTemplates,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'
 
-export type { MessaggiClienteTemplates } from 'preventivoai-shared'
+export type { MessaggiClienteTemplates } from 'previcloud-shared'
 
 let cacheMessaggi: MessaggiClienteTemplates | null = null
 let cacheUserId: string | null = null

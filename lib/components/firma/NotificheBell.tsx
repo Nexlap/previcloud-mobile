@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Modal, Text, TouchableOpacity, View } from 'react-native'
 import { segnaPreventivoPagato } from '../../api/preventivoPdf'
 import { eventBus } from '../../eventBus'
-import { inputDateToIso, oggiInputDate } from 'preventivoai-shared'
+import { inputDateToIso, oggiInputDate } from 'previcloud-shared'
 import {
   formatTempoNotifica,
   notificaInRimando,
@@ -111,7 +111,7 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
       </TouchableOpacity>
 
       <Modal visible={listaAperta} transparent animationType="fade" onRequestClose={() => setListaAperta(false)}>
-        <TouchableOpacity activeOpacity={1} onPress={() => setListaAperta(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-start', paddingTop: 100, paddingHorizontal: 20 }}>
+        <TouchableOpacity activeOpacity={1} onPress={() => setListaAperta(false)} style={{ flex: 1, backgroundColor: 'rgba(13,27,42,0.3)', justifyContent: 'flex-start', paddingTop: 100, paddingHorizontal: 20 }}>
           <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', maxHeight: 420 }}>
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
               <Text style={{ fontWeight: '700', fontSize: 16, color: '#0D1B2A' }}>Notifiche</Text>

@@ -1,5 +1,5 @@
 import { caricaCronologiaPreventivo } from './api/preventivoCronologia'
-import { erroreColonnaDeletedAt } from 'preventivoai-shared'
+import { erroreColonnaDeletedAt } from 'previcloud-shared'
 import { supabase } from './supabase'
 import type { Abbonamento, Preventivo } from './types'
 

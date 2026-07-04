@@ -34,7 +34,7 @@ export function applicaRispostaChat(reply: string, nuovi: Messaggio[]) {
   }
 }
 
-import { importoDaTesto } from 'preventivoai-shared'
+import { importoDaTesto } from 'previcloud-shared'
 
 export function importoDaPreventivo(testo: string) {
   return importoDaTesto(testo)

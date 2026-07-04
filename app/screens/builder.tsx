@@ -8,7 +8,7 @@ import { creaServizioListino } from '../../lib/api/servizi';
 import { Cliente, ProfiloFiscale, Servizio, VocePreventivo } from '../../lib/types';
 import { eventBus } from '../../lib/eventBus';
 import { trackEvento } from '../../lib/api/track';
-import { formatImportoEuroVisuale, calcolaTotaleVoci, calcolaTotaleTrasferte } from 'preventivoai-shared';
+import { formatImportoEuroVisuale, calcolaTotaleVoci, calcolaTotaleTrasferte } from 'previcloud-shared';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
 import {
   applicaBozzaABuilderState,
@@ -42,7 +42,7 @@ import { BuilderHeader } from '../../lib/components/builder/BuilderHeader';
 import { GeneraPdfButton } from '../../lib/components/builder/GeneraPdfButton';
 import { ClienteModal } from '../../lib/components/builder/ClienteModal';
 import { AnalisiFiscaleCard } from '../../lib/components/builder/AnalisiFiscaleCard';
-import { meseCorrenteString } from 'preventivoai-shared';
+import { meseCorrenteString } from 'previcloud-shared';
 
 export { resetBuilderState };
 

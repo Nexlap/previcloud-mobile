@@ -60,7 +60,7 @@ export function StripeConnectCard({ stato, loading, onRefresh, colors, isDark }:
       ) : (
         <View style={[styles.statusRow, { backgroundColor: isDark ? colors.border : '#F7F8FA' }]}>
           <Text style={[styles.statusLabel, { color: colors.textMuted }]}>Stato</Text>
-          <Text style={[styles.statusValue, { color: verificato ? '#0E9F8E' : colors.text }]}>
+          <Text style={[styles.statusValue, { color: verificato ? '#0B7A6D' : colors.text }]}>
             {labelStato(status)}
           </Text>
         </View>

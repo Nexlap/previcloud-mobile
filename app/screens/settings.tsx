@@ -18,7 +18,7 @@ import { SettingsDropdown } from '../../lib/components/settings/SettingsDropdown
 import { settingsStyles as styles } from '../../lib/components/settings/settingsStyles'
 import { useTheme } from '../../lib/theme/ThemeContext'
 import { TONI } from '../../lib/features/settings/constants'
-import { MESSAGGI_CLIENTE_DEFAULT } from 'preventivoai-shared'
+import { MESSAGGI_CLIENTE_DEFAULT } from 'previcloud-shared'
 import { errorMessage } from '../../lib/utils/errors'
 import { emitAggiornaProfilo } from '../../lib/eventBus'
 

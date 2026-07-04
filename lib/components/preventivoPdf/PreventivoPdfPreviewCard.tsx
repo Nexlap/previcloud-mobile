@@ -43,9 +43,9 @@ export function PreventivoPdfToast({ visible, opacity }: ToastProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
-  previewContainer: { borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
+  previewContainer: { borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
   previewPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   previewPlaceholderText: { fontSize: 13, color: '#9CA3AF' },
   toast: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: '#065F46', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 6 },

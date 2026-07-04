@@ -41,7 +41,7 @@ export function SettingsDropdown({ label, value, options, onChange }: Props) {
                   style={[styles.modalOption, opt === value && { backgroundColor: t.input.backgroundColor }]}
                   onPress={() => { onChange(opt); setOpen(false) }}
                 >
-                  <Text style={[styles.modalOptionText, t.title, opt === value && { color: '#0E9F8E', fontWeight: '600' }]}>
+                  <Text style={[styles.modalOptionText, t.title, opt === value && { color: '#0B7A6D', fontWeight: '600' }]}>
                     {opt}
                   </Text>
                   {opt === value ? <AppIcon name="check" size={16} color="#0E9F8E" /> : null}

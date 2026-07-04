@@ -27,6 +27,6 @@ export function TitoloConData({ titolo, data, titoloStyle, dataStyle, linkable }
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   titolo: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
-  titoloLink: { color: '#0E9F8E' },
+  titoloLink: { color: '#0B7A6D' },
   data: { flexShrink: 0, fontSize: 12, fontWeight: '600', color: '#6B7280' },
 })

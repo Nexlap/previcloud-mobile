@@ -29,7 +29,7 @@ export function PreventivoPdfTemplatePicker({ template, onSelectTemplate }: Prop
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   cardSub: { fontSize: 12, color: '#9CA3AF', marginBottom: 8 },
   templateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
@@ -37,6 +37,6 @@ const styles = StyleSheet.create({
   templateCardActive: { backgroundColor: '#E1F5EE', borderColor: '#0E9F8E' },
   templateEmoji: { fontSize: 24, marginBottom: 4 },
   templateNome: { fontSize: 12, fontWeight: '600', color: '#0D1B2A', textAlign: 'center' },
-  templateNomeActive: { color: '#0E9F8E' },
+  templateNomeActive: { color: '#0B7A6D' },
   templateDesc: { fontSize: 10, color: '#9CA3AF', textAlign: 'center', marginTop: 2 },
 })

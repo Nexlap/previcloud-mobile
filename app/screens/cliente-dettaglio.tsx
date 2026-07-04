@@ -21,7 +21,7 @@ import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { Abbonamento, Cliente, Preventivo, PreventivoMadre, RataAbbonamento, Trascrizione } from '../../lib/types'
-import { formatImportoEuro, inputDateToIso, oggiInputDate } from 'preventivoai-shared'
+import { formatImportoEuro, inputDateToIso, oggiInputDate } from 'previcloud-shared'
 import {
   messaggioEliminaPreventiviMultipli,
   messaggioEliminaPreventivoSingolo,

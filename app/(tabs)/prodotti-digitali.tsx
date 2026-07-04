@@ -33,7 +33,7 @@ export default function ProdottiDigitali() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.heroIcon, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <AppIcon name="package" size={34} color="#0E9F8E" />
+          <AppIcon name="package" size={34} color="#0B7A6D" />
         </View>
 
         <Text style={[styles.title, { color: colors.text }]}>Vendi contenuti digitali</Text>
@@ -54,7 +54,7 @@ export default function ProdottiDigitali() {
         </TouchableOpacity>
 
         <Text style={[styles.note, { color: colors.textMuted }]}>
-          Si apre preventivoai-web: accedi con le stesse credenziali dell'app.
+          Si apre previcloud.it: accedi con le stesse credenziali dell'app.
         </Text>
       </ScrollView>
     </View>
@@ -104,6 +104,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
     marginBottom: 4,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   title: {
     fontSize: 20,
@@ -123,6 +128,11 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
     marginTop: 4,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   step: {
     fontSize: 14,

@@ -24,8 +24,8 @@ import { PreventivoPdfSuccessModal, type PdfSuccessInvio } from '../../lib/compo
 import { PreventivoPdfTemplatePicker } from '../../lib/components/preventivoPdf/PreventivoPdfTemplatePicker'
 import { eventBus } from '../../lib/eventBus'
 import { scalaHtmlPreview } from '../../lib/features/preventivoPdf/text'
-import { testoConPagamento } from 'preventivoai-shared'
-import { importoDaTesto, meseCorrenteString, parseImportoEuro, validaPianiPagamento } from 'preventivoai-shared'
+import { testoConPagamento } from 'previcloud-shared'
+import { importoDaTesto, meseCorrenteString, parseImportoEuro, validaPianiPagamento } from 'previcloud-shared'
 import {
   caricaClientePreventivo,
   caricaClientiPreventivo,

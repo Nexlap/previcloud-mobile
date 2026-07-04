@@ -22,14 +22,14 @@ export function AggiornamentoObbligatorioModal({
       <View style={styles.container}>
         <Text style={styles.titolo}>Aggiornamento richiesto</Text>
         <Text style={styles.testo}>
-          È disponibile un aggiornamento obbligatorio di PreventivoAI.{'\n\n'}
+          È disponibile un aggiornamento obbligatorio di PreviCloud.{'\n\n'}
           Versione installata: {versioneInstallata ?? '—'}{'\n'}
           Versione richiesta: {versioneMinima ?? '—'}{'\n\n'}
           Chiudi l'app completamente e riaprila per ricevere l'aggiornamento automatico.
         </Text>
         <Text
           style={{ color: '#0E9F8E', textDecorationLine: 'underline', textAlign: 'center', marginTop: 12, fontSize: 15 }}
-          onPress={() => Linking.openURL('https://preventivoai-web.vercel.app/scarica')}
+          onPress={() => Linking.openURL('https://previcloud.it/scarica')}
         >
           Scarica l'ultima versione
         </Text>

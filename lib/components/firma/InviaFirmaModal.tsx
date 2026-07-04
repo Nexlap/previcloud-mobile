@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(13,27,42,0.4)',
   },
   box: {
     backgroundColor: '#fff',
@@ -150,10 +150,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '700', color: '#0D1B2A' },
   subtitle: { marginTop: 8, color: '#6B7280', fontSize: 14, lineHeight: 20 },
   bold: { fontWeight: '600', color: '#0D1B2A' },
-  feedback: { marginTop: 10, color: '#0E9F8E', fontSize: 13 },
+  feedback: { marginTop: 10, color: '#0B7A6D', fontSize: 13 },
   errore: { marginTop: 10, color: '#DC2626', fontSize: 13 },
   firmaManuale: { marginTop: 14, alignItems: 'center' },
-  firmaManualeText: { color: '#0E9F8E', fontWeight: '600', fontSize: 14 },
+  firmaManualeText: { color: '#0B7A6D', fontWeight: '600', fontSize: 14 },
   annulla: { marginTop: 16, alignItems: 'center' },
   annullaText: { color: '#6B7280' },
 })

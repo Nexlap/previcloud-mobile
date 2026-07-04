@@ -1,1 +1,1 @@
-export { generaTestoPreventivoBuilder } from 'preventivoai-shared'
+export { generaTestoPreventivoBuilder } from 'previcloud-shared'

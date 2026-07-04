@@ -20,14 +20,14 @@ import {
   ricalcolaImportiRateLibere,
   titoloHeaderPiano,
   analizzaStatoPiano,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'
 import { AppIcon } from '../icons/AppIcon'
 import { PianoStatoBadge } from './PianoStatoBadge'
 import { PreventivoMadreLink } from './PreventivoMadreLink'
 import { pianoEspansoStyles } from './pianoEspansoStyles'
 
 function badgeRata(stato: RataAbbonamento['stato']) {
-  if (stato === 'incassato') return { label: 'Pagata', bg: '#D1FAE5', color: '#0E9F8E' }
+  if (stato === 'incassato') return { label: 'Pagata', bg: '#D1FAE5', color: '#0B7A6D' }
   if (stato === 'in_ritardo') return { label: 'Scaduta', bg: '#FEE2E2', color: '#EF4444' }
   if (stato === 'parziale') return { label: 'Parziale', bg: '#FEF3C7', color: '#D97706' }
   return { label: 'Da pagare', bg: '#FEF3C7', color: '#D97706' }
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
   progressTrack: { height: 8, backgroundColor: '#F3F4F6', borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: 8, backgroundColor: '#0E9F8E', borderRadius: 4 },
   progressFillConcluso: { backgroundColor: '#047857' },
-  section: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden' },
+  section: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#F7F8FA' },
   sectionTitle: { fontSize: 12, fontWeight: '600', color: '#6B7280', letterSpacing: 0.6, textTransform: 'uppercase' },
   sectionArrow: { fontSize: 10, color: '#9CA3AF' },
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
   rataAzioni: { flexDirection: 'row', gap: 8, alignItems: 'stretch' },
   rataAzioneBtn: { flexGrow: 1, flexShrink: 1, minWidth: 0, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 9, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#0E9F8E' },
   rataAzioneBtnRegistra: { flexShrink: 0, minWidth: 96 },
-  rataAzioneBtnText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600', flexShrink: 0 },
+  rataAzioneBtnText: { fontSize: 13, color: '#0B7A6D', fontWeight: '600', flexShrink: 0 },
   reminderBtnCompact: { flex: 0, paddingHorizontal: 12, borderColor: '#25D366' },
   reminderBtnCompactText: { fontSize: 13, color: '#25D366', fontWeight: '600' },
   abAzioneBtn: { flex: 1, borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
   },
   pinBtnActive: { borderColor: '#0E9F8E', backgroundColor: '#ECFDF5' },
   pinBtnText: { fontSize: 11, fontWeight: '600', color: '#9CA3AF' },
-  pinBtnTextActive: { color: '#0E9F8E' },
+  pinBtnTextActive: { color: '#0B7A6D' },
   ricalcolaBtn: {
     borderRadius: 10,
     padding: 12,
@@ -769,10 +769,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5',
   },
   ricalcolaBtnDisabled: { opacity: 0.45 },
-  ricalcolaBtnText: { fontSize: 13, fontWeight: '600', color: '#0E9F8E' },
+  ricalcolaBtnText: { fontSize: 13, fontWeight: '600', color: '#0B7A6D' },
   personalizzaLocked: { width: 96, textAlign: 'right', fontSize: 14, fontWeight: '600', color: '#9CA3AF' },
   personalizzaSomma: { fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 4 },
-  personalizzaSommaOk: { color: '#0E9F8E' },
+  personalizzaSommaOk: { color: '#0B7A6D' },
   personalizzaSommaErr: { color: '#EF4444' },
   modificaActions: { flexDirection: 'row', gap: 8 },
 })

@@ -35,13 +35,13 @@ export function PreventivoPdfPagamentoModal({
           >
             <Text style={{ fontSize: 13, color: '#6B7280' }}>NO</Text>
             <Text style={[styles.clienteItemNome, { flex: 1 }]}>Nessun metodo</Text>
-            {!metodoSelezionato && <Text style={{ color: '#0E9F8E', fontSize: 13, fontWeight: '700' }}>OK</Text>}
+            {!metodoSelezionato && <Text style={{ color: '#0B7A6D', fontSize: 13, fontWeight: '700' }}>OK</Text>}
           </TouchableOpacity>
           {metodiPagamento.length === 0 ? (
             <View style={{ alignItems: 'center', paddingTop: 40 }}>
               <Text style={{ fontSize: 14, color: '#9CA3AF' }}>Nessun metodo configurato</Text>
               <TouchableOpacity onPress={() => { onClose(); router.push('/screens/pagamenti') }} style={{ marginTop: 8 }}>
-                <Text style={{ fontSize: 14, color: '#0E9F8E', fontWeight: '600' }}>Configura nelle impostazioni</Text>
+                <Text style={{ fontSize: 14, color: '#0B7A6D', fontWeight: '600' }}>Configura nelle impostazioni</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -67,7 +67,7 @@ export function PreventivoPdfPagamentoModal({
                     <Text style={styles.stripeDisabled}>Completa la verifica Stripe in Impostazioni</Text>
                   )}
                 </View>
-                {metodoSelezionato?.id === m.id && !stripeDisabilitato && <Text style={{ color: '#0E9F8E', fontSize: 13, fontWeight: '700' }}>OK</Text>}
+                {metodoSelezionato?.id === m.id && !stripeDisabilitato && <Text style={{ color: '#0B7A6D', fontSize: 13, fontWeight: '700' }}>OK</Text>}
               </TouchableOpacity>
               )
             })
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   modalTabTextActive: { color: '#fff' },
   modalEmpty: { alignItems: 'center', paddingTop: 40 },
   modalEmptyText: { fontSize: 14, color: '#9CA3AF' },
-  modalEmptyLink: { fontSize: 14, color: '#0E9F8E', marginTop: 8, fontWeight: '600' },
+  modalEmptyLink: { fontSize: 14, color: '#0B7A6D', marginTop: 8, fontWeight: '600' },
   clienteItem: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB' },
   clienteItemActive: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
   clienteItemDisabled: { opacity: 0.55 },
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   clienteItemAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
   clienteItemAvatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   clienteItemNome: { flex: 1, fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
-  clienteItemCheck: { fontSize: 16, color: '#0E9F8E', fontWeight: '700' },
+  clienteItemCheck: { fontSize: 16, color: '#0B7A6D', fontWeight: '700' },
   modalNewForm: { padding: 16, gap: 12 },
   modalNewLabel: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', letterSpacing: 0.8 },
   modalNewInput: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },

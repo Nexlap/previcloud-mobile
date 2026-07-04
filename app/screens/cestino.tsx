@@ -19,7 +19,7 @@ import {
 import { messaggioEliminaDefinitiva, messaggioRipristina } from '../../lib/confermeElimina'
 import { eventBus } from '../../lib/eventBus'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
-import { formatImportoEuro } from 'preventivoai-shared'
+import { formatImportoEuro } from 'previcloud-shared'
 
 type TabCestino = 'preventivi' | 'piani'
 
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#0E9F8E',
   },
-  btnRipristinaText: { fontSize: 13, fontWeight: '600', color: '#0E9F8E' },
+  btnRipristinaText: { fontSize: 13, fontWeight: '600', color: '#0B7A6D' },
   btnElimina: {
     paddingHorizontal: 14,
     paddingVertical: 10,

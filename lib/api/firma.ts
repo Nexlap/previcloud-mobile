@@ -1,5 +1,5 @@
 import { Linking, Share } from 'react-native'
-import { formatDataBreve, formatOraBreve } from 'preventivoai-shared'
+import { formatDataBreve, formatOraBreve } from 'previcloud-shared'
 import { BACKEND_URL } from '../constants'
 import { supabase } from '../supabase'
 import { sessionToken } from './settings'
@@ -23,7 +23,7 @@ export type PreventivoInvio = {
   metodo_firma?: MetodoFirma | null
 }
 
-const FIRMA_WEB_BASE_URL = 'https://preventivoai-web.vercel.app'
+const FIRMA_WEB_BASE_URL = 'https://previcloud.it'
 
 export type InvioFirmaUrlResponse = {
   invio_id: string
@@ -179,7 +179,7 @@ export {
   buildOggettoFirmaInvio,
   buildOggettoFirmaReminder,
   testoInvioFirma,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'
 export { caricaMessaggiCliente } from '../messaggiCliente'
 
 export async function apriWhatsAppFirma(telefono: string | null | undefined, testo: string) {

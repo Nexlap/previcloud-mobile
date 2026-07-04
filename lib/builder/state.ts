@@ -1,5 +1,5 @@
 import { BuilderMemoryState } from './types'
-import { meseCorrenteString } from 'preventivoai-shared'
+import { meseCorrenteString } from 'previcloud-shared'
 
 export const builderState: BuilderMemoryState = {
   voci: [],

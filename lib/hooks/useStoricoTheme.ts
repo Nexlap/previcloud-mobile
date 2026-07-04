@@ -9,9 +9,14 @@ export function useStoricoTheme() {
     card: {
       backgroundColor: colors.surface,
       borderColor: colors.border,
+      shadowColor: colors.shadowColor,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0.2 : 0.04,
+      shadowRadius: 4,
+      elevation: 1,
     },
     cardSelected: {
-      borderColor: '#0E9F8E',
+      borderColor: colors.accent,
       backgroundColor: isDark ? 'rgba(14,159,142,0.12)' : '#F0FDF4',
     },
     text: { color: colors.text },

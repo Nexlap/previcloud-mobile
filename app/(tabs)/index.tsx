@@ -9,7 +9,7 @@ import { eventBus } from "../../lib/eventBus"
 import { caricaHomeData } from '../../lib/api/home'
 import { Preventivo, Profile } from "../../lib/types"
 import { trackEvento } from "../../lib/api/track"
-import { formatImportoEuroVisuale, formatImportoDb } from 'preventivoai-shared'
+import { formatImportoEuroVisuale, formatImportoDb } from 'previcloud-shared'
 import { PreventivoStatoBadge } from '../../lib/components/preventivo/PreventivoStatoBadge'
 import { NotificheBell } from '../../lib/components/firma/NotificheBell'
 import { ProfileMenuButton } from '../../lib/components/ProfileMenuButton'
@@ -19,7 +19,7 @@ import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
 type QuickItem = { icon: AppIconName; label: string; path: string }
 
 const BANNER_PRODOTTI_KEY = 'banner_prodotti_chiuso'
-const PRODOTTI_DIGITALI_URL = 'https://preventivoai-web.vercel.app/dashboard/prodotti'
+const PRODOTTI_DIGITALI_URL = 'https://previcloud.it/dashboard/prodotti'
 
 const QUICK_ITEMS: QuickItem[] = [
   { icon: 'users', label: 'Clienti', path: '/(tabs)/clienti' },
@@ -126,12 +126,22 @@ export default function Home() {
         <View style={styles.statsRow}>
           <View style={[styles.statCard, s.card]}>
             <Text style={[styles.statVal, { color: colors.text }]}>{preventiviMese}</Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Questo mese</Text>
-            {preventiviMeseScorso > 0 ? (
-              <Text style={[styles.statTrend, { color: trendPositivo ? '#0E9F8E' : colors.textMuted }]}>
-                {trendPositivo ? '↑' : '↓'} {preventiviMeseScorso} mese scorso
-              </Text>
-            ) : null}
+            <Text
+              style={[styles.statLabel, { color: colors.textMuted }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              Questo mese
+            </Text>
+            <Text
+              style={[styles.statTrend, { color: trendPositivo ? colors.accentInk : colors.textMuted }, preventiviMeseScorso <= 0 && styles.statTrendHidden]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              {trendPositivo ? '↑' : '↓'} {preventiviMeseScorso} mese scorso
+            </Text>
           </View>
           <View style={[styles.statCard, styles.statCardAccent]}>
             <Text
@@ -142,11 +152,27 @@ export default function Home() {
             >
               {`€${formatImportoEuroVisuale(pagamentiIncassati)}`}
             </Text>
-            <Text style={[styles.statLabel, styles.statLabelOnDark]}>Pagamenti incassati</Text>
+            <Text
+              style={[styles.statLabel, styles.statLabelOnDark]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              Pagamenti incassati
+            </Text>
+            <Text style={[styles.statTrend, styles.statTrendHidden]} numberOfLines={1}> </Text>
           </View>
           <View style={[styles.statCard, s.card]}>
             <Text style={[styles.statVal, { color: colors.text }]}>{minutiRisparmiati}</Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Minuti* risparmiati</Text>
+            <Text
+              style={[styles.statLabel, { color: colors.textMuted }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              Minuti* risparmiati
+            </Text>
+            <Text style={[styles.statTrend, styles.statTrendHidden]} numberOfLines={1}> </Text>
           </View>
         </View>
 
@@ -269,12 +295,13 @@ const styles = StyleSheet.create({
   nome: { fontSize: 22, fontWeight: '700', color: '#fff', marginTop: 2 },
   scroll: { flex: 1 },
   statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: { flex: 1, padding: 14, alignItems: 'center', minWidth: 0, borderRadius: 16 },
-  statCardAccent: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A', borderWidth: 1 },
-  statVal: { fontSize: 20, fontWeight: '700' },
+  statCard: { flex: 1, padding: 14, alignItems: 'center', justifyContent: 'center', minWidth: 0, borderRadius: 16 },
+  statCardAccent: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A', borderWidth: 1, shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 3 },
+  statVal: { fontSize: 20, lineHeight: 24, fontWeight: '700', width: '100%', textAlign: 'center' },
   statValCompact: { width: '100%', textAlign: 'center' },
   statLabel: { fontSize: 10, marginTop: 3, textAlign: 'center' },
-  statTrend: { fontSize: 9, marginTop: 4, textAlign: 'center', fontWeight: '500' },
+  statTrend: { fontSize: 9, lineHeight: 12, marginTop: 4, textAlign: 'center', fontWeight: '500' },
+  statTrendHidden: { opacity: 0 },
   statLabelOnDark: { color: 'rgba(255,255,255,0.7)' },
   prodottiBannerWrap: { position: 'relative' },
   prodottiBanner: {
@@ -283,6 +310,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: '#0E9F8E',
     borderWidth: 1,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   prodottiBannerGradientTeal: {
     ...StyleSheet.absoluteFillObject,
@@ -308,22 +340,22 @@ const styles = StyleSheet.create({
   prodottiBannerText: { flex: 1, gap: 2 },
   prodottiBannerTitle: { fontSize: 14, fontWeight: '600' },
   prodottiBannerSub: { fontSize: 11 },
-  prodottiBannerArrow: { fontSize: 18, color: '#0E9F8E', fontWeight: '600' },
+  prodottiBannerArrow: { fontSize: 18, color: '#0B7A6D', fontWeight: '600' },
   prodottiBannerClose: { position: 'absolute', top: 6, right: 8, zIndex: 1, padding: 2 },
   prodottiBannerCloseText: { fontSize: 12, lineHeight: 14 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   sectionHeaderLeft: { flex: 1, gap: 2, paddingRight: 8 },
   sectionSub: { fontSize: 11 },
-  sectionLink: { fontSize: 13, color: '#0E9F8E', fontWeight: '500' },
+  sectionLink: { fontSize: 13, color: '#0B7A6D', fontWeight: '500' },
   emptyBox: { padding: 32, alignItems: 'center', gap: 8 },
   emptyText: { fontSize: 14, fontWeight: '500' },
   emptySub: { fontSize: 12 },
   prevRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
   prevAvatar: { width: 36, height: 36, borderRadius: 18 },
-  prevAvatarText: { fontSize: 14, fontWeight: '700', color: '#0E9F8E' },
+  prevAvatarText: { fontSize: 14, fontWeight: '700', color: '#0B7A6D' },
   prevLeft: { flex: 1 },
   prevCliente: { fontSize: 14, fontWeight: '500' },
-  prevPianoBadge: { fontSize: 10, color: '#0E9F8E', fontWeight: '600', marginTop: 2 },
+  prevPianoBadge: { fontSize: 10, color: '#0B7A6D', fontWeight: '600', marginTop: 2 },
   prevData: { fontSize: 11, marginTop: 2 },
   prevRight: { alignItems: 'flex-end', gap: 4 },
   prevImporto: { fontSize: 14, fontWeight: '600' },

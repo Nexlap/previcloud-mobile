@@ -53,7 +53,7 @@ export function SettingsIdentitaSection({ form, logoUrl, logoCacheKey, uploading
               >
                 <Text style={[
                   styles.settingsSubTabText,
-                  { color: subTab === tab.id ? '#0E9F8E' : t.sub.color },
+                  { color: subTab === tab.id ? '#0B7A6D' : t.sub.color },
                   subTab === tab.id && { fontWeight: '700' },
                 ]}>
                   {tab.label}
@@ -129,7 +129,7 @@ export function SettingsIdentitaSection({ form, logoUrl, logoCacheKey, uploading
                       <Text style={[
                         styles.modalOptionText,
                         t.title,
-                        form.categoria === c && { color: '#0E9F8E', fontWeight: '600' },
+                        form.categoria === c && { color: '#0B7A6D', fontWeight: '600' },
                         { textTransform: 'capitalize' as const },
                       ]}>
                         {c}

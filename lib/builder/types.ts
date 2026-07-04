@@ -1,5 +1,5 @@
 import { VocePreventivo } from '../types'
-export type { RisultatoFiscale } from 'preventivoai-shared'
+export type { RisultatoFiscale } from 'previcloud-shared'
 
 export type TrasfertaBuilder = {
   id: string

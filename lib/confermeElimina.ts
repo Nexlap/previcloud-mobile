@@ -6,7 +6,7 @@ import {
   messaggioEliminaPreventivoSingolo as messaggioEliminaPreventivoSingoloShared,
   messaggioEliminaRata as messaggioEliminaRataShared,
   messaggioRipristina as messaggioRipristinaShared,
-} from 'preventivoai-shared'
+} from 'previcloud-shared'
 
 export const messaggioEliminaPreventivoSingolo = messaggioEliminaPreventivoSingoloShared
 export const messaggioEliminaPiano = messaggioEliminaPianoShared

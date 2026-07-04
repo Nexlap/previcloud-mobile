@@ -1,4 +1,4 @@
-import { queryConFiltroCestino } from 'preventivoai-shared'
+import { queryConFiltroCestino } from 'previcloud-shared'
 import { calcolaIncassoCliente } from './incassi'
 import { supabase } from '../supabase'
 import { Preventivo } from '../types'

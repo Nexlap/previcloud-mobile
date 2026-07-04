@@ -10,7 +10,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native'
-import { formatDataBreve, inputDateToIso, oggiInputDate } from 'preventivoai-shared'
+import { formatDataBreve, inputDateToIso, oggiInputDate } from 'previcloud-shared'
 import { COLORS } from '../../constants'
 import { AppIcon } from '../icons/AppIcon'
 
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   placeholder: { color: COLORS.textMuted },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(13,27,42,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Cliente } from '../../types'
-import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { formatImportoEuroVisuale } from 'previcloud-shared'
 import { AppIcon } from '../icons/AppIcon'
 import { IconLabel } from '../icons/IconLabel'
 
@@ -136,7 +136,7 @@ export function ClienteStats({ preventiviCount, totaleValore, trascrizioniCount,
       </View>
       <View style={styles.statCard}>
         <Text
-          style={[styles.statVal, { color: '#0E9F8E' }]}
+          style={[styles.statVal, { color: '#0B7A6D' }]}
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.6}
@@ -148,7 +148,7 @@ export function ClienteStats({ preventiviCount, totaleValore, trascrizioniCount,
       {abbonamentoTotale !== null && abbonamentoTotale !== undefined ? (
         <View style={styles.statCard}>
           <Text
-            style={[styles.statVal, { color: '#0E9F8E' }]}
+            style={[styles.statVal, { color: '#0B7A6D' }]}
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.6}
@@ -214,9 +214,9 @@ const styles = StyleSheet.create({
   infoIcon: { marginTop: 2, flexShrink: 0 },
   clienteNote: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', marginTop: 4 },
   statsRow: { flexDirection: 'row', gap: 10 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', minWidth: 0 },
-  statVal: { fontSize: 20, fontWeight: '700', color: '#0D1B2A', width: '100%', textAlign: 'center' },
-  statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E7EB', minWidth: 0, shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
+  statVal: { fontSize: 20, lineHeight: 24, fontWeight: '700', color: '#0D1B2A', width: '100%', textAlign: 'center' },
+  statLabel: { fontSize: 11, lineHeight: 14, color: '#9CA3AF', marginTop: 2, textAlign: 'center' },
   tabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' },
   tabBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' },
   tabBtnActive: { backgroundColor: '#0D1B2A' },

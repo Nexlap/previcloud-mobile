@@ -1,4 +1,4 @@
-import { erroreColonnaDeletedAt, nomePianoDaPreventivo } from 'preventivoai-shared'
+import { erroreColonnaDeletedAt, nomePianoDaPreventivo } from 'previcloud-shared'
 import { supabase } from '../supabase'
 
 export async function nomeDaPreventivoId(preventivoId: string, tipo: 'canone' | 'rate') {

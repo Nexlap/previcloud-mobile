@@ -1,4 +1,4 @@
-import { queryConFiltroCestino } from 'preventivoai-shared'
+import { queryConFiltroCestino } from 'previcloud-shared'
 import { supabase } from '../supabase'
 import { Cliente } from '../types'
 import { trackEvento } from './track'

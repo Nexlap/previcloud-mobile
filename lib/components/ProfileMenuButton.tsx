@@ -113,7 +113,7 @@ export function ProfileMenuButton({ nomeBreve: nomeProp, email: emailProp }: Pro
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setMenuAperto(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }}
+          style={{ flex: 1, backgroundColor: 'rgba(13,27,42,0.3)' }}
         >
           <TouchableOpacity
             activeOpacity={1}

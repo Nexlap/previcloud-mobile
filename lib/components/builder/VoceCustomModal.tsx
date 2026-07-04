@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   modalClose: { color: '#9CA3AF', fontSize: 20 },
   modalFieldLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8 },
   modalFieldInput: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
-  modalSave: { color: '#0E9F8E', fontSize: 15, fontWeight: '600' },
+  modalSave: { color: '#0B7A6D', fontSize: 15, fontWeight: '600' },
   unitaChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
   unitaChipActive: { backgroundColor: '#0D1B2A', borderColor: '#0D1B2A' },
   unitaChipText: { fontSize: 12, color: '#6B7280', fontWeight: '500' },

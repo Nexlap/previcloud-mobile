@@ -1,6 +1,6 @@
 import { StyleSheet, Switch, Text, TextInput, View } from 'react-native'
-import { calcolaScadenzeRate, labelScadenzaRata } from 'preventivoai-shared'
-import { giornoScadenzaValido, meseInizioValido } from 'preventivoai-shared'
+import { calcolaScadenzeRate, labelScadenzaRata } from 'previcloud-shared'
+import { giornoScadenzaValido, meseInizioValido } from 'previcloud-shared'
 import { GiornoScadenzaPicker, MeseInizioPicker } from '../pickers/DatePartPickers'
 
 type TariffaProps = {
@@ -146,10 +146,10 @@ export function PreventivoPdfAbbonamentoCard({
 }
 
 const styles = StyleSheet.create({
-  toggleRow: { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  toggleRow: { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   toggleLabel: { fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
   toggleSub: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   cardSub: { fontSize: 12, color: '#9CA3AF', marginBottom: 8 },
   abLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8, marginBottom: 4 },

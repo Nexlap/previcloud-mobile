@@ -101,7 +101,7 @@ export default function Login() {
     setLoading(true)
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Accedi a PreventivoAI',
+        promptMessage: 'Accedi a PreviCloud',
         cancelLabel: 'Annulla',
         fallbackLabel: 'Usa password',
       })
@@ -235,7 +235,7 @@ export default function Login() {
             <Text style={styles.invitoText}>
               Vuoi accedere? Richiedi l&apos;invito su{' '}
               <Text style={styles.invitoLink} onPress={apriHomepageWeb}>
-                preventivoai-web.vercel.app
+                previcloud.it
               </Text>
             </Text>
           ) : null}
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
   header: { alignItems: 'center', marginBottom: 32 },
   logo: { fontSize: 32, fontWeight: '700', color: '#0D1B2A', letterSpacing: -0.5 },
-  logoAccent: { color: '#0E9F8E' },
+  logoAccent: { color: '#0B7A6D' },
   subtitle: { fontSize: 15, color: '#6B7280', marginTop: 6 },
   card: { backgroundColor: '#fff', borderRadius: 20, padding: 24, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
   toggle: { flexDirection: 'row', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 4, marginBottom: 24 },
@@ -264,13 +264,13 @@ const styles = StyleSheet.create({
   passwordRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB' },
   passwordInput: { flex: 1, padding: 12, fontSize: 14, color: '#0D1B2A' },
   passwordToggle: { paddingHorizontal: 12, alignSelf: 'stretch', justifyContent: 'center' },
-  passwordToggleText: { fontSize: 12, color: '#0E9F8E', fontWeight: '600' },
+  passwordToggleText: { fontSize: 12, color: '#0B7A6D', fontWeight: '600' },
   forgotBtn: { alignSelf: 'flex-end', marginTop: 8, paddingVertical: 4 },
-  forgotText: { fontSize: 13, color: '#0E9F8E', fontWeight: '600' },
+  forgotText: { fontSize: 13, color: '#0B7A6D', fontWeight: '600' },
   erroreInline: { fontSize: 12, color: '#DC2626', marginTop: 6 },
   terminiRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
   terminiText: { flex: 1, fontSize: 13, color: '#6B7280', lineHeight: 19 },
-  terminiLink: { color: '#0E9F8E', fontWeight: '600' },
+  terminiLink: { color: '#0B7A6D', fontWeight: '600' },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center', marginTop: 1 },
   checkboxChecked: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
   checkboxTick: { color: '#fff', fontSize: 13, fontWeight: '700' },
@@ -278,8 +278,8 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.5 },
   btnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   invitoText: { marginTop: 16, fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 19 },
-  invitoLink: { color: '#0E9F8E', fontWeight: '600' },
+  invitoLink: { color: '#0B7A6D', fontWeight: '600' },
   biometricoBtn: { flexDirection: 'row', alignItems: 'center' as const, justifyContent: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: '#0E9F8E', gap: 10, marginBottom: 16 },
   biometricoBtnIcon: { fontSize: 22 },
-  biometricoBtnText: { fontSize: 15, color: '#0E9F8E', fontWeight: '600' as const },
+  biometricoBtnText: { fontSize: 15, color: '#0B7A6D', fontWeight: '600' as const },
 })

@@ -2,19 +2,28 @@ import 'dotenv/config'
 
 export default {
   expo: {
-    name: "PreventivoAI",
-    slug: "preventivoai-mobile",
+    name: "PreviCloud",
+    slug: "previcloud-mobile",
     version: "1.0.0",
     orientation: "portrait",
-    scheme: "preventivoai",
+    scheme: "previcloud",
     userInterfaceStyle: "light",
+    icon: "./assets/images/icon.png",
     ios: {
       supportsTablet: false,
-      bundleIdentifier: "com.preventivoai.app"
+      bundleIdentifier: "it.previcloud.app"
     },
     android: {
-      package: "com.preventivoai.app",
+      package: "it.previcloud.app",
       softwareKeyboardLayoutMode: "resize",
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/android-icon-foreground.png",
+        monochromeImage: "./assets/images/android-icon-monochrome.png",
+        backgroundColor: "#0D1B2A"
+      }
+    },
+    web: {
+      favicon: "./assets/images/favicon.png"
     },
     plugins: [
   "expo-router",
@@ -22,9 +31,17 @@ export default {
   "expo-web-browser",
   "expo-audio",
   [
+    "expo-splash-screen",
+    {
+      "backgroundColor": "#0D1B2A",
+      "image": "./assets/images/splash-icon.png",
+      "imageWidth": 200
+    }
+  ],
+  [
     "expo-notifications",
     {
-      "icon": "./assets/images/icon.png",
+      "icon": "./assets/images/android-icon-monochrome.png",
       "color": "#0D1B2A",
       "androidMode": "default"
     }

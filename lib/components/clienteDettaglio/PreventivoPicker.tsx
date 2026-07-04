@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Preventivo } from '../../types'
-import { formatImportoEuro } from 'preventivoai-shared'
+import { formatImportoEuro } from 'previcloud-shared'
 
 type Props = {
   preventivi: Preventivo[]
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   row: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   rowSelected: { backgroundColor: '#F0FDF4' },
   rowTitle: { fontSize: 14, fontWeight: '500', color: '#374151' },
-  rowTitleSelected: { color: '#0E9F8E', fontWeight: '600' },
+  rowTitleSelected: { color: '#0B7A6D', fontWeight: '600' },
   rowSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   emptyHint: { padding: 12, fontSize: 12, color: '#9CA3AF', textAlign: 'center' },
 })

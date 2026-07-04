@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction } from 'react'
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { TrasfertaBuilder } from '../../builder/types'
-import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { formatImportoEuroVisuale } from 'previcloud-shared'
 import { PLACEHOLDER } from '../../placeholders'
 import { AppIcon } from '../icons/AppIcon'
 import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
@@ -73,7 +73,7 @@ export function TrasferteCard({
                       style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: t.esente ? '#F0FDF4' : '#FEF3C7', borderWidth: 1, borderColor: t.esente ? '#0E9F8E' : '#F59E0B' }}
                       onPress={() => setTrasferte(ts => ts.map(x => x.id === t.id ? { ...x, esente: !x.esente } : x))}
                     >
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: t.esente ? '#0E9F8E' : '#F59E0B' }}>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: t.esente ? '#0B7A6D' : '#F59E0B' }}>
                         {t.esente ? 'Esente' : 'Imponibile'}
                       </Text>
                     </TouchableOpacity>
@@ -137,7 +137,7 @@ export function TrasferteCard({
                     setNuovaSpesaImporto('')
                   }}
                 >
-                  <Text style={{ fontSize: 13, color: '#0E9F8E', fontWeight: '600' }}>+ Aggiungi spesa</Text>
+                  <Text style={{ fontSize: 13, color: '#0B7A6D', fontWeight: '600' }}>+ Aggiungi spesa</Text>
                 </TouchableOpacity>
               </View>
 

@@ -1,5 +1,5 @@
 import { StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { formatImportoEuroVisuale } from 'preventivoai-shared'
+import { formatImportoEuroVisuale } from 'previcloud-shared'
 import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type ScontoTipo = 'percentuale' | 'fisso'
@@ -115,5 +115,5 @@ const styles = StyleSheet.create({
   },
   previewRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   previewLabel: { fontSize: 13, color: '#6B7280' },
-  previewVal: { fontSize: 14, fontWeight: '700', color: '#0E9F8E' },
+  previewVal: { fontSize: 14, fontWeight: '700', color: '#0B7A6D' },
 })

@@ -1,6 +1,6 @@
 import { Platform } from 'react-native'
 import { supabase } from '../supabase'
-import { mergeMessaggiCliente, type MessaggiClienteTemplates } from 'preventivoai-shared'
+import { mergeMessaggiCliente, type MessaggiClienteTemplates } from 'previcloud-shared'
 import { invalidaCacheMessaggiCliente } from '../messaggiCliente'
 
 type SettingsProfile = {
