@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { VocePreventivo } from '../../types'
 import { formatImportoEuroVisuale } from 'previcloud-shared'
+import { AppIcon } from '../icons/AppIcon'
 import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type Props = {
@@ -24,8 +25,8 @@ export function VociPreventivoCard({ voci, includiIva, totale, totaleConIva, onT
         <View key={v.servizio_id} style={styles.voceRow}>
           <View style={styles.voceHeader}>
             <Text style={styles.voceNome}>{v.nome}</Text>
-            <TouchableOpacity onPress={() => onRimuoviVoce(v.servizio_id)}>
-              <Text style={styles.voceRemove}>✕</Text>
+            <TouchableOpacity onPress={() => onRimuoviVoce(v.servizio_id)} accessibilityRole="button" accessibilityLabel="Rimuovi voce" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <AppIcon name="x" size={16} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
           <TextInput style={styles.voceDesc} value={v.descrizione}

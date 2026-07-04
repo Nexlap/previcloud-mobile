@@ -1,9 +1,16 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Text, TouchableOpacity, View } from 'react-native'
 import { onboardingStyles as styles } from './onboardingStyles'
 
 type Props = {
   onStart: () => void
 }
+
+const FEATURES: { icon: keyof typeof MaterialCommunityIcons.glyphMap; text: string }[] = [
+  { icon: 'microphone', text: 'Racconta il lavoro a voce' },
+  { icon: 'robot', text: 'Claude genera il preventivo' },
+  { icon: 'file-document-outline', text: 'PDF professionale in 30 sec' },
+]
 
 export function OnboardingWelcomeStep({ onStart }: Props) {
   return (
@@ -17,13 +24,9 @@ export function OnboardingWelcomeStep({ onStart }: Props) {
           in 30 secondi.
         </Text>
         <View style={styles.welcomeFeatures}>
-          {[
-            { icon: '🎙', text: 'Racconta il lavoro a voce' },
-            { icon: '🤖', text: 'Claude genera il preventivo' },
-            { icon: '📄', text: 'PDF professionale in 30 sec' },
-          ].map((f, i) => (
+          {FEATURES.map((f, i) => (
             <View key={i} style={styles.welcomeFeature}>
-              <Text style={styles.welcomeFeatureIcon}>{f.icon}</Text>
+              <MaterialCommunityIcons name={f.icon} size={20} color="#0B7A6D" />
               <Text style={styles.welcomeFeatureText}>{f.text}</Text>
             </View>
           ))}

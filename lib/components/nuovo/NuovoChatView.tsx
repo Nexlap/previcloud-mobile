@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useMemo, type RefObject } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { useTheme } from '../../theme/ThemeContext'
@@ -48,8 +49,7 @@ export function NuovoChatView({
       StyleSheet.create({
         scroll: { flex: 1 },
         chatContent: { padding: 16, gap: 12, flexGrow: 1 },
-        emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
-        emptyChatIcon: { fontSize: 40, marginBottom: 12 },
+        emptyChat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 12 },
         emptyChatTitle: { fontSize: 16, fontWeight: '600', color: colors.text, textAlign: 'center' },
         emptyChatSub: {
           fontSize: 13,
@@ -117,7 +117,7 @@ export function NuovoChatView({
       <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.chatContent}>
         {messaggi.length === 0 && (
           <View style={styles.emptyChat}>
-            <Text style={styles.emptyChatIcon}>💬</Text>
+            <MaterialCommunityIcons name="chat-outline" size={40} color={colors.textMuted} />
             <Text style={styles.emptyChatTitle}>Descrivi il lavoro</Text>
             <Text style={styles.emptyChatSub}>Anche vago — l'AI farà le domande giuste</Text>
           </View>

@@ -1,4 +1,5 @@
 import { Text, TouchableOpacity, View } from 'react-native'
+import { AppIcon } from '../icons/AppIcon'
 import { nuovoStyles as styles } from './nuovoStyles'
 
 type Props = {
@@ -11,8 +12,8 @@ type Props = {
 export function NuovoHeader({ title, showRicomincia, onBack, onRicomincia }: Props) {
   return (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-        <Text style={styles.backText}>←</Text>
+      <TouchableOpacity style={styles.backBtn} onPress={onBack} accessibilityRole="button" accessibilityLabel="Indietro" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <AppIcon name="arrow-left" size={22} color="#9CA3AF" />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>{title}</Text>
       {showRicomincia

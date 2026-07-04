@@ -1,7 +1,9 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { Text, TouchableOpacity, View } from 'react-native'
 import { MetodoPagamento } from '../../api/preventivoPdf'
 import { iconaMetodoPagamento } from '../../features/nuovo/chat'
+import { AppIcon } from '../icons/AppIcon'
 import { nuovoStyles as styles } from './nuovoStyles'
 
 type Props = {
@@ -29,9 +31,9 @@ export function NuovoPagamentoModal({
           style={[styles.paymentOption, !metodoPagamentoSelezionato && styles.paymentOptionActive]}
           onPress={() => { onSelect(null); onClose() }}
         >
-          <Text style={styles.paymentIcon}>🚫</Text>
+          <AppIcon name="slash" size={20} color="#9CA3AF" />
           <Text style={styles.paymentOptionText}>Nessun metodo</Text>
-          {!metodoPagamentoSelezionato && <Text style={styles.paymentCheck}>✓</Text>}
+          {!metodoPagamentoSelezionato && <AppIcon name="check" size={18} color="#0B7A6D" />}
         </TouchableOpacity>
         {metodiPagamento.length === 0 ? (
           <TouchableOpacity style={styles.clienteModalBtn} onPress={() => { onClose(); router.push('/screens/pagamenti') }}>
@@ -44,13 +46,17 @@ export function NuovoPagamentoModal({
               style={[styles.paymentOption, metodoPagamentoSelezionato?.id === m.id && styles.paymentOptionActive]}
               onPress={() => { onSelect(m); onClose() }}
             >
-              <Text style={styles.paymentIcon}>{iconaMetodoPagamento(m.tipo)}</Text>
+              <MaterialCommunityIcons
+                name={iconaMetodoPagamento(m.tipo) as keyof typeof MaterialCommunityIcons.glyphMap}
+                size={20}
+                color="#0D1B2A"
+              />
               <View style={{ flex: 1 }}>
                 <Text style={styles.paymentOptionText}>{m.nome}</Text>
                 {m.tipo === 'bonifico' && m.dati?.iban && <Text style={styles.paymentOptionSub}>{m.dati.iban}</Text>}
                 {m.tipo === 'paypal' && m.dati?.email && <Text style={styles.paymentOptionSub}>{m.dati.email}</Text>}
               </View>
-              {metodoPagamentoSelezionato?.id === m.id && <Text style={styles.paymentCheck}>✓</Text>}
+              {metodoPagamentoSelezionato?.id === m.id && <AppIcon name="check" size={18} color="#0B7A6D" />}
             </TouchableOpacity>
           ))
         )}

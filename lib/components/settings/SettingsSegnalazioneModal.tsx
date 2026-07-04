@@ -1,9 +1,11 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { usePathname } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Image, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { etichettaSchermata } from '../../api/segnalazioni'
 import { SEGNALAZIONE_TIPI } from '../../features/settings/constants'
+import { AppIcon } from '../icons/AppIcon'
 import { settingsStyles as styles } from './settingsStyles'
 
 export type SegnalazioneForm = {
@@ -58,8 +60,8 @@ export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onC
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.modalClose}>✕</Text>
+          <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Chiudi" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <AppIcon name="x" size={20} color="#9CA3AF" />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Segnala un problema</Text>
           <TouchableOpacity onPress={inviaSegnalazione} disabled={inviando}>
@@ -73,13 +75,17 @@ export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onC
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>TIPO</Text>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-              {SEGNALAZIONE_TIPI.map(t => (
-                <TouchableOpacity key={t.key}
-                  style={[styles.unitaChip, segnalazione.tipo === t.key && styles.unitaChipActive, { paddingHorizontal: 14, paddingVertical: 10 }]}
-                  onPress={() => onChange(s => ({ ...s, tipo: t.key }))}>
-                  <Text style={[styles.unitaChipText, segnalazione.tipo === t.key && styles.unitaChipTextActive, { fontSize: 13 }]}>{t.label}</Text>
-                </TouchableOpacity>
-              ))}
+              {SEGNALAZIONE_TIPI.map(t => {
+                const active = segnalazione.tipo === t.key
+                return (
+                  <TouchableOpacity key={t.key}
+                    style={[styles.unitaChip, active && styles.unitaChipActive, { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10 }]}
+                    onPress={() => onChange(s => ({ ...s, tipo: t.key }))}>
+                    <MaterialCommunityIcons name={t.icon} size={14} color={active ? '#fff' : '#9CA3AF'} />
+                    <Text style={[styles.unitaChipText, active && styles.unitaChipTextActive, { fontSize: 13 }]}>{t.label}</Text>
+                  </TouchableOpacity>
+                )
+              })}
             </View>
           </View>
           <View style={styles.fieldGroup}>
@@ -113,8 +119,8 @@ export function SettingsSegnalazioneModal({ visible, segnalazione, inviando, onC
                 <Text style={{ flex: 1, fontSize: 12, color: '#4B5563' }} numberOfLines={1}>
                   {screenshotNome}
                 </Text>
-                <TouchableOpacity onPress={() => setScreenshotUri(null)} hitSlop={8}>
-                  <Text style={{ fontSize: 16, color: '#9CA3AF' }}>✕</Text>
+                <TouchableOpacity onPress={() => setScreenshotUri(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Rimuovi screenshot">
+                  <AppIcon name="x" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
             )}

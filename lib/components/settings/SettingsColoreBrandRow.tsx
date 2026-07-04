@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { COLORI_BRAND } from '../../features/settings/constants'
 import { useSettingsTheme } from '../../hooks/useSettingsTheme'
+import { AppIcon } from '../icons/AppIcon'
 import { settingsStyles as styles } from './settingsStyles'
 
 type Props = {
@@ -26,7 +27,7 @@ export function SettingsColoreBrandRow({ value, onChange }: Props) {
         <View style={styles.settingsRowRight}>
           <Text style={[styles.settingsRowValue, t.sub]}>#{hex}</Text>
           <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: `#${hex}`, borderWidth: 1, borderColor: t.input.borderColor }} />
-          <Text style={{ fontSize: 18, color: t.icon }}>{expanded ? '▾' : '▸'}</Text>
+          <AppIcon name={expanded ? 'chevron-down' : 'chevron-right'} size={16} color={t.icon as string} />
         </View>
       </TouchableOpacity>
 
@@ -40,7 +41,7 @@ export function SettingsColoreBrandRow({ value, onChange }: Props) {
                 style={[styles.coloreChip, { backgroundColor: '#' + c }, hex === c && styles.coloreChipActive]}
                 onPress={() => onChange(c)}
               >
-                {hex === c ? <Text style={styles.coloreChipCheck}>✓</Text> : null}
+                {hex === c ? <AppIcon name="check" size={16} color="#fff" /> : null}
               </TouchableOpacity>
             ))}
           </View>

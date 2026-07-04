@@ -20,6 +20,7 @@ import {
   type MessaggiClienteTemplates,
 } from 'previcloud-shared'
 import { caricaMessaggiCliente } from '../../lib/messaggiCliente'
+import { AppIcon } from '../../lib/components/icons/AppIcon'
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 
@@ -122,8 +123,8 @@ export default function MessaggiClienteScreen() {
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.back}>←</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Indietro">
+          <AppIcon name="arrow-left" size={22} color="#9CA3AF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>Comunicazione cliente</Text>
         <View style={{ width: 28 }} />
@@ -169,7 +170,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#0D1B2A',
   },
-  back: { color: '#fff', fontSize: 22, width: 28 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' as const },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 14, paddingBottom: 40 },

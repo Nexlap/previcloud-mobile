@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Servizio, VocePreventivo } from '../../types'
 import { formatImportoEuroVisuale } from 'previcloud-shared'
+import { AppIcon } from '../icons/AppIcon'
 
 type Props = {
   servizi: Servizio[]
@@ -31,8 +32,10 @@ export function ServiziListinoCard({ servizi, voci, onConfiguraServizi, onAggiun
           <TouchableOpacity
             style={[styles.addBtn, aggiunto && styles.addBtnDone]}
             onPress={() => aggiunto ? onRimuoviVoce(s.id) : onAggiungiVoce(s)}
+            accessibilityRole="button"
+            accessibilityLabel={aggiunto ? `Rimuovi ${s.nome}` : `Aggiungi ${s.nome}`}
           >
-            <Text style={[styles.addBtnText, aggiunto && styles.addBtnTextDone]}>{aggiunto ? '✓' : '+'}</Text>
+            <AppIcon name={aggiunto ? 'check' : 'plus'} size={18} color={aggiunto ? '#0B7A6D' : '#fff'} />
           </TouchableOpacity>
         </View>
         )

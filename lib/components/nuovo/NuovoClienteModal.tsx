@@ -1,5 +1,6 @@
 import { Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { ClienteSuggerito, DatiClienteNuovo } from '../../features/nuovo/types'
+import { AppIcon } from '../icons/AppIcon'
 import { nuovoStyles as styles } from './nuovoStyles'
 
 type Props = {
@@ -54,11 +55,13 @@ export function NuovoClienteModal({
             <Text style={styles.clienteModalSub}>"{nomeClienteNuovo}" non è in rubrica. Vuoi aggiungerlo?</Text>
             {!mostraFormDatiCliente ? (
               <>
-                <TouchableOpacity style={styles.clienteModalBtn} onPress={onMostraFormDati}>
-                  <Text style={styles.clienteModalBtnText}>➕ Sì, aggiungi con dati</Text>
+                <TouchableOpacity style={[styles.clienteModalBtn, styles.clienteModalBtnRow]} onPress={onMostraFormDati}>
+                  <AppIcon name="plus" size={15} color="#fff" />
+                  <Text style={styles.clienteModalBtnText}>Sì, aggiungi con dati</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.clienteModalBtn} onPress={onCreaCliente}>
-                  <Text style={styles.clienteModalBtnText}>✓ Sì, solo il nome</Text>
+                <TouchableOpacity style={[styles.clienteModalBtn, styles.clienteModalBtnRow]} onPress={onCreaCliente}>
+                  <AppIcon name="check" size={15} color="#fff" />
+                  <Text style={styles.clienteModalBtnText}>Sì, solo il nome</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.clienteModalSkip} onPress={onClose}>
                   <Text style={styles.clienteModalSkipText}>No, continua senza</Text>

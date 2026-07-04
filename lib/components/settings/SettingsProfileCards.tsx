@@ -2,6 +2,7 @@ import { ActivityIndicator, Image, Switch, Text, TextInput, TouchableOpacity, Vi
 import { SettingsForm } from '../../api/settings'
 import { CATEGORIE, COLORI_BRAND, TONI } from '../../features/settings/constants'
 import { useSettingsTheme } from '../../hooks/useSettingsTheme'
+import { AppIcon } from '../icons/AppIcon'
 import { settingsStyles as styles } from './settingsStyles'
 
 type Props = {
@@ -75,7 +76,7 @@ export function SettingsProfileCards({ form, logoUrl, uploadingLogo, onSetField,
               style={[styles.coloreChip, { backgroundColor: '#' + c }, form.colore_brand === c && styles.coloreChipActive]}
               onPress={() => onSetField('colore_brand', c)}
             >
-              {form.colore_brand === c && <Text style={styles.coloreChipCheck}>✓</Text>}
+              {form.colore_brand === c && <AppIcon name="check" size={16} color="#fff" />}
             </TouchableOpacity>
           ))}
         </View>

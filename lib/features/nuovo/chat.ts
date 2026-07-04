@@ -40,9 +40,10 @@ export function importoDaPreventivo(testo: string) {
   return importoDaTesto(testo)
 }
 
+/** Nome icona MaterialCommunityIcons corrispondente al metodo di pagamento. */
 export function iconaMetodoPagamento(tipo?: string) {
-  if (tipo === 'bonifico') return '🏦'
-  if (tipo === 'paypal') return '💙'
-  if (tipo === 'contanti') return '💵'
-  return '💳'
+  if (tipo === 'bonifico') return 'bank'
+  if (tipo === 'paypal') return 'wallet-outline'
+  if (tipo === 'contanti') return 'cash'
+  return 'credit-card-outline'
 }

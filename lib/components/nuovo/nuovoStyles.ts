@@ -3,8 +3,7 @@ import { Platform, StyleSheet } from 'react-native'
 export const nuovoStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { padding: 4, width: 50 },
-  backText: { color: '#9CA3AF', fontSize: 22 },
+  backBtn: { width: 40, height: 40, justifyContent: 'center' as const, alignItems: 'flex-start' as const },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
   nuovoText: { color: '#0E9F8E', fontSize: 14, width: 50, textAlign: 'right' as const },
   scroll: { flex: 1 },
@@ -77,6 +76,7 @@ export const nuovoStyles = StyleSheet.create({
   clienteModalOptionNome: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
   clienteModalOptionInfo: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   clienteModalBtn: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, alignItems: 'center' as const, shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 5, elevation: 2 },
+  clienteModalBtnRow: { flexDirection: 'row' as const, justifyContent: 'center' as const, gap: 8 },
   clienteModalBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' as const },
   clienteModalSkip: { alignItems: 'center' as const, padding: 8 },
   clienteModalSkipText: { fontSize: 13, color: '#9CA3AF' },

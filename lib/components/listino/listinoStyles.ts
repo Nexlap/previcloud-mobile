@@ -52,7 +52,7 @@ export const listinoStyles = StyleSheet.create({
   infoBox: { backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#BFDBFE' },
   infoBoxText: { fontSize: 13, color: '#1D4ED8', lineHeight: 18 },
   listinoTabRow: { flexDirection: 'row', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#E5E7EB' },
-  listinoTabBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' as const },
+  listinoTabBtn: { flex: 1, flexDirection: 'row' as const, justifyContent: 'center' as const, gap: 5, paddingVertical: 8, borderRadius: 10, alignItems: 'center' as const },
   listinoTabBtnActive: { backgroundColor: '#0D1B2A' },
   listinoTabText: { fontSize: 12, fontWeight: '500', color: '#9CA3AF' },
   listinoTabTextActive: { color: '#fff' },

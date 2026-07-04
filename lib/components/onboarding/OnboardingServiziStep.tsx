@@ -1,9 +1,18 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { ServizioForm } from '../../types'
 import { formatImportoEuroVisuale } from 'previcloud-shared'
 import { ESEMPI_LISTINO, UNITA } from '../../features/onboarding/constants'
+import { AppIcon } from '../icons/AppIcon'
 import { OnboardingStepper } from './OnboardingStepper'
 import { onboardingStyles as styles } from './onboardingStyles'
+
+const MODALITA_ICONE: Record<'testo' | 'foto' | 'vocale' | 'manuale', keyof typeof MaterialCommunityIcons.glyphMap> = {
+  testo: 'clipboard-text-outline',
+  foto: 'camera-outline',
+  vocale: 'microphone-outline',
+  manuale: 'pencil-outline',
+}
 
 type NuovoServizio = { nome: string; descrizione: string; costo: string; unita: string }
 
@@ -66,20 +75,24 @@ export function OnboardingServiziStep({
         <Text style={styles.stepSub}>Claude userà questi prezzi per ogni preventivo</Text>
 
         <View style={styles.modalitaTabs}>
-          {([['testo', '📋 Incolla'] , ['foto', '📷 Foto'], ['vocale', '🎙 Vocale'], ['manuale', '✏️ Manuale']] as const).map(([key, label]) => (
-            <TouchableOpacity
-              key={key}
-              style={[styles.modalitaTab, ((key === 'manuale' && modalitaServizi === 'manuale') || (key !== 'manuale' && listinoTab === key && modalitaServizi !== 'manuale')) && styles.modalitaTabActive]}
-              onPress={() => {
-                if (key === 'manuale') { onModalitaServiziChange('manuale') }
-                else { onModalitaServiziChange('testo'); onListinoTabChange(key) }
-              }}
-            >
-              <Text style={[styles.modalitaTabText, ((key === 'manuale' && modalitaServizi === 'manuale') || (key !== 'manuale' && listinoTab === key && modalitaServizi !== 'manuale')) && styles.modalitaTabTextActive]}>
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {([['testo', 'Incolla'] , ['foto', 'Foto'], ['vocale', 'Vocale'], ['manuale', 'Manuale']] as const).map(([key, label]) => {
+            const active = (key === 'manuale' && modalitaServizi === 'manuale') || (key !== 'manuale' && listinoTab === key && modalitaServizi !== 'manuale')
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[styles.modalitaTab, active && styles.modalitaTabActive]}
+                onPress={() => {
+                  if (key === 'manuale') { onModalitaServiziChange('manuale') }
+                  else { onModalitaServiziChange('testo'); onListinoTabChange(key) }
+                }}
+              >
+                <MaterialCommunityIcons name={MODALITA_ICONE[key]} size={15} color={active ? '#fff' : '#9CA3AF'} />
+                <Text style={[styles.modalitaTabText, active && styles.modalitaTabTextActive]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
         </View>
 
         {modalitaServizi === 'testo' && listinoTab === 'testo' && (
@@ -103,7 +116,12 @@ export function OnboardingServiziStep({
             >
               {elaborando
                 ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.elaboraBtnText}>🤖 Struttura con AI</Text>
+                : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <MaterialCommunityIcons name="robot" size={16} color="#fff" />
+                    <Text style={styles.elaboraBtnText}>Struttura con AI</Text>
+                  </View>
+                )
               }
             </TouchableOpacity>
           </View>
@@ -117,16 +135,17 @@ export function OnboardingServiziStep({
               onPress={() => onGestisciFoto('galleria')}
             >
               {elaborandoMedia ? <ActivityIndicator color="#0E9F8E" /> : <>
-                <Text style={{ fontSize: 32 }}>📷</Text>
+                <MaterialCommunityIcons name="image-outline" size={32} color="#9CA3AF" />
                 <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>Scegli dalla galleria</Text>
               </>}
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.elaboraBtn, elaborandoMedia && styles.nextBtnDisabled]}
+              style={[styles.elaboraBtn, elaborandoMedia && styles.nextBtnDisabled, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }]}
               disabled={elaborandoMedia}
               onPress={() => onGestisciFoto('camera')}
             >
-              <Text style={styles.elaboraBtnText}>📸 Scatta una foto</Text>
+              <MaterialCommunityIcons name="camera-outline" size={16} color="#fff" />
+              <Text style={styles.elaboraBtnText}>Scatta una foto</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -137,8 +156,10 @@ export function OnboardingServiziStep({
             <TouchableOpacity
               style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: registrando ? '#EF4444' : '#0D1B2A', justifyContent: 'center', alignItems: 'center', marginVertical: 8 }}
               onPress={onToggleRegistrazione}
+              accessibilityRole="button"
+              accessibilityLabel={registrando ? 'Ferma registrazione' : 'Avvia registrazione'}
             >
-              {elaborandoMedia ? <ActivityIndicator color="#fff" size="large" /> : <Text style={{ fontSize: 32 }}>{registrando ? '⏹' : '🎙'}</Text>}
+              {elaborandoMedia ? <ActivityIndicator color="#fff" size="large" /> : <AppIcon name={registrando ? 'square' : 'mic'} size={30} color="#fff" />}
             </TouchableOpacity>
             <Text style={{ fontSize: 13, color: registrando ? '#EF4444' : '#9CA3AF', fontWeight: '500' }}>
               {elaborandoMedia ? 'Elaborazione...' : registrando ? 'Tocca per fermare' : 'Tocca per registrare'}
@@ -154,8 +175,8 @@ export function OnboardingServiziStep({
                   <Text style={styles.servizioItemNome}>{s.nome}</Text>
                   {s.costo ? <Text style={styles.servizioItemCosto}>€{formatImportoEuroVisuale(parseFloat(s.costo) || 0)}/{s.unita}</Text> : null}
                 </View>
-                <TouchableOpacity onPress={() => onRimuoviServizio(i)}>
-                  <Text style={styles.servizioItemDel}>✕</Text>
+                <TouchableOpacity onPress={() => onRimuoviServizio(i)} accessibilityRole="button" accessibilityLabel="Rimuovi servizio" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <AppIcon name="x" size={16} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
             ))}

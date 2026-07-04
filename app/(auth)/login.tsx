@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import * as LocalAuthentication from 'expo-local-authentication'
 import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
@@ -11,6 +12,7 @@ import { currentUserId, resetPassword, resolvePostAuthRoute, signInWithEmail, si
 import { supabase } from '../../lib/supabase'
 import { WEB_BASE_URL, WEB_TERMINI_URL } from '../../lib/features/profilo/constants'
 import { errorMessage } from '../../lib/utils/errors'
+import { AppIcon } from '../../lib/components/icons/AppIcon'
 
 /** Imposta `true` per riattivare tab e form di registrazione in-app. */
 const BETA_REGISTRAZIONE_APERTA = false
@@ -152,7 +154,7 @@ export default function Login() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.logo}>Preventivo<Text style={styles.logoAccent}>AI</Text></Text>
+          <Text style={styles.logo}>Previ<Text style={styles.logoAccent}>Cloud</Text></Text>
           <Text style={styles.subtitle}>
             {mode === 'register' && BETA_REGISTRAZIONE_APERTA ? 'Crea il tuo account' : 'Bentornato'}
           </Text>
@@ -170,8 +172,8 @@ export default function Login() {
           ) : null}
 
           {biometricoAttivato && (
-            <TouchableOpacity style={styles.biometricoBtn} onPress={loginBiometrico}>
-              <Text style={styles.biometricoBtnIcon}>👆</Text>
+            <TouchableOpacity style={styles.biometricoBtn} onPress={loginBiometrico} accessibilityRole="button">
+              <MaterialCommunityIcons name="fingerprint" size={22} color="#0B7A6D" />
               <Text style={styles.biometricoBtnText}>Accedi con impronta digitale</Text>
             </TouchableOpacity>
           )}
@@ -180,7 +182,8 @@ export default function Login() {
             <Text style={styles.label}>EMAIL</Text>
             <TextInput style={styles.input} value={email} onChangeText={setEmail}
               placeholder="es. mario@gmail.com" placeholderTextColor="#9CA3AF"
-              keyboardType="email-address" autoCapitalize="none" />
+              keyboardType="email-address" autoCapitalize="none"
+              accessibilityLabel="Email" />
           </View>
           <View style={styles.inputWrap}>
             <Text style={styles.label}>PASSWORD</Text>
@@ -189,9 +192,16 @@ export default function Login() {
                 setPassword(v)
                 if (errorePassword) setErrorePassword(null)
               }}
-                placeholder="Minimo 6 caratteri" placeholderTextColor="#9CA3AF" secureTextEntry={!mostraPassword} />
-              <TouchableOpacity style={styles.passwordToggle} onPress={() => setMostraPassword(v => !v)}>
-                <Text style={styles.passwordToggleText}>{mostraPassword ? 'Nascondi' : 'Mostra'}</Text>
+                placeholder="Minimo 6 caratteri" placeholderTextColor="#9CA3AF" secureTextEntry={!mostraPassword}
+                accessibilityLabel="Password" />
+              <TouchableOpacity
+                style={styles.passwordToggle}
+                onPress={() => setMostraPassword(v => !v)}
+                accessibilityRole="button"
+                accessibilityLabel={mostraPassword ? 'Nascondi password' : 'Mostra password'}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <AppIcon name={mostraPassword ? 'eye-off' : 'eye'} size={18} color="#0B7A6D" />
               </TouchableOpacity>
             </View>
             {mode === 'register' && BETA_REGISTRAZIONE_APERTA && errorePassword ? (
@@ -211,6 +221,8 @@ export default function Login() {
                 onPress={() => setAccettaTermini(v => !v)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: accettaTermini }}
+                accessibilityLabel="Accetto i termini e condizioni"
+                hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
               >
                 {accettaTermini && <Text style={styles.checkboxTick}>{'\u2713'}</Text>}
               </TouchableOpacity>
@@ -252,7 +264,7 @@ const styles = StyleSheet.create({
   logo: { fontSize: 32, fontWeight: '700', color: '#0D1B2A', letterSpacing: -0.5 },
   logoAccent: { color: '#0B7A6D' },
   subtitle: { fontSize: 15, color: '#6B7280', marginTop: 6 },
-  card: { backgroundColor: '#fff', borderRadius: 20, padding: 24, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+  card: { backgroundColor: '#fff', borderRadius: 20, padding: 24, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
   toggle: { flexDirection: 'row', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 4, marginBottom: 24 },
   toggleBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' as const },
   toggleActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
@@ -264,7 +276,6 @@ const styles = StyleSheet.create({
   passwordRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB' },
   passwordInput: { flex: 1, padding: 12, fontSize: 14, color: '#0D1B2A' },
   passwordToggle: { paddingHorizontal: 12, alignSelf: 'stretch', justifyContent: 'center' },
-  passwordToggleText: { fontSize: 12, color: '#0B7A6D', fontWeight: '600' },
   forgotBtn: { alignSelf: 'flex-end', marginTop: 8, paddingVertical: 4 },
   forgotText: { fontSize: 13, color: '#0B7A6D', fontWeight: '600' },
   erroreInline: { fontSize: 12, color: '#DC2626', marginTop: 6 },
@@ -280,6 +291,5 @@ const styles = StyleSheet.create({
   invitoText: { marginTop: 16, fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 19 },
   invitoLink: { color: '#0B7A6D', fontWeight: '600' },
   biometricoBtn: { flexDirection: 'row', alignItems: 'center' as const, justifyContent: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: '#0E9F8E', gap: 10, marginBottom: 16 },
-  biometricoBtnIcon: { fontSize: 22 },
   biometricoBtnText: { fontSize: 15, color: '#0B7A6D', fontWeight: '600' as const },
 })

@@ -1,8 +1,10 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import type { Dispatch, SetStateAction } from 'react'
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { RisultatoFiscale } from '../../builder/types'
 import { ProfiloFiscale, VocePreventivo } from '../../types'
 import { formatImportoEuroVisuale } from 'previcloud-shared'
+import { AppIcon } from '../icons/AppIcon'
 import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type Props = {
@@ -149,10 +151,16 @@ export function AnalisiFiscaleCard({
               </View>
             </>
           )}
-          <Text style={styles.fiscaleDisclaimer}>⚠️ Calcolo indicativo — consulta il tuo commercialista</Text>
+          <View style={styles.fiscaleDisclaimerRow}>
+            <AppIcon name="alert-triangle" size={12} color="#9CA3AF" />
+            <Text style={styles.fiscaleDisclaimer}>Calcolo indicativo — consulta il tuo commercialista</Text>
+          </View>
 
           <View style={styles.fiscaleSep} />
-          <Text style={[styles.fiscaleLabel, { marginBottom: 4 }]}>🧮 Voglio incassare (netto)</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <MaterialCommunityIcons name="calculator-variant-outline" size={13} color="#6B7280" />
+            <Text style={styles.fiscaleLabel}>Voglio incassare (netto)</Text>
+          </View>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <TextInput
               style={[styles.voceCostoInput, { flex: 1, fontSize: 14 }]}
@@ -181,7 +189,7 @@ export function AnalisiFiscaleCard({
                 Lordo da fatturare: €{formatImportoEuroVisuale(lordomCalcolato)}
               </Text>
               <TouchableOpacity
-                style={[styles.generateBtn, { backgroundColor: '#0E9F8E', paddingVertical: 10 }]}
+                style={[styles.generateBtn, { backgroundColor: '#0E9F8E', paddingVertical: 10, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
                 onPress={() => {
                   if (voci.length === 0) { Alert.alert('Aggiungi servizi prima'); return }
                   const totaleAttuale = calcolaTotale()
@@ -196,7 +204,8 @@ export function AnalisiFiscaleCard({
                   setNettoDesiderato('')
                 }}
               >
-                <Text style={[styles.generateBtnText, { fontSize: 13 }]}>✓ Applica al preventivo</Text>
+                <AppIcon name="check" size={14} color="#fff" />
+                <Text style={[styles.generateBtnText, { fontSize: 13 }]}>Applica al preventivo</Text>
               </TouchableOpacity>
               <Text style={{ fontSize: 10, color: '#9CA3AF', textAlign: 'center' }}>
                 I prezzi delle voci verranno scalati proporzionalmente
@@ -240,5 +249,6 @@ const styles = StyleSheet.create({
   fiscaleSep: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 4 },
   fiscaleNetto: { fontSize: 14, fontWeight: '700', color: '#0D1B2A', flex: 1 },
   fiscaleNettoVal: { fontSize: 16, fontWeight: '700', color: '#0B7A6D' },
-  fiscaleDisclaimer: { fontSize: 10, color: '#9CA3AF', fontStyle: 'italic' as const, marginTop: 6 },
+  fiscaleDisclaimerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 5, marginTop: 6 },
+  fiscaleDisclaimer: { flex: 1, fontSize: 10, color: '#9CA3AF', fontStyle: 'italic' as const },
 })

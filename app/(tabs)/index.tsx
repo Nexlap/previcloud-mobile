@@ -186,13 +186,13 @@ export default function Home() {
               <View style={styles.prodottiBannerGradientTeal} pointerEvents="none" />
               <View style={[styles.prodottiBannerGradientFade, { backgroundColor: colors.surface }]} pointerEvents="none" />
               <View style={styles.prodottiBannerInner}>
-                <Text style={styles.prodottiBannerIcon}>🛍️</Text>
+                <AppIcon name="shopping-bag" size={26} color="#0B7A6D" />
                 <View style={styles.prodottiBannerText}>
                   <Text style={[styles.prodottiBannerTitle, { color: colors.text }]}>Vendi i tuoi contenuti digitali</Text>
                   <Text style={[styles.prodottiBannerSub, { color: colors.textMuted }]}>Guide, template, video — incassa online</Text>
                 </View>
-                <TouchableOpacity onPress={apriProdottiDigitali} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Text style={styles.prodottiBannerArrow}>→</Text>
+                <TouchableOpacity onPress={apriProdottiDigitali} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Scopri prodotti digitali">
+                  <AppIcon name="arrow-right" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
@@ -200,8 +200,10 @@ export default function Home() {
               style={styles.prodottiBannerClose}
               onPress={chiudiBannerProdotti}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel="Chiudi banner"
             >
-              <Text style={[styles.prodottiBannerCloseText, { color: colors.textMuted }]}>✕</Text>
+              <AppIcon name="x" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         ) : null}
@@ -336,13 +338,10 @@ const styles = StyleSheet.create({
     paddingRight: 28,
     gap: 10,
   },
-  prodottiBannerIcon: { fontSize: 22 },
   prodottiBannerText: { flex: 1, gap: 2 },
   prodottiBannerTitle: { fontSize: 14, fontWeight: '600' },
   prodottiBannerSub: { fontSize: 11 },
-  prodottiBannerArrow: { fontSize: 18, color: '#0B7A6D', fontWeight: '600' },
-  prodottiBannerClose: { position: 'absolute', top: 6, right: 8, zIndex: 1, padding: 2 },
-  prodottiBannerCloseText: { fontSize: 12, lineHeight: 14 },
+  prodottiBannerClose: { position: 'absolute', top: 6, right: 8, zIndex: 1, padding: 6 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   sectionHeaderLeft: { flex: 1, gap: 2, paddingRight: 8 },
   sectionSub: { fontSize: 11 },

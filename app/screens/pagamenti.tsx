@@ -1,11 +1,21 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { eliminaMetodoPagamento, caricaMetodiPagamento, MetodoPagamento, MetodoPagamentoForm, salvaMetodoPagamento, TipoPagamento } from '../../lib/api/pagamenti'
 import { trackEvento } from '../../lib/api/track'
 import { statoAccount, StripeAccountStato } from '../../lib/api/stripeConnect'
 import { StripeConnectCard } from '../../lib/components/settings/StripeConnectCard'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
+import { AppIcon } from '../../lib/components/icons/AppIcon'
+
+const ICONA_TIPO: Record<TipoPagamento, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  bonifico: 'bank',
+  paypal: 'wallet-outline',
+  contanti: 'cash',
+  carta: 'credit-card-outline',
+  stripe: 'link-variant',
+}
 
 export default function Pagamenti() {
   const { colors, isDark, s } = useScreenTheme()
@@ -77,16 +87,20 @@ export default function Pagamenti() {
     ])
   }
 
-  function icon(tipo: TipoPagamento) {
-    return tipo === 'bonifico' ? '🏦' : tipo === 'paypal' ? '💙' : tipo === 'contanti' ? '💵' : '💳'
+  function icon(tipo: TipoPagamento, size = 22, color = colors.text) {
+    return <MaterialCommunityIcons name={ICONA_TIPO[tipo]} size={size} color={color} />
   }
 
   return (
     <View style={s.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>←</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Indietro" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <AppIcon name="arrow-left" size={22} color="#9CA3AF" />
+        </TouchableOpacity>
         <Text style={styles.title}>Metodi di pagamento</Text>
-        <TouchableOpacity onPress={nuovo}><Text style={styles.add}>+</Text></TouchableOpacity>
+        <TouchableOpacity onPress={nuovo} style={styles.add} accessibilityRole="button" accessibilityLabel="Aggiungi metodo di pagamento" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <AppIcon name="plus" size={24} color="#0E9F8E" />
+        </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <StripeConnectCard
@@ -98,21 +112,25 @@ export default function Pagamenti() {
         />
         {metodi.length === 0 ? (
           <TouchableOpacity style={[styles.empty, s.card]} onPress={nuovo}>
-            <Text style={styles.emptyIcon}>💳</Text>
+            <MaterialCommunityIcons name="credit-card-outline" size={34} color={colors.textMuted} />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>Nessun metodo configurato</Text>
             <Text style={[styles.emptySub, { color: colors.textMuted }]}>Tocca + per aggiungere bonifico, PayPal, contanti, carta o Stripe</Text>
           </TouchableOpacity>
         ) : metodi.map(m => (
           <View key={m.id} style={[styles.card, s.card]}>
-            <Text style={styles.cardIcon}>{icon(m.tipo)}</Text>
+            {icon(m.tipo)}
             <View style={{ flex: 1 }}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>{m.nome}</Text>
               {m.tipo === 'bonifico' && m.dati?.iban && <Text style={[styles.cardSub, { color: colors.textMuted }]}>{m.dati.iban}</Text>}
               {m.tipo === 'paypal' && m.dati?.email && <Text style={[styles.cardSub, { color: colors.textMuted }]}>{m.dati.email}</Text>}
               {m.predefinito && <Text style={styles.default}>predefinito</Text>}
             </View>
-            <TouchableOpacity onPress={() => modifica(m)}><Text style={styles.action}>✏️</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => elimina(m.id)}><Text style={styles.action}>🗑</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.action} onPress={() => modifica(m)} accessibilityRole="button" accessibilityLabel="Modifica metodo" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <AppIcon name="edit-2" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.action} onPress={() => elimina(m.id)} accessibilityRole="button" accessibilityLabel="Elimina metodo" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <AppIcon name="trash-2" size={18} color="#EF4444" />
+            </TouchableOpacity>
           </View>
         ))}
       </ScrollView>
@@ -120,7 +138,9 @@ export default function Pagamenti() {
       <Modal visible={modal} animationType="slide" presentationStyle="pageSheet">
         <View style={[styles.modal, { backgroundColor: colors.bg }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
-            <TouchableOpacity onPress={() => setModal(false)}><Text style={[styles.close, { color: colors.textMuted }]}>✕</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.close} onPress={() => setModal(false)} accessibilityRole="button" accessibilityLabel="Chiudi" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <AppIcon name="x" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: colors.text }]}>{edit ? 'Modifica metodo' : 'Nuovo metodo'}</Text>
             <TouchableOpacity onPress={salva} disabled={saving}>{saving ? <ActivityIndicator color="#0E9F8E" /> : <Text style={styles.save}>Salva</Text>}</TouchableOpacity>
           </View>
@@ -128,11 +148,11 @@ export default function Pagamenti() {
             <Text style={[styles.label, { color: colors.textMuted }]}>TIPO</Text>
             <View style={styles.chips}>
               {[
-                { key: 'bonifico', label: '🏦 Bonifico' },
-                { key: 'paypal', label: '💙 PayPal' },
-                { key: 'contanti', label: '💵 Contanti' },
-                { key: 'carta', label: '💳 Carta' },
-                { key: 'stripe', label: '🔗 Stripe link' },
+                { key: 'bonifico', label: 'Bonifico' },
+                { key: 'paypal', label: 'PayPal' },
+                { key: 'contanti', label: 'Contanti' },
+                { key: 'carta', label: 'Carta' },
+                { key: 'stripe', label: 'Stripe link' },
               ].map(t => {
                 const active = form.tipo === t.key
                 return (
@@ -147,6 +167,7 @@ export default function Pagamenti() {
                     ]}
                     onPress={() => setForm(f => ({ ...f, tipo: t.key as TipoPagamento, dati: {} }))}
                   >
+                    {icon(t.key as TipoPagamento, 14, active ? '#fff' : colors.textMuted)}
                     <Text style={[styles.chipText, active ? styles.chipTextActive : { color: colors.textMuted }]}>{t.label}</Text>
                   </TouchableOpacity>
                 )
@@ -198,8 +219,13 @@ export default function Pagamenti() {
             <TouchableOpacity
               style={[styles.defaultRow, { backgroundColor: isDark ? colors.surface : '#F7F8FA', borderWidth: 1, borderColor: colors.border }]}
               onPress={() => setForm(f => ({ ...f, predefinito: !f.predefinito }))}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: form.predefinito }}
+              accessibilityLabel="Imposta come predefinito"
             >
-              <Text style={styles.defaultBox}>{form.predefinito ? '✓' : ''}</Text>
+              <View style={[styles.defaultBox, form.predefinito && styles.defaultBoxChecked]}>
+                {form.predefinito && <AppIcon name="check" size={14} color="#fff" />}
+              </View>
               <Text style={[styles.defaultText, { color: colors.text }]}>Imposta come predefinito</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -211,33 +237,32 @@ export default function Pagamenti() {
 
 const styles = StyleSheet.create({
   header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  back: { color: '#9CA3AF', fontSize: 22, width: 40 },
+  back: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   title: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  add: { color: '#0E9F8E', fontSize: 28, width: 40, textAlign: 'right' },
+  add: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-end' },
   content: { padding: 16, gap: 12 },
   empty: { borderRadius: 16, padding: 24, alignItems: 'center', borderWidth: 1 },
-  emptyIcon: { fontSize: 34 },
   emptyTitle: { fontSize: 16, fontWeight: '700', marginTop: 8 },
   emptySub: { fontSize: 13, textAlign: 'center', marginTop: 4 },
   card: { borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1 },
-  cardIcon: { fontSize: 22 },
   cardTitle: { fontSize: 15, fontWeight: '600' },
   cardSub: { fontSize: 12, marginTop: 2 },
   default: { fontSize: 11, color: '#0B7A6D', fontWeight: '700', marginTop: 3 },
-  action: { fontSize: 18, padding: 4 },
+  action: { padding: 8 },
   modal: { flex: 1 },
   modalHeader: { paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
-  close: { fontSize: 22, width: 50 },
+  close: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   modalTitle: { fontSize: 16, fontWeight: '700' },
   save: { fontSize: 15, color: '#0E9F8E', fontWeight: '700', width: 50, textAlign: 'right' },
   modalContent: { padding: 16, gap: 12 },
   label: { fontSize: 11, fontWeight: '700' },
   input: { borderRadius: 12, borderWidth: 1, padding: 12, fontSize: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 999, borderWidth: 1 },
   chipText: { fontSize: 13 },
   chipTextActive: { color: '#fff' },
   defaultRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12 },
-  defaultBox: { width: 22, height: 22, borderRadius: 4, backgroundColor: '#0E9F8E', color: '#fff', textAlign: 'center', fontWeight: '700' },
+  defaultBox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#D1D5DB', justifyContent: 'center', alignItems: 'center' },
+  defaultBoxChecked: { backgroundColor: '#0E9F8E', borderColor: '#0E9F8E' },
   defaultText: { fontSize: 14, fontWeight: '500' },
 })

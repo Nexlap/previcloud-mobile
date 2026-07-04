@@ -5,11 +5,13 @@ import {
   ActivityIndicator, Alert, Animated, StyleSheet,
   Text, TouchableOpacity, View
 } from 'react-native'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { sessionTokenRegistra, trascriviRegistrazione } from '../../lib/api/registra'
 import type { AudioRecorder } from '../../lib/audioRecording'
 import { avviaRegistrazioneAudio, fermaRegistrazioneAudio } from '../../lib/audioRecording'
 import { getModificaSession } from '../../lib/features/modificaPreventivo/modificaSession'
 import { errorMessage } from '../../lib/utils/errors'
+import { AppIcon } from '../../lib/components/icons/AppIcon'
 
 export default function RegistraVoce() {
   const [registrando, setRegistrando] = useState(false)
@@ -87,11 +89,11 @@ export default function RegistraVoce() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Indietro" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <AppIcon name="arrow-left" size={22} color="#9CA3AF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Registra voce</Text>
-        <View style={{ width: 50 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.body}>
@@ -118,14 +120,19 @@ export default function RegistraVoce() {
         </View>
 
         {!trascrivendo && (
-          <TouchableOpacity onPress={toggleRegistrazione} activeOpacity={0.85}>
+          <TouchableOpacity
+            onPress={toggleRegistrazione}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={registrando ? 'Ferma registrazione' : 'Avvia registrazione'}
+          >
             <Animated.View style={[
               styles.micOuter,
               registrando && styles.micOuterActive,
               { transform: [{ scale: pulseAnim }] }
             ]}>
               <View style={[styles.micInner, registrando && styles.micInnerActive]}>
-                <Text style={styles.micEmoji}>{registrando ? '⏹' : '🎙'}</Text>
+                <AppIcon name={registrando ? 'square' : 'mic'} size={44} color="#fff" />
               </View>
             </Animated.View>
           </TouchableOpacity>
@@ -133,7 +140,10 @@ export default function RegistraVoce() {
 
         {!registrando && !trascrivendo && (
           <View style={styles.suggerimentoBox}>
-            <Text style={styles.suggerimentoTitolo}>💡 Come funziona</Text>
+            <View style={styles.suggerimentoHeaderRow}>
+              <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color="#0E9F8E" />
+              <Text style={styles.suggerimentoTitolo}>Come funziona</Text>
+            </View>
             <Text style={styles.suggerimentoTesto}>
               Tocca il bottone e racconta il lavoro come lo diresti a un collega. Quando hai finito tocca di nuovo — Claude trascrive e genera il preventivo automaticamente.
             </Text>
@@ -150,8 +160,7 @@ export default function RegistraVoce() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D1B2A' },
   header: { paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { padding: 4, width: 50 },
-  backText: { color: '#9CA3AF', fontSize: 22 },
+  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 48 },
   statoBox: { alignItems: 'center', gap: 10, minHeight: 60 },
@@ -164,8 +173,8 @@ const styles = StyleSheet.create({
   micOuterActive: { backgroundColor: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.3)' },
   micInner: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#0E9F8E', justifyContent: 'center', alignItems: 'center' },
   micInnerActive: { backgroundColor: '#EF4444' },
-  micEmoji: { fontSize: 48 },
   suggerimentoBox: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16, padding: 18, gap: 8, width: '100%' },
+  suggerimentoHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   suggerimentoTitolo: { fontSize: 13, fontWeight: '600', color: '#0E9F8E' },
   suggerimentoTesto: { fontSize: 13, color: '#9EC5C0', lineHeight: 20 },
   suggerimentoEsempio: { fontSize: 12, color: '#6B7280', lineHeight: 18, fontStyle: 'italic', marginTop: 4 },

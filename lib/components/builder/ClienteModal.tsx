@@ -1,6 +1,7 @@
 import { Dispatch, SetStateAction } from 'react'
 import { ActivityIndicator, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Cliente } from '../../types'
+import { AppIcon } from '../icons/AppIcon'
 
 type ModalTab = 'esistente' | 'nuovo'
 
@@ -47,8 +48,8 @@ export function ClienteModal({
       <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>Cliente</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.modalClose}>✕</Text>
+          <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Chiudi" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <AppIcon name="x" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
         <View style={styles.modalTabs}>
@@ -96,7 +97,7 @@ export function ClienteModal({
                     <Text style={styles.clienteItemNome}>{item.nome}</Text>
                     {item.email ? <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{item.email}</Text> : null}
                   </View>
-                  {clienteSelezionato?.id === item.id && <Text style={{ color: '#0B7A6D', fontSize: 16 }}>✓</Text>}
+                  {clienteSelezionato?.id === item.id && <AppIcon name="check" size={16} color="#0B7A6D" />}
                 </TouchableOpacity>
               )}
             />

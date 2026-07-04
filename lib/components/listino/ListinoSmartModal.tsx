@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { LISTINO_TABS } from '../../features/listino/constants'
 import { AppIcon } from '../icons/AppIcon'
@@ -50,8 +51,8 @@ export function ListinoSmartModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.modalClose}>{'\u2715'}</Text>
+          <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Chiudi" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <AppIcon name="x" size={20} color="#9CA3AF" />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Listino smart</Text>
           <View style={{ width: 40 }} />
@@ -64,15 +65,19 @@ export function ListinoSmartModal({
           </View>
 
           <View style={styles.listinoTabRow}>
-            {LISTINO_TABS.map(([key, label]) => (
-              <TouchableOpacity
-                key={key}
-                style={[styles.listinoTabBtn, listinoTab === key && styles.listinoTabBtnActive]}
-                onPress={() => onChangeTab(key)}
-              >
-                <Text style={[styles.listinoTabText, listinoTab === key && styles.listinoTabTextActive]}>{label}</Text>
-              </TouchableOpacity>
-            ))}
+            {LISTINO_TABS.map(([key, label, icon]) => {
+              const active = listinoTab === key
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.listinoTabBtn, active && styles.listinoTabBtnActive]}
+                  onPress={() => onChangeTab(key)}
+                >
+                  <MaterialCommunityIcons name={icon} size={14} color={active ? '#fff' : '#9CA3AF'} />
+                  <Text style={[styles.listinoTabText, active && styles.listinoTabTextActive]}>{label}</Text>
+                </TouchableOpacity>
+              )
+            })}
           </View>
 
           {listinoTab === 'testo' && (

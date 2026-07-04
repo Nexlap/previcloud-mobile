@@ -5,8 +5,16 @@ import {
     ActivityIndicator, Alert, ScrollView, StyleSheet,
     Switch, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { caricaProfiloFiscale, salvaProfiloFiscale } from '../../lib/api/fiscale'
 import { trackEvento } from '../../lib/api/track'
+import { AppIcon } from '../../lib/components/icons/AppIcon'
+
+const ICONA_REGIME: Record<Regime, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  forfettario: 'clipboard-text-outline',
+  ordinario: 'chart-bar',
+  occasionale: 'handshake-outline',
+}
 
 type BeforeRemoveEvent = EventArg<'beforeRemove', true, { action: NavigationAction }>
 
@@ -145,11 +153,11 @@ export default function Fiscale() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Indietro" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <AppIcon name="arrow-left" size={22} color="#9CA3AF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Regime fiscale</Text>
-        <View style={{ width: 50 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
@@ -183,16 +191,17 @@ export default function Fiscale() {
                   style={[styles.regimeRow, profilo.regime === r && styles.regimeRowActive]}
                   onPress={() => set('regime', r)}
                 >
+                  <MaterialCommunityIcons name={ICONA_REGIME[r]} size={20} color={profilo.regime === r ? '#0B7A6D' : '#9CA3AF'} style={styles.regimeIcon} />
                   <View style={styles.regimeLeft}>
                     <Text style={styles.regimeNome}>
-                      {r === 'forfettario' ? '📋 Forfettario' : r === 'ordinario' ? '📊 Ordinario' : '🤝 Occasionale'}
+                      {r === 'forfettario' ? 'Forfettario' : r === 'ordinario' ? 'Ordinario' : 'Occasionale'}
                     </Text>
                     <Text style={styles.regimeSub}>
                       {r === 'forfettario' ? 'Imposta sostitutiva + INPS' : r === 'ordinario' ? 'IVA + IRPEF + INPS' : "Ritenuta d'acconto"}
                     </Text>
                   </View>
                   <View style={[styles.regimeCheck, profilo.regime === r && styles.regimeCheckActive]}>
-                    {profilo.regime === r && <Text style={styles.regimeCheckText}>✓</Text>}
+                    {profilo.regime === r && <AppIcon name="check" size={13} color="#fff" />}
                   </View>
                 </TouchableOpacity>
               ))}
@@ -269,9 +278,12 @@ export default function Fiscale() {
                 {profilo.rivalsa_inps && (
                   <FiscaleNumericField label="Rivalsa INPS" value={profilo.rivalsa_percentuale} unit="%" onChangeText={v => set('rivalsa_percentuale', v)} />
                 )}
-                <Text style={styles.noteText}>
-                  ℹ️ L'IRPEF viene calcolata automaticamente a scaglioni sul reddito imponibile
-                </Text>
+                <View style={styles.noteRow}>
+                  <AppIcon name="info" size={13} color="#6B7280" />
+                  <Text style={styles.noteText}>
+                    L'IRPEF viene calcolata automaticamente a scaglioni sul reddito imponibile
+                  </Text>
+                </View>
               </View>
             )}
 
@@ -288,8 +300,9 @@ export default function Fiscale() {
 
         {/* Disclaimer */}
         <View style={styles.disclaimerBox}>
+          <AppIcon name="alert-triangle" size={15} color="#92400E" />
           <Text style={styles.disclaimerText}>
-            ⚠️ I calcoli sono indicativi e a scopo informativo. Consulta sempre il tuo commercialista per decisioni fiscali.
+            I calcoli sono indicativi e a scopo informativo. Consulta sempre il tuo commercialista per decisioni fiscali.
           </Text>
         </View>
 
@@ -307,14 +320,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F8FA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { backgroundColor: '#0D1B2A', paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { padding: 4, width: 50 },
-  backText: { color: '#9CA3AF', fontSize: 22 },
+  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
   card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 12, shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#0D1B2A' },
   cardSub: { fontSize: 12, color: '#9CA3AF', marginTop: -8 },
-  regimeRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#F7F8FA' },
+  regimeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#F7F8FA' },
   regimeRowActive: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
+  regimeIcon: {},
   regimeLeft: { flex: 1, gap: 2 },
   regimeNome: { fontSize: 14, fontWeight: '600', color: '#0D1B2A' },
   regimeSub: { fontSize: 11, color: '#9CA3AF' },
@@ -335,9 +348,10 @@ const styles = StyleSheet.create({
   switchRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   switchLabel: { fontSize: 13, color: '#374151', fontWeight: '500' },
   switchSub: { fontSize: 11, color: '#9CA3AF', marginTop: 1 },
-  noteText: { fontSize: 12, color: '#6B7280', fontStyle: 'italic' as const, lineHeight: 18 },
-  disclaimerBox: { backgroundColor: '#FFF7ED', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#FED7AA' },
-  disclaimerText: { fontSize: 12, color: '#92400E', lineHeight: 18 },
+  noteRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 2 },
+  noteText: { flex: 1, fontSize: 12, color: '#6B7280', fontStyle: 'italic' as const, lineHeight: 18 },
+  disclaimerBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFF7ED', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#FED7AA' },
+  disclaimerText: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 18 },
   saveBtn: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, alignItems: 'center' as const },
   saveBtnDisabled: { opacity: 0.5 },
   saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },

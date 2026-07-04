@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { MetodoPagamentoForm, TipoPagamento } from '../../api/pagamenti'
@@ -7,11 +8,11 @@ import { OnboardingStepper } from './OnboardingStepper'
 import { onboardingStyles as styles } from './onboardingStyles'
 import { useScreenTheme } from '../../hooks/useScreenTheme'
 
-const TIPI: { key: TipoPagamento; label: string }[] = [
-  { key: 'bonifico', label: '🏦 Bonifico' },
-  { key: 'paypal', label: '💙 PayPal' },
-  { key: 'contanti', label: '💵 Contanti' },
-  { key: 'stripe', label: '🔗 Stripe' },
+const TIPI: { key: TipoPagamento; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+  { key: 'bonifico', label: 'Bonifico', icon: 'bank' },
+  { key: 'paypal', label: 'PayPal', icon: 'wallet-outline' },
+  { key: 'contanti', label: 'Contanti', icon: 'cash' },
+  { key: 'stripe', label: 'Stripe', icon: 'link-variant' },
 ]
 
 const NOMI_DEFAULT: Record<TipoPagamento, string> = {
@@ -107,6 +108,7 @@ export function OnboardingPagamentoStep({
                 ]}
                 onPress={() => selezionaTipo(t.key)}
               >
+                <MaterialCommunityIcons name={t.icon} size={14} color={active ? '#fff' : colors.textMuted} />
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>{t.label}</Text>
               </TouchableOpacity>
             )

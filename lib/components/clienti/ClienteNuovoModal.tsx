@@ -1,5 +1,6 @@
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { COLORS } from '../../constants'
+import { AppIcon } from '../icons/AppIcon'
 
 export type NuovoClienteForm = {
   nome: string
@@ -25,8 +26,8 @@ export function ClienteNuovoModal({ visible, dati, salvando, onClose, onChange, 
         <Pressable style={styles.box} onPress={e => e.stopPropagation()}>
           <View style={styles.header}>
             <Text style={styles.title}>Nuovo cliente</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={8}>
-              <Text style={styles.close}>✕</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Chiudi">
+              <AppIcon name="x" size={18} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
 

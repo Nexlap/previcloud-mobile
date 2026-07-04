@@ -33,6 +33,7 @@ import { useModificaPreventivoScelta } from '../../lib/features/modificaPreventi
 import { ClienteAbbonamentoTab } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoTab'
 import { ClienteAbbonamentoModals } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoModals'
 import { MenuAzioniSheet } from '../../lib/components/MenuAzioniSheet'
+import { AppIcon } from '../../lib/components/icons/AppIcon'
 import {
   ClienteDettaglioHeader,
   ClienteInfoCard,
@@ -1089,7 +1090,7 @@ export default function ClienteDettaglio() {
       }}>
         <View style={styles.modalFullContainer}>
           <View style={styles.modalFullHeader}>
-            <TouchableOpacity onPress={() => {
+            <TouchableOpacity style={styles.modalFullClose} onPress={() => {
               if (modificheNonSalvate) {
                 Alert.alert('Modifiche non salvate', 'Vuoi salvare le modifiche?', [
                   { text: 'Abbandona', style: 'destructive', onPress: () => { setMostraModalRinominaCliente(false); setModificheNonSalvate(false) } },
@@ -1098,8 +1099,12 @@ export default function ClienteDettaglio() {
               } else {
                 setMostraModalRinominaCliente(false)
               }
-            }}>
-              <Text style={styles.modalFullClose}>✕</Text>
+            }}
+              accessibilityRole="button"
+              accessibilityLabel="Chiudi"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <AppIcon name="x" size={20} color="#9CA3AF" />
             </TouchableOpacity>
             <Text style={styles.modalFullTitle}>Modifica cliente</Text>
             <TouchableOpacity onPress={salvaCliente}>
@@ -1150,7 +1155,7 @@ const styles = StyleSheet.create({
   modalFieldGroup: { gap: 6 },
   modalFieldInput: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#E5E7EB', padding: 12, fontSize: 14, color: '#0D1B2A' },
   modalFieldLabel: { fontSize: 11, fontWeight: '600' as const, color: '#9CA3AF', letterSpacing: 0.8 },
-  modalFullClose: { color: '#9CA3AF', fontSize: 20, width: 40 },
+  modalFullClose: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   modalFullContainer: { flex: 1, backgroundColor: '#F7F8FA' },
   modalFullHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 56, backgroundColor: '#0D1B2A' },
   modalFullSave: { color: '#0E9F8E', fontSize: 15, fontWeight: '600' as const, width: 40, textAlign: 'right' as const },
