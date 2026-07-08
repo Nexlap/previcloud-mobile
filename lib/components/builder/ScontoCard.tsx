@@ -1,5 +1,5 @@
 import { StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { formatImportoEuroVisuale } from 'previcloud-shared'
+import { formatImportoEuroVisuale, parseImportoEuro } from 'previcloud-shared'
 import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
 type ScontoTipo = 'percentuale' | 'fisso'
@@ -15,8 +15,8 @@ type Props = {
 }
 
 function parseValoreSconto(raw: string): number {
-  const n = parseFloat(raw.replace(',', '.'))
-  return Number.isNaN(n) ? 0 : n
+  const n = parseImportoEuro(raw)
+  return n == null ? 0 : n
 }
 
 function calcolaRisparmio(totaleBase: number, tipo: ScontoTipo, valore: number): number {

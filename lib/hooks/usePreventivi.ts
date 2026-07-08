@@ -89,7 +89,11 @@ export function usePreventivi(opts?: { clienteId?: string; limit?: number }) {
   }
 
   async function segnaPagato(id: string, pagato: boolean, dataPagamento?: string) {
-    await segnaPreventivoPagato(id, pagato, dataPagamento)
+    const { error } = await segnaPreventivoPagato(id, pagato, dataPagamento)
+    if (error) {
+      Alert.alert('Errore', 'Impossibile aggiornare lo stato di pagamento, riprova.')
+      return false
+    }
     setPreventivi(p => p.map(x => x.id === id ? {
       ...x,
       pagato,

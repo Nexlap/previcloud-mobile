@@ -1,7 +1,7 @@
 import { ActivityIndicator, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { UNITA_OPTIONS } from '../../features/listino/constants'
 import { useScreenTheme } from '../../hooks/useScreenTheme'
-import { formatImportoEuroVisuale } from 'previcloud-shared'
+import { formatImportoEuroVisuale, parseImportoEuro } from 'previcloud-shared'
 import { listinoStyles as styles } from './listinoStyles'
 
 export type ServizioDraft = {
@@ -107,7 +107,7 @@ export function ListinoServizioModal({ visible, isEdit, draft, salvando, onClose
               <Text style={styles.previewLabel}>ANTEPRIMA</Text>
               <Text style={[styles.previewNome, { color: colors.text }]}>{draft.nome}</Text>
               {draft.descrizione ? <Text style={[styles.previewDesc, { color: colors.textMuted }]}>{draft.descrizione}</Text> : null}
-              {draft.costo ? <Text style={styles.previewCosto}>{`\u20AC${formatImportoEuroVisuale(parseFloat(draft.costo.replace(',', '.')) || 0)} / ${draft.unita}`}</Text> : null}
+              {draft.costo ? <Text style={styles.previewCosto}>{`\u20AC${formatImportoEuroVisuale(parseImportoEuro(draft.costo) ?? 0)} / ${draft.unita}`}</Text> : null}
             </View>
           ) : null}
         </ScrollView>

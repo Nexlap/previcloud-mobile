@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { RisultatoFiscale } from '../../builder/types'
 import { ProfiloFiscale, VocePreventivo } from '../../types'
-import { formatImportoEuroVisuale } from 'previcloud-shared'
+import { formatImportoEuroVisuale, parseImportoEuro } from 'previcloud-shared'
 import { AppIcon } from '../icons/AppIcon'
 import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
 
@@ -174,7 +174,7 @@ export function AnalisiFiscaleCard({
             <TouchableOpacity
               style={[styles.generateBtn, { paddingVertical: 10, paddingHorizontal: 14 }]}
               onPress={() => {
-                const netto = parseFloat(nettoDesiderato.replace(',', '.'))
+                const netto = parseImportoEuro(nettoDesiderato)
                 if (!netto || netto <= 0) { Alert.alert('Inserisci un valore valido'); return }
                 const lordo = calcolaLordoDaNetto(netto)
                 setLordoCalcolato(lordo)

@@ -94,7 +94,11 @@ export function PreventivoPdfSuccessModal({ visible, dettaglio, pdfUri, invio, o
       return
     }
     if (segnaInviato && invio?.preventivoId) {
-      await segnaPreventivoInviato(invio.preventivoId)
+      const { error } = await segnaPreventivoInviato(invio.preventivoId)
+      if (error) {
+        Alert.alert('Errore', 'Impossibile segnare il preventivo come inviato.')
+        return
+      }
       eventBus.emit('aggiorna-home')
     }
     onClose()

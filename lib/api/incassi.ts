@@ -34,7 +34,8 @@ async function caricaAbbonamentiConPreventivo(userId: string, clienteId?: string
     if (clienteId) q = q.eq('cliente_id', clienteId)
     return q
   }
-  const { data } = await queryConFiltroCestino(() => build(true), () => build(false))
+  const { data, error } = await queryConFiltroCestino(() => build(true), () => build(false))
+  if (error) console.error('[incassi] caricaAbbonamentiConPreventivo:', error)
   return data || []
 }
 

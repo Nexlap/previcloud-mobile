@@ -10,10 +10,10 @@ export type ClienteDettaglioTab = 'preventivi' | 'pagamento_rate' | 'abbonamento
 type HeaderProps = {
   title: string
   onBack: () => void
-  onEdit: () => void
+  onMenu: () => void
 }
 
-export function ClienteDettaglioHeader({ title, onBack, onEdit }: HeaderProps) {
+export function ClienteDettaglioHeader({ title, onBack, onMenu }: HeaderProps) {
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={onBack} style={styles.backBtn}>
@@ -21,8 +21,8 @@ export function ClienteDettaglioHeader({ title, onBack, onEdit }: HeaderProps) {
       </TouchableOpacity>
       <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
       <View style={styles.headerActions}>
-        <TouchableOpacity onPress={onEdit}>
-          <AppIcon name="edit-2" size={18} color="#6B7280" />
+        <TouchableOpacity onPress={onMenu} hitSlop={8} style={styles.menuBtn}>
+          <Text style={styles.menuPuntini}>{'⋮'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -193,6 +193,8 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4, width: 50 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1, textAlign: 'center' },
   headerActions: { flexDirection: 'row', gap: 12, width: 50, justifyContent: 'flex-end' },
+  menuBtn: { padding: 4, alignItems: 'center', justifyContent: 'center' },
+  menuPuntini: { color: '#9CA3AF', fontSize: 22, lineHeight: 24, fontWeight: '600' },
   selectionBar: { backgroundColor: '#0D1B2A', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   selectionCancel: { padding: 4 },
   selectionCancelText: { color: '#9CA3AF', fontSize: 18 },

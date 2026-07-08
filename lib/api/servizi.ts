@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { trackEvento } from './track'
+import { parseImportoEuro } from 'previcloud-shared'
 
 type NuovoServizioInput = {
   nome: string
@@ -16,7 +17,7 @@ export async function creaServizioListino(input: NuovoServizioInput) {
   const payload = {
     nome: input.nome.trim(),
     descrizione: input.descrizione.trim() || null,
-    costo: input.costo ? parseFloat(input.costo.replace(',', '.')) : null,
+    costo: input.costo ? parseImportoEuro(input.costo) : null,
     unita: input.unita,
     user_id: user.id,
     ordine: input.ordine,

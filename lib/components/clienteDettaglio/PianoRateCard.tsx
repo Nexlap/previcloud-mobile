@@ -373,7 +373,7 @@ export function PianoRateCard({
   }
 
   async function salvaModificaImporto() {
-    const val = parseFloat(nuovoImportoTotale.replace(',', '.'))
+    const val = parseImportoEuro(nuovoImportoTotale) ?? NaN
     if (!(val > 0)) {
       Alert.alert('Importo non valido', 'Inserisci un importo maggiore di zero.')
       return

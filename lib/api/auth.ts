@@ -42,17 +42,37 @@ export async function currentUserId() {
 }
 
 export async function hasCompletedProfile(userId: string) {
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('nome_azienda')
     .eq('id', userId)
     .single()
+  // PGRST116 (nessuna riga trovata) è legittimo per un utente nuovo; qualsiasi altro
+  // errore (rete/RLS/timeout) va propagato invece di restituire false in silenzio,
+  // altrimenti un utente esistente rischia di essere rimandato a /onboarding.
+  if (error && error.code !== 'PGRST116') {
+    throw new Error(error.message)
+  }
   return Boolean(profile?.nome_azienda?.trim())
 }
 
 export type PostAuthRoute = '/(tabs)' | '/onboarding'
 
 export async function resolvePostAuthRoute(userId: string): Promise<PostAuthRoute> {
-  const profiloCompleto = await hasCompletedProfile(userId)
-  return profiloCompleto ? '/(tabs)' : '/onboarding'
+  try {
+    const profiloCompleto = await hasCompletedProfile(userId)
+    return profiloCompleto ? '/(tabs)' : '/onboarding'
+  } catch (err: unknown) {
+    console.error('[auth] resolvePostAuthRoute: primo tentativo fallito, riprovo', err)
+    try {
+      const profiloCompleto = await hasCompletedProfile(userId)
+      return profiloCompleto ? '/(tabs)' : '/onboarding'
+    } catch (err2: unknown) {
+      // Fetch fallita anche al secondo tentativo: mai instradare a /onboarding per un
+      // errore di rete, un utente esistente perderebbe il profilo di vista. /(tabs) è
+      // il fallback sicuro, l'errore resta comunque loggato per essere investigato.
+      console.error('[auth] resolvePostAuthRoute: fallito anche il retry', err2)
+      return '/(tabs)'
+    }
+  }
 }

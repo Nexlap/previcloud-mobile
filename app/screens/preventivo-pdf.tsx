@@ -258,11 +258,22 @@ export default function PreventivoPDF() {
   }
 
   async function caricaClienti() {
-    setClienti(await caricaClientiPreventivo())
+    const data = await caricaClientiPreventivo()
+    if (data === null) {
+      Alert.alert('Errore', 'Impossibile caricare i clienti.')
+      setClienti([])
+      return
+    }
+    setClienti(data)
   }
 
   async function caricaMetodiPagamento() {
     const data = await caricaMetodiPagamentoPreventivo()
+    if (data === null) {
+      Alert.alert('Errore', 'Impossibile caricare i metodi di pagamento.')
+      setMetodiPagamento([])
+      return
+    }
     setMetodiPagamento(data)
     if (metodo_pagamento_nessuno === '1') {
       setMetodoPagamentoSelezionato(null)
@@ -276,12 +287,14 @@ export default function PreventivoPDF() {
   async function aggiungiESelezionaCliente() {
     if (!nuovoNomeCliente.trim()) return
     const data = await creaClientePreventivo(nuovoNomeCliente)
-    if (data) {
-      setClienteSelezionato({ id: data.id, nome: data.nome })
-      setClienti(c => [...c, { id: data.id, nome: data.nome }])
-      setMostraModalCliente(false)
-      setNuovoNomeCliente('')
+    if (!data) {
+      Alert.alert('Errore', 'Impossibile creare il cliente, riprova.')
+      return
     }
+    setClienteSelezionato({ id: data.id, nome: data.nome })
+    setClienti(c => [...c, { id: data.id, nome: data.nome }])
+    setMostraModalCliente(false)
+    setNuovoNomeCliente('')
   }
 
   async function generaPDF() {
@@ -301,8 +314,8 @@ export default function PreventivoPDF() {
     }
     setGenerando(true)
     try {
-      let testoFinale = await buildTestoConPagamento('')
-      let data = await generaPDFFile({
+      const testoFinale = await buildTestoConPagamento('')
+      const data = await generaPDFFile({
         testo: testoFinale,
         template,
         token,
@@ -310,7 +323,7 @@ export default function PreventivoPDF() {
         cliente_id: clienteSelezionato?.id || '',
         nascondi_prezzi: nascondiPrezzi,
       })
-      let uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
+      const uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
       await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as FileSystem.EncodingType })
 
       let pdfUrl = ''
@@ -325,87 +338,124 @@ export default function PreventivoPDF() {
       const titoloAuto = clienteSelezionato
         ? `Preventivo ${clienteSelezionato.nome}`
         : `Preventivo ${new Date().toLocaleDateString('it-IT')}`
-      const idSalvato = await salvaSuSupabase(data.versione, titoloAuto, pdfUrl, testoFinale)
-      const numeroPreventivo = data.numeroPreventivo || ''
 
-      if (idSalvato && metodoPagamentoSelezionato?.tipo === 'stripe') {
-        const { payment_url } = await creaLinkPagamento(idSalvato, 'Preventivo', token)
-        testoFinale = testoFinale.replace('[PAGAMENTO_ONLINE]', payment_url)
-        data = await generaPDFFile({
-          testo: testoFinale,
-          template,
-          token,
-          versione_padre_id: versione_padre_id || null,
-          cliente_id: clienteSelezionato?.id || '',
-          nascondi_prezzi: nascondiPrezzi,
-        })
-        uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
-        await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as FileSystem.EncodingType })
-        try {
-          pdfUrl = await salvaPDFApi(data.pdf_base64, token)
-          uploadOk = !!pdfUrl
-        } catch {
-          uploadOk = false
-        }
-        await supabase
-          .from('preventivi')
-          .update({
-            testo_preventivo: testoFinale,
-            pdf_url: pdfUrl || null,
-          })
-          .eq('id', idSalvato)
-      }
-
-      resetBuilderState()
-      void cancellaBozzaBuilder()
-      eventBus.emit('reset-builder')
-
-      if (abbonamentoAttivo && clienteSelezionato && idSalvato) {
-        const abbonamento = await creaAbbonamentoDaPreventivo({
-          cliente: clienteSelezionato,
-          preventivoId: idSalvato,
-          importoRaw: abImporto,
-          giornoRaw: abGiorno,
-          meseInizioRaw: abMeseInizio,
-          mensilitaRaw: abMensilita,
-        })
-        if (abbonamento.esistente) {
-          Alert.alert('Abbonamento esistente', 'Questo preventivo ha già un piano collegato. Gestiscilo dalla cartella cliente.')
-        }
-      }
-
-      if (pagamentoRateAttivo && clienteSelezionato && idSalvato) {
-        const importoRate = importoTotaleNum > 0 ? importoTotaleNum : (importoDaTesto(testo) ?? 0)
-        const piano = await creaPianoRateDaPreventivo({
-          cliente: clienteSelezionato,
-          preventivoId: idSalvato,
-          importoTotale: importoRate,
-          numeroRateRaw: rateNumero,
-          giornoScadenzaRaw: rateGiornoScadenza,
-          meseInizioRaw: rateMeseInizio,
-        })
-        if (piano.esistente) {
-          Alert.alert('Piano a rate esistente', `${clienteSelezionato.nome} ha già un piano a rate attivo. Gestiscilo dalla sua cartella cliente.`)
-        }
-      }
-
-      setModalPdfSuccesso({
-        pdfUri: uri,
-        dettaglio: 'Preventivo salvato sul dispositivo.',
-        invio: {
-          preventivoId: idSalvato,
-          clienteId: clienteSelezionato?.id,
-          nomeCliente: clienteSelezionato?.nome,
-          haStripe: testoFinale.includes('LINK PAGAMENTO:'),
-          uploadOnlineOk: uploadOk,
-          titoloIniziale: numeroPreventivo || titoloAuto,
-          segnaInviatoDisponibile: true,
-        },
-      })
+      await salvaEProseguiConSuccesso({ data, testoFinale, uri, pdfUrl, uploadOk, titoloAuto })
     } catch (err: unknown) {
       Alert.alert('Errore', errorMessage(err))
     }
     setGenerando(false)
+  }
+
+  // Riprende il salvataggio e i passi successivi (link Stripe, abbonamento/rate, modal
+  // successo) usando il PDF già generato — su fallimento del salvataggio DB il "Riprova"
+  // richiama questa stessa funzione senza rigenerare il PDF (costoso e non necessario).
+  async function salvaEProseguiConSuccesso(params: {
+    data: Awaited<ReturnType<typeof generaPDFFile>>
+    testoFinale: string
+    uri: string
+    pdfUrl: string
+    uploadOk: boolean
+    titoloAuto: string
+  }) {
+    let { data, testoFinale, uri, pdfUrl, uploadOk } = params
+    const { titoloAuto } = params
+    const numeroPreventivo = data.numeroPreventivo || ''
+
+    let idSalvato: string
+    try {
+      idSalvato = await salvaSuSupabase(data.versione, titoloAuto, pdfUrl, testoFinale)
+    } catch (err: unknown) {
+      Alert.alert(
+        'Impossibile salvare il preventivo',
+        'Il PDF è stato generato ma il salvataggio non è riuscito. Riprova prima di condividerlo con il cliente.',
+        [
+          { text: 'Annulla', style: 'cancel' },
+          {
+            text: 'Riprova salvataggio',
+            onPress: () => {
+              setGenerando(true)
+              void salvaEProseguiConSuccesso(params).finally(() => setGenerando(false))
+            },
+          },
+        ],
+      )
+      return
+    }
+
+    if (metodoPagamentoSelezionato?.tipo === 'stripe') {
+      const { payment_url } = await creaLinkPagamento(idSalvato, 'Preventivo', token)
+      testoFinale = testoFinale.replace('[PAGAMENTO_ONLINE]', payment_url)
+      data = await generaPDFFile({
+        testo: testoFinale,
+        template,
+        token,
+        versione_padre_id: versione_padre_id || null,
+        cliente_id: clienteSelezionato?.id || '',
+        nascondi_prezzi: nascondiPrezzi,
+      })
+      uri = `${FileSystem.cacheDirectory}preventivo-${Date.now()}.pdf`
+      await FileSystem.writeAsStringAsync(uri, data.pdf_base64, { encoding: 'base64' as FileSystem.EncodingType })
+      try {
+        pdfUrl = await salvaPDFApi(data.pdf_base64, token)
+        uploadOk = !!pdfUrl
+      } catch {
+        uploadOk = false
+      }
+      await supabase
+        .from('preventivi')
+        .update({
+          testo_preventivo: testoFinale,
+          pdf_url: pdfUrl || null,
+        })
+        .eq('id', idSalvato)
+    }
+
+    resetBuilderState()
+    void cancellaBozzaBuilder()
+    eventBus.emit('reset-builder')
+
+    if (abbonamentoAttivo && clienteSelezionato) {
+      const abbonamento = await creaAbbonamentoDaPreventivo({
+        cliente: clienteSelezionato,
+        preventivoId: idSalvato,
+        importoRaw: abImporto,
+        giornoRaw: abGiorno,
+        meseInizioRaw: abMeseInizio,
+        mensilitaRaw: abMensilita,
+      })
+      if (abbonamento.esistente) {
+        Alert.alert('Abbonamento esistente', 'Questo preventivo ha già un piano collegato. Gestiscilo dalla cartella cliente.')
+      }
+    }
+
+    if (pagamentoRateAttivo && clienteSelezionato) {
+      const importoRate = importoTotaleNum > 0 ? importoTotaleNum : (importoDaTesto(testo) ?? 0)
+      const piano = await creaPianoRateDaPreventivo({
+        cliente: clienteSelezionato,
+        preventivoId: idSalvato,
+        importoTotale: importoRate,
+        numeroRateRaw: rateNumero,
+        giornoScadenzaRaw: rateGiornoScadenza,
+        meseInizioRaw: rateMeseInizio,
+      })
+      if (piano.esistente) {
+        Alert.alert('Piano a rate esistente', `${clienteSelezionato.nome} ha già un piano a rate attivo. Gestiscilo dalla sua cartella cliente.`)
+      }
+    }
+
+    setModalPdfSuccesso({
+      pdfUri: uri,
+      dettaglio: 'Preventivo salvato sul dispositivo.',
+      invio: {
+        preventivoId: idSalvato,
+        clienteId: clienteSelezionato?.id,
+        nomeCliente: clienteSelezionato?.nome,
+        haStripe: testoFinale.includes('LINK PAGAMENTO:'),
+        uploadOnlineOk: uploadOk,
+        titoloIniziale: numeroPreventivo || titoloAuto,
+        segnaInviatoDisponibile: true,
+      },
+    })
   }
 
   function chiudiModalPdfSuccesso() {
@@ -414,7 +464,7 @@ export default function PreventivoPDF() {
     setTimeout(() => setMostraToastSalvato(false), 2500)
   }
 
-  async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = '', testoSalvataggio?: string): Promise<string | null> {
+  async function salvaSuSupabase(ver: number, titoloScelto: string, pdfUrl: string = '', testoSalvataggio?: string): Promise<string> {
     const importoParam = importo_totale ? parseImportoEuro(String(importo_totale)) : null
     const testoDaSalvare = testoSalvataggio ?? testo
     const importo = importoDaTesto(testoDaSalvare)

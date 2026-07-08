@@ -13,6 +13,7 @@ import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSele
 import { useClienti } from "../../lib/hooks/useClienti"
 import { Cliente } from '../../lib/types'
 import { inizialiCliente, labelPreventivi } from '../../lib/utils/cliente'
+import { mostraMenuAzioniAlert } from '../../lib/utils/mostraMenuAzioniAlert'
 import { trackEvento } from "../../lib/api/track"
 import { AppIcon } from '../../lib/components/icons/AppIcon'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
@@ -27,7 +28,6 @@ export default function Clienti() {
   const [selezioneAttiva, setSelezioneAttiva] = useState(false)
   const [clientiSelezionati, setClientiSelezionati] = useState<string[]>([])
   const [clientiEliminati, setClientiEliminati] = useState<string[]>([])
-  const [menuCliente, setMenuCliente] = useState<Cliente | null>(null)
   const [clienteModifica, setClienteModifica] = useState<Cliente | null>(null)
   const [datiModifica, setDatiModifica] = useState<ClienteModificaForm>({ nome: '', telefono: '', email: '', indirizzo: '', note: '' })
   const [salvandoModifica, setSalvandoModifica] = useState(false)
@@ -121,6 +121,14 @@ export default function Clienti() {
     ])
   }
 
+  function apriMenuCliente(c: Cliente) {
+    const titolo = c.nome || 'Cliente'
+    mostraMenuAzioniAlert([
+      { label: 'Modifica', onPress: () => apriModificaCliente(c) },
+      { label: 'Elimina', onPress: () => eliminaSingoloCliente(c), danger: true },
+    ], titolo)
+  }
+
   if (loading) return (
     <View style={s.center}>
       <ActivityIndicator size="large" color="#0E9F8E" />
@@ -196,7 +204,7 @@ export default function Clienti() {
                 <TouchableOpacity
                   style={styles.menuBtn}
                   hitSlop={8}
-                  onPress={() => setMenuCliente(c)}
+                  onPress={() => apriMenuCliente(c)}
                 >
                   <Text style={[styles.menuPuntini, { color: colors.textMuted }]}>{'\u22EE'}</Text>
                 </TouchableOpacity>
@@ -225,16 +233,6 @@ export default function Clienti() {
         onClose={() => setClienteModifica(null)}
         onChange={updater => setDatiModifica(prev => updater(prev))}
         onSalva={salvaModificaCliente}
-      />
-
-      <MenuAzioniSheet
-        variant="dock"
-        visible={menuCliente !== null}
-        onClose={() => setMenuCliente(null)}
-        voci={menuCliente ? [
-          { label: 'Modifica', onPress: () => apriModificaCliente(menuCliente) },
-          { label: 'Elimina', onPress: () => eliminaSingoloCliente(menuCliente), danger: true },
-        ] : []}
       />
 
       <MenuAzioniSheet

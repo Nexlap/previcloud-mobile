@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { EventArg, NavigationAction } from '@react-navigation/native'
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-  ScrollView, View,
+  ScrollView, Text, TouchableOpacity, View,
 } from 'react-native'
 import { caricaSettingsData, salvaProfiloSettings, sessionToken, SettingsForm, uploadLogoSettings } from '../../lib/api/settings'
 import { SettingsHeader } from '../../lib/components/settings/SettingsHeader'
@@ -41,6 +41,7 @@ export default function Settings() {
     messaggi: MESSAGGI_CLIENTE_DEFAULT,
   })
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [logoUrl, setLogoUrl] = useState('')
   const [logoCacheKey, setLogoCacheKey] = useState(Date.now())
@@ -84,6 +85,14 @@ export default function Settings() {
   async function carica() {
     const data = await caricaSettingsData()
     if (!data) { router.replace('/(auth)/login'); return }
+    if (data.error) {
+      // Fetch fallita (rete/RLS/timeout): non sbloccare la UI con i default in
+      // `form`, altrimenti un salvataggio successivo li scriverebbe come se fossero reali.
+      setLoadError(true)
+      setLoading(false)
+      return
+    }
+    setLoadError(false)
     if (data.form) {
       setForm(data.form)
       formIniziale.current = data.form
@@ -93,6 +102,11 @@ export default function Settings() {
       setLogoCacheKey(Date.now())
     }
     setLoading(false)
+  }
+
+  function riprovaCarica() {
+    setLoading(true)
+    void carica()
   }
 
   async function salva() {
@@ -158,6 +172,20 @@ export default function Settings() {
   if (loading) return (
     <View style={[styles.center, { backgroundColor: colors.bg }]}>
       <ActivityIndicator size="large" color="#0E9F8E" />
+    </View>
+  )
+
+  if (loadError) return (
+    <View style={[styles.center, { backgroundColor: colors.bg, paddingHorizontal: 32, gap: 16 }]}>
+      <Text style={{ color: colors.text, fontSize: 15, textAlign: 'center' }}>
+        Impossibile caricare il profilo, riprova.
+      </Text>
+      <TouchableOpacity
+        onPress={riprovaCarica}
+        style={{ backgroundColor: '#0D1B2A', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 24 }}
+      >
+        <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>Riprova</Text>
+      </TouchableOpacity>
     </View>
   )
 

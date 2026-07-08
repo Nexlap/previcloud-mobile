@@ -168,19 +168,27 @@ export default function Nuovo() {
         setClientiSuggeriti([])
         setMostraModalCliente(true)
       }
-    } catch {}
+    } catch (e: unknown) {
+      console.error('[nuovo] gestisciClienteDaRisposta:', e)
+      Alert.alert('Errore', 'Impossibile creare il cliente, riprova.')
+    }
   }
 
   async function creaClienteNuovo() {
     try {
       const cliente = await creaClienteDaChat({ nome: nomeClienteNuovo, ...datiClienteNuovo }, token)
-      if (cliente) {
-        setClienteIdAttivo(cliente.id)
-        setClienteRilevato({ id: cliente.id, nome: cliente.nome })
+      if (!cliente) {
+        Alert.alert('Errore', 'Impossibile creare il cliente, riprova.')
+        return
       }
-    } catch {}
-    setMostraModalCliente(false)
-    setMostraFormDatiCliente(false)
+      setClienteIdAttivo(cliente.id)
+      setClienteRilevato({ id: cliente.id, nome: cliente.nome })
+      setMostraModalCliente(false)
+      setMostraFormDatiCliente(false)
+    } catch (e: unknown) {
+      console.error('[nuovo] creaClienteNuovo:', e)
+      Alert.alert('Errore', 'Impossibile creare il cliente, riprova.')
+    }
   }
 
   async function invia(testoForzato?: string) {

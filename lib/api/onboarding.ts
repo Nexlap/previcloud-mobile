@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { parseImportoEuro } from 'previcloud-shared'
 
 type DemoProfile = {
   nome_azienda: string
@@ -83,7 +84,7 @@ export async function completaOnboarding({
         user_id: user.id,
         nome: servizio.nome,
         descrizione: servizio.descrizione || null,
-        costo: servizio.costo ? parseFloat(servizio.costo) : null,
+        costo: servizio.costo ? parseImportoEuro(servizio.costo) : null,
         unita: servizio.unita,
         ordine: index
       }))

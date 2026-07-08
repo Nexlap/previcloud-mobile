@@ -1,5 +1,6 @@
 import { supabase } from '../supabase'
 import { ServizioForm } from '../types'
+import { parseImportoEuro } from 'previcloud-shared'
 
 type ServizioRow = {
   id: string
@@ -44,10 +45,7 @@ export function normalizzaServizioListino(servizio: ServizioRow): ServizioForm {
 
 /** Converte il costo inserito manualmente (es. "12,50") in numero decimale. */
 export function parseCostoServizioManuale(costo: string): number | null {
-  const trimmed = costo.trim()
-  if (!trimmed) return null
-  const val = parseFloat(trimmed.replace(',', '.'))
-  return Number.isNaN(val) ? null : val
+  return parseImportoEuro(costo)
 }
 
 export async function caricaServiziListino(): Promise<ServizioForm[] | null> {

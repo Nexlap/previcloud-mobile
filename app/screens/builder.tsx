@@ -8,7 +8,7 @@ import { creaServizioListino } from '../../lib/api/servizi';
 import { Cliente, ProfiloFiscale, Servizio, VocePreventivo } from '../../lib/types';
 import { eventBus } from '../../lib/eventBus';
 import { trackEvento } from '../../lib/api/track';
-import { formatImportoEuroVisuale, calcolaTotaleVoci, calcolaTotaleTrasferte } from 'previcloud-shared';
+import { formatImportoEuroVisuale, calcolaTotaleVoci, calcolaTotaleTrasferte, parseImportoEuro } from 'previcloud-shared';
 import { builderState, resetBuilderState } from '../../lib/builder/state';
 import {
   applicaBozzaABuilderState,
@@ -549,7 +549,7 @@ export default function Builder() {
   }
 
   function generaTestoPreventivo() {
-    const valoreSconto = parseFloat(scontoValore.replace(',', '.'))
+    const valoreSconto = parseImportoEuro(scontoValore) ?? NaN
     return generaTestoPreventivoBuilder({
       nomeCliente,
       voci,
@@ -598,7 +598,7 @@ export default function Builder() {
   const totaleConIva = includiIva ? (totale + totaleTrasferte) * 1.22 : (totale + totaleTrasferte)
   const importoSconto = (() => {
     if (!scontoAttivo || !scontoValore) return 0
-    const val = parseFloat(scontoValore.replace(',', '.'))
+    const val = parseImportoEuro(scontoValore) ?? NaN
     if (isNaN(val) || val <= 0) return 0
     return scontoTipo === 'percentuale'
       ? totaleConIva * (val / 100)

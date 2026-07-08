@@ -1,12 +1,14 @@
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
-import { Modal, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { segnaPreventivoPagato } from '../../api/preventivoPdf'
 import { eventBus } from '../../eventBus'
 import { inputDateToIso, oggiInputDate } from 'previcloud-shared'
 import {
+  caricaNotificheCampanella,
   formatTempoNotifica,
   notificaInRimando,
+  PAGE_SIZE,
   useNotifiche,
   type Notifica,
 } from '../../hooks/useNotifiche'
@@ -32,6 +34,26 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
   const [nonAncoraAperte, setNonAncoraAperte] = useState<Set<string>>(
     () => new Set(),
   )
+  const [notificheExtra, setNotificheExtra] = useState<Notifica[]>([])
+  const [caricandoAltre, setCaricandoAltre] = useState(false)
+  const [possoCaricareAltre, setPossoCaricareAltre] = useState(false)
+
+  useEffect(() => {
+    setNotificheExtra([])
+    setPossoCaricareAltre(notifiche.length === PAGE_SIZE)
+  }, [notifiche])
+
+  const notificheTotali = [...notifiche, ...notificheExtra]
+
+  async function caricaAltreNotifiche() {
+    setCaricandoAltre(true)
+    const result = await caricaNotificheCampanella(notificheTotali.length)
+    if (result.ok) {
+      setNotificheExtra(prev => [...prev, ...result.notifiche])
+      setPossoCaricareAltre(result.notifiche.length === PAGE_SIZE)
+    }
+    setCaricandoAltre(false)
+  }
 
   useFocusEffect(useCallback(() => {
     void ricarica()
@@ -112,7 +134,7 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
 
       <Modal visible={listaAperta} transparent animationType="fade" onRequestClose={() => setListaAperta(false)}>
         <TouchableOpacity activeOpacity={1} onPress={() => setListaAperta(false)} style={{ flex: 1, backgroundColor: 'rgba(13,27,42,0.3)', justifyContent: 'flex-start', paddingTop: 100, paddingHorizontal: 20 }}>
-          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', maxHeight: 420 }}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' }}>
             <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
               <Text style={{ fontWeight: '700', fontSize: 16, color: '#0D1B2A' }}>Notifiche</Text>
               {erroreCaricamento ? (
@@ -121,16 +143,17 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
                 </Text>
               ) : count > 0 ? (
                 <Text style={{ marginTop: 2, fontSize: 12, color: '#9CA3AF' }}>{count} da fare</Text>
-              ) : notifiche.length > 0 ? (
+              ) : notificheTotali.length > 0 ? (
                 <Text style={{ marginTop: 2, fontSize: 12, color: '#9CA3AF' }}>Tutte rimandate</Text>
               ) : null}
             </View>
-            {erroreCaricamento && notifiche.length === 0 ? (
+            {erroreCaricamento && notificheTotali.length === 0 ? (
               <Text style={{ padding: 20, color: '#B45309', fontSize: 14 }}>Errore di caricamento</Text>
-            ) : notifiche.length === 0 ? (
+            ) : notificheTotali.length === 0 ? (
               <Text style={{ padding: 20, color: '#9CA3AF', fontSize: 14 }}>Nessuna notifica</Text>
             ) : (
-              notifiche.map(n => {
+              <ScrollView style={{ maxHeight: 420 }}>
+              {notificheTotali.map(n => {
                 const rimandata = notificaInRimando(n)
                 const mostraDot = nonAncoraNotate.has(n.id) && !rimandata
                 const titoloBold = nonAncoraAperte.has(n.id) && !rimandata
@@ -178,7 +201,19 @@ export function NotificheBell({ iconColor = '#0D1B2A' }: { iconColor?: string })
                     ) : null}
                   </View>
                 )
-              })
+              })}
+              {possoCaricareAltre ? (
+                <TouchableOpacity
+                  onPress={() => void caricaAltreNotifiche()}
+                  disabled={caricandoAltre}
+                  style={{ padding: 16, alignItems: 'center' }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#0E9F8E' }}>
+                    {caricandoAltre ? 'Caricamento...' : 'Mostra di più...'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+              </ScrollView>
             )}
           </TouchableOpacity>
         </TouchableOpacity>
@@ -197,7 +232,11 @@ export function NotificaAzioneStorico({
   const { segnaLetta, rimanda, ricarica } = useNotifiche()
 
   async function handleSegnaPagato(preventivoId: string) {
-    await segnaPreventivoPagato(preventivoId, true, inputDateToIso(oggiInputDate()))
+    const { error } = await segnaPreventivoPagato(preventivoId, true, inputDateToIso(oggiInputDate()))
+    if (error) {
+      Alert.alert('Errore', 'Impossibile aggiornare lo stato di pagamento, riprova.')
+      return
+    }
     if (notifica && !notifica.letta) await segnaLetta(notifica.id)
     eventBus.emit('aggiorna-home')
     void ricarica()

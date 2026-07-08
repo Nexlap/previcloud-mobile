@@ -1,7 +1,12 @@
 import { Platform } from 'react-native'
+import type { PostgrestError } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import { mergeMessaggiCliente, type MessaggiClienteTemplates } from 'previcloud-shared'
 import { invalidaCacheMessaggiCliente } from '../messaggiCliente'
+
+// Codice Postgrest per "nessuna riga trovata" (.single() su 0 risultati) — è l'unico
+// errore che rappresenta legittimamente un profilo non ancora creato, non un fetch fallito.
+const NESSUNA_RIGA_TROVATA = 'PGRST116'
 
 type SettingsProfile = {
   nome_azienda?: string | null
@@ -103,13 +108,19 @@ export async function caricaSettingsData() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+
+  // Un profilo mancante (PGRST116) è legittimo per un utente nuovo; qualsiasi altro
+  // errore (rete, RLS, timeout) va segnalato invece di restituire form:null in silenzio,
+  // altrimenti i chiamanti rischiano di trattare i default come dati reali e salvarli.
+  const fetchError = error && error.code !== NESSUNA_RIGA_TROVATA ? error : null
 
   return {
     user,
-    profile,
+    profile: profile ?? null,
     form: profile ? normalizzaFormProfilo(profile) : null,
     logoUrl: profile?.logo_url || '',
+    error: fetchError,
   }
 }
 

@@ -13,6 +13,7 @@ import {
 } from 'react-native'
 import { creaLinkPagamentoRata, scaricaECondividiPdfPreventivo } from '../../lib/api/pdf'
 import { aggiornaClienteDettaglio, caricaClienteDettaglio, caricaClientiDisponibili as caricaClientiDisponibiliData, caricaCollegamentiPianoPreventivo, sessioneClienteDettaglio, spostaPreventiviCliente } from '../../lib/api/clienteDettaglio'
+import { eliminaClienti } from '../../lib/api/clienti'
 import { caricaCronologiaPreventivo, ripristinaVersionePreventivo } from '../../lib/api/storico'
 import { useInviiFirma } from '../../lib/hooks/useInviiFirma'
 import { caricaSettingsData } from '../../lib/api/settings'
@@ -21,7 +22,7 @@ import { useAbbonamento } from '../../lib/hooks/useAbbonamento'
 import { useAnnullaSelezioneOnAndroidBack } from '../../lib/hooks/useAnnullaSelezioneOnAndroidBack'
 import { usePreventivi } from '../../lib/hooks/usePreventivi'
 import { Abbonamento, Cliente, Preventivo, PreventivoMadre, RataAbbonamento, Trascrizione } from '../../lib/types'
-import { formatImportoEuro, inputDateToIso, oggiInputDate } from 'previcloud-shared'
+import { formatImportoEuro, inputDateToIso, oggiInputDate, parseImportoEuro } from 'previcloud-shared'
 import {
   messaggioEliminaPreventiviMultipli,
   messaggioEliminaPreventivoSingolo,
@@ -33,6 +34,7 @@ import { useModificaPreventivoScelta } from '../../lib/features/modificaPreventi
 import { ClienteAbbonamentoTab } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoTab'
 import { ClienteAbbonamentoModals } from '../../lib/components/clienteDettaglio/ClienteAbbonamentoModals'
 import { MenuAzioniSheet } from '../../lib/components/MenuAzioniSheet'
+import { mostraMenuAzioniAlert } from '../../lib/utils/mostraMenuAzioniAlert'
 import { AppIcon } from '../../lib/components/icons/AppIcon'
 import {
   ClienteDettaglioHeader,
@@ -506,7 +508,7 @@ export default function ClienteDettaglio() {
   }
 
   async function salvaNuovoAbbonamento() {
-    const importo = parseFloat(abImporto.replace(',', '.'))
+    const importo = parseImportoEuro(abImporto)
     const giorno = parseInt(abGiorno)
     if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
     if (!giorno || giorno < 1 || giorno > 31) { Alert.alert('Inserisci un giorno valido (1-31)'); return }
@@ -558,7 +560,7 @@ export default function ClienteDettaglio() {
   }
 
   async function salvaNuovoPianoRate() {
-    const importo = parseFloat(rateImportoTotale.replace(',', '.'))
+    const importo = parseImportoEuro(rateImportoTotale) ?? NaN
     const numero = parseInt(rateNumero, 10)
     const giorno = parseInt(rateGiorno, 10)
     const mese = parseInt(rateMeseInizio, 10)
@@ -580,7 +582,7 @@ export default function ClienteDettaglio() {
 
   async function salvaModificaAbbonamento() {
     if (!abbonamentoSelezionatoId) return
-    const importo = parseFloat(abImporto.replace(',', '.'))
+    const importo = parseImportoEuro(abImporto)
     const giorno = parseInt(abGiorno)
     if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
     await aggiornaAbbonamento(abbonamentoSelezionatoId, importo, giorno)
@@ -589,9 +591,9 @@ export default function ClienteDettaglio() {
 
   async function confermaPagamentoRata() {
     if (!rataSelezionata) return
-    const importo = parseFloat(pagamentoImporto.replace(',', '.'))
+    const importo = parseImportoEuro(pagamentoImporto)
     if (!importo || importo <= 0) { Alert.alert('Inserisci un importo valido'); return }
-    const nuovoImportoRata = parseFloat(rataImporto.replace(',', '.'))
+    const nuovoImportoRata = parseImportoEuro(rataImporto)
     if (nuovoImportoRata && nuovoImportoRata !== rataSelezionata.importo) {
       await modificaImportoRata(rataSelezionata.id, nuovoImportoRata)
     }
@@ -624,7 +626,7 @@ export default function ClienteDettaglio() {
     if (!abbonamentoSelezionatoId) return
     const mese = parseInt(nuovaRataMese, 10)
     const anno = parseInt(nuovaRataAnno, 10)
-    const importo = parseFloat(nuovaRataImporto.replace(',', '.'))
+    const importo = parseImportoEuro(nuovaRataImporto)
     if (!mese || mese < 1 || mese > 12) {
       Alert.alert('Mese non valido', 'Inserisci un mese tra 1 e 12')
       return
@@ -732,6 +734,31 @@ export default function ClienteDettaglio() {
     setMostraModalRinominaCliente(true)
   }
 
+  function eliminaClienteCorrente() {
+    if (!cliente) return
+    Alert.alert('Elimina', `Eliminare ${cliente.nome}? Verranno eliminati anche preventivi e dati collegati.`, [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Elimina',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await eliminaClienti([cliente.id])
+          if (error) { Alert.alert('Errore', error.message); return }
+          eventBus.emit('aggiorna-home')
+          router.back()
+        },
+      },
+    ])
+  }
+
+  function apriMenuCliente() {
+    const titolo = cliente?.nome || nome || 'Cliente'
+    mostraMenuAzioniAlert([
+      { label: 'Modifica', onPress: apriModificaCliente },
+      { label: 'Elimina', onPress: eliminaClienteCorrente, danger: true },
+    ], titolo)
+  }
+
   useAnnullaSelezioneOnAndroidBack(modalitaSelezione, annullaSelezione)
   useAnnullaSelezioneOnAndroidBack(pianoSelezioneAttiva, annullaSelezionePiani)
   useAnnullaSelezioneOnAndroidBack(rateSelezioneAttiva, annullaSelezioneRate)
@@ -764,7 +791,7 @@ export default function ClienteDettaglio() {
       <ClienteDettaglioHeader
         title={cliente.nome || nome}
         onBack={() => router.back()}
-        onEdit={apriModificaCliente}
+        onMenu={apriMenuCliente}
       />
 
       <KeyboardAvoidingView

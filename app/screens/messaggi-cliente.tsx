@@ -78,9 +78,17 @@ export default function MessaggiClienteScreen() {
   async function salvaSilenzioso(): Promise<boolean> {
     setSaving(true)
     const settingsData = await caricaSettingsData()
-    if (!settingsData?.form) {
+    if (!settingsData) {
+      // Nessun utente: sessione scaduta davvero.
       setSaving(false)
       router.replace('/(auth)/login')
+      return false
+    }
+    if (!settingsData.form) {
+      // Utente presente ma fetch del profilo fallita (rete/RLS/timeout): non salvare
+      // con dati mancanti/default e non buttare fuori l'utente, si resta sulla schermata.
+      setSaving(false)
+      Alert.alert('Errore', 'Impossibile salvare, riprova.')
       return false
     }
     const { error, user } = await salvaProfiloSettings({

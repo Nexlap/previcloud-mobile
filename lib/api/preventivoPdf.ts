@@ -36,17 +36,19 @@ export async function caricaTemplatePreferito() {
   return data?.template_preferito || ''
 }
 
-export async function caricaClientiPreventivo() {
+export async function caricaClientiPreventivo(): Promise<ClientePreventivo[] | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
-  const { data } = await supabase.from('clienti').select('id, nome').eq('user_id', user.id).order('nome')
+  const { data, error } = await supabase.from('clienti').select('id, nome').eq('user_id', user.id).order('nome')
+  if (error) return null
   return (data || []) as ClientePreventivo[]
 }
 
-export async function caricaMetodiPagamentoPreventivo() {
+export async function caricaMetodiPagamentoPreventivo(): Promise<MetodoPagamento[] | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
-  const { data } = await supabase.from('metodi_pagamento').select('*').eq('user_id', user.id).order('predefinito', { ascending: false })
+  const { data, error } = await supabase.from('metodi_pagamento').select('*').eq('user_id', user.id).order('predefinito', { ascending: false })
+  if (error) return null
   return (data || []) as MetodoPagamento[]
 }
 
@@ -79,8 +81,8 @@ export async function salvaPreventivoPdf({
   importoTotale: number | null
 }) {
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data } = await supabase.from('preventivi').insert({
+  if (!user) throw new Error('Utente non autenticato')
+  const { data, error } = await supabase.from('preventivi').insert({
     user_id: user.id,
     testo_preventivo: testo,
     template,
@@ -94,15 +96,19 @@ export async function salvaPreventivoPdf({
     pdf_url: pdfUrl || null,
     importo_totale: importoTotale,
   }).select('id').single()
-  return data?.id || null
+  if (error || !data?.id) {
+    throw new Error(error?.message || 'Salvataggio del preventivo non riuscito')
+  }
+  return data.id
 }
 
 export async function aggiornaTitoloPreventivo(preventivoId: string, titolo: string) {
-  await supabase.from('preventivi').update({ titolo }).eq('id', preventivoId)
+  const { error } = await supabase.from('preventivi').update({ titolo }).eq('id', preventivoId)
+  if (error) throw new Error(error.message)
 }
 
 export async function segnaPreventivoInviato(preventivoId: string) {
-  await supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', preventivoId)
+  return supabase.from('preventivi').update({ stato: 'inviato' }).eq('id', preventivoId)
 }
 
 export async function caricaInfoPagamentoPreventivo(preventivoId: string) {
@@ -123,7 +129,7 @@ export async function segnaPreventivoPagato(preventivoId: string, pagato: boolea
   const update = pagato
     ? { pagato: true, data_pagamento: dataPagamento || new Date().toISOString() }
     : { pagato: false, data_pagamento: null }
-  await supabase.from('preventivi').update(update).eq('id', preventivoId)
+  return supabase.from('preventivi').update(update).eq('id', preventivoId)
 }
 
 export async function salvaTemplatePreferito(template: string) {
