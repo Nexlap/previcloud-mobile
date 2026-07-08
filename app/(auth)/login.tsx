@@ -76,7 +76,7 @@ export default function Login() {
         if (biometricoDisponibile && !biometricoAttivato) {
           Alert.alert(
             'Accesso rapido',
-            'Vuoi usare l\'impronta digitale per i prossimi accessi?',
+            'Vuoi usare Face ID o l\'impronta digitale per i prossimi accessi?',
             [
               { text: 'No', onPress: () => redirectAfterSignIn(userId) },
               {
@@ -173,8 +173,8 @@ export default function Login() {
 
           {biometricoAttivato && (
             <TouchableOpacity style={styles.biometricoBtn} onPress={loginBiometrico} accessibilityRole="button">
-              <MaterialCommunityIcons name="fingerprint" size={22} color="#0B7A6D" />
-              <Text style={styles.biometricoBtnText}>Accedi con impronta digitale</Text>
+              <MaterialCommunityIcons name="shield-lock" size={22} color="#0B7A6D" />
+              <Text style={styles.biometricoBtnText}>Accedi con Face ID o impronta digitale</Text>
             </TouchableOpacity>
           )}
 

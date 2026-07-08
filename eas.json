@@ -7,13 +7,15 @@
       "channel": "preview",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "ios": {}
     },
     "production": {
       "channel": "production",
       "android": {
         "buildType": "app-bundle"
-      }
+      },
+      "ios": {}
     }
   }
 }

@@ -1,4 +1,5 @@
 import Constants from 'expo-constants'
+import { Platform } from 'react-native'
 import { BACKEND_URL } from '../constants'
 
 export type VersioneMinima = {
@@ -28,7 +29,7 @@ export async function controllaVersioneMinima(): Promise<RisultatoVersioneMinima
     const risposta = await fetch(`${BACKEND_URL}/api/versione-minima`)
     const dati: VersioneMinima = await risposta.json()
     const versioneInstallata = Constants.expoConfig?.version ?? '1.0.0'
-    const versioneMinima = dati.android
+    const versioneMinima = Platform.OS === 'ios' ? dati.ios : dati.android
     return {
       ok: confrontaVersioni(versioneInstallata, versioneMinima),
       installata: versioneInstallata,

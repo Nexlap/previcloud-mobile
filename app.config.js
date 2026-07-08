@@ -11,7 +11,15 @@ export default {
     icon: "./assets/images/icon.png",
     ios: {
       supportsTablet: false,
-      bundleIdentifier: "it.previcloud.app"
+      bundleIdentifier: "it.previcloud.app",
+      buildNumber: "1",
+      infoPlist: {
+        NSCameraUsageDescription: "Consente di scattare foto per il listino e i documenti",
+        NSPhotoLibraryUsageDescription: "Consente di selezionare immagini dalla galleria",
+        NSMicrophoneUsageDescription: "Consente la registrazione vocale per creare preventivi",
+        NSFaceIDUsageDescription: "Consente l'accesso rapido tramite Face ID",
+        LSApplicationQueriesSchemes: ["whatsapp"]
+      }
     },
     android: {
       package: "it.previcloud.app",
@@ -30,6 +38,8 @@ export default {
   "expo-secure-store",
   "expo-web-browser",
   "expo-audio",
+  "expo-image-picker",
+  "expo-local-authentication",
   [
     "expo-splash-screen",
     {
