@@ -23,7 +23,6 @@ import {
   type BuilderDraft,
 } from '../../lib/builder/draft';
 import { caricaClientiBuilder, caricaMetodiPagamentoBuilder, caricaProfiloFiscaleBuilder, caricaServiziBuilder, creaClienteBuilder, metodoContantiDefault } from '../../lib/builder/data';
-import { statoAccount } from '../../lib/api/stripeConnect';
 import { calcolaFiscalePreventivo, calcolaLordoDaNetto as calcolaLordoDaNettoBuilder } from '../../lib/builder/fiscale';
 import { parsePreventivoTesto, collegaVociAlListino, trovaMetodoPagamentoDaNome, vociParsedConServizioId } from '../../lib/builder/parsePreventivoText';
 import { risolviModifica } from '../../lib/features/modificaPreventivo/modificaSession';
@@ -32,8 +31,6 @@ import { TrasfertaBuilder } from '../../lib/builder/types';
 import { VoceCustomModal } from '../../lib/components/builder/VoceCustomModal';
 import { TrasferteCard } from '../../lib/components/builder/TrasferteCard';
 import { ScontoCard } from '../../lib/components/builder/ScontoCard';
-import { PagamentoCard } from '../../lib/components/builder/PagamentoCard';
-import { MetodoPagamentoModal } from '../../lib/components/builder/MetodoPagamentoModal';
 import { ServiziListinoCard } from '../../lib/components/builder/ServiziListinoCard';
 import { ClienteCard } from '../../lib/components/builder/ClienteCard';
 import { NoteAggiuntiveCard } from '../../lib/components/builder/NoteAggiuntiveCard';
@@ -63,8 +60,6 @@ export default function Builder() {
   const [metodiPagamento, setMetodiPagamento] = useState<any[]>([metodoContantiDefault])
   const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<any | null>(null)
   const [metodoPagamentoNessuno, setMetodoPagamentoNessuno] = useState(builderState.metodoPagamentoNessuno)
-  const [stripeChargesEnabled, setStripeChargesEnabled] = useState(false)
-  const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
   const [nettoDesiderato, setNettoDesiderato] = useState('')
   const [lordomCalcolato, setLordoCalcolato] = useState<number | null>(null)
   const [ricercaCliente, setRicercaCliente] = useState("")
@@ -128,22 +123,12 @@ export default function Builder() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), Platform.OS === 'ios' ? 100 : 250)
   }
 
-  async function caricaStripeStato() {
-    try {
-      const s = await statoAccount()
-      setStripeChargesEnabled(s.stripe_charges_enabled)
-    } catch {
-      setStripeChargesEnabled(false)
-    }
-  }
-
   useEffect(() => {
     trackEvento('schermata_aperta', 'builder')
     caricaServizi()
     caricaProfiloFiscale()
     caricaClienti()
     caricaMetodiPagamento()
-    void caricaStripeStato()
     if (params.cliente_id && params.cliente_nome) {
       setClienteSelezionato({ id: params.cliente_id, nome: params.cliente_nome, telefono: null, email: null, indirizzo: null })
     }
@@ -674,14 +659,6 @@ export default function Builder() {
           onAggiornaVoce={aggiornaVoce}
         />
 
-        <PagamentoCard
-          metodiPagamento={metodiPagamento}
-          metodoPagamentoSelezionato={metodoPagamentoSelezionato}
-          metodoPagamentoNessuno={metodoPagamentoNessuno}
-          onOpen={() => setMostraModalPagamento(true)}
-          onConfigura={() => router.push('/screens/pagamenti')}
-        />
-
         <TrasferteCard
           trasferte={trasferte}
           setTrasferte={setTrasferte}
@@ -748,24 +725,6 @@ export default function Builder() {
         onClose={() => setMostraModalVoceCustom(false)}
         onConfirm={confermaVoceCustom}
         setVoceCustom={setVoceCustom}
-      />
-
-      <MetodoPagamentoModal
-        visible={mostraModalPagamento}
-        metodiPagamento={metodiPagamento}
-        metodoPagamentoSelezionato={metodoPagamentoSelezionato}
-        metodoPagamentoNessuno={metodoPagamentoNessuno}
-        stripeChargesEnabled={stripeChargesEnabled}
-        onClose={() => setMostraModalPagamento(false)}
-        onSelect={(metodo) => {
-          setMetodoPagamentoSelezionato(metodo)
-          setMetodoPagamentoNessuno(false)
-          setMostraModalPagamento(false)
-        }}
-        onSelectNessuno={() => {
-          setMetodoPagamentoSelezionato(null)
-          setMetodoPagamentoNessuno(true)
-        }}
       />
 
       <ClienteModal

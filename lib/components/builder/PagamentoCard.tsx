@@ -1,13 +1,8 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { AppIcon } from '../icons/AppIcon'
+import type { MetodoPagamento } from '../../api/preventivoPdf'
 import { metodoPagamentoFeatherIcon } from '../../utils/metodoPagamentoIcon'
 import { BuilderSectionHeader, builderCardStyles } from './BuilderSectionHeader'
-
-type MetodoPagamento = {
-  id: string
-  nome: string
-  tipo?: string
-}
 
 type Props = {
   metodiPagamento: MetodoPagamento[]

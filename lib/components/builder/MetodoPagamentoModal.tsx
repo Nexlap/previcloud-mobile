@@ -1,17 +1,8 @@
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { AppIcon } from '../icons/AppIcon'
 import { trackEvento } from '../../api/track'
+import type { MetodoPagamento } from '../../api/preventivoPdf'
 import { metodoPagamentoFeatherIcon } from '../../utils/metodoPagamentoIcon'
-
-type MetodoPagamento = {
-  id: string
-  tipo?: string
-  nome: string
-  dati?: {
-    iban?: string
-    email?: string
-  }
-}
 
 type Props = {
   visible: boolean
@@ -72,8 +63,9 @@ export function MetodoPagamentoModal({
               ]}
               onPress={() => {
                 if (!stripeDisabilitato) {
-                  void trackEvento('metodo_pagamento_selezionato', 'builder', { tipo: m.tipo })
+                  void trackEvento('metodo_pagamento_selezionato', 'preventivo_pdf', { tipo: m.tipo })
                   onSelect(m)
+                  onClose()
                 }
               }}
               disabled={stripeDisabilitato}

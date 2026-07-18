@@ -3,19 +3,16 @@ import { useEffect, useRef, useState } from 'react'
 import { Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native'
 import { cercaCliente, creaClienteDaChat, inviaMessaggio } from '../../lib/api/chat'
 import { convertiRecap } from '../../lib/api/pdf'
-import { MetodoPagamento } from '../../lib/api/preventivoPdf'
-import { caricaBozzaChat, caricaMetodiPagamentoNuovo, salvaBozzaChat, salvaPreventivoNuovo, tokenNuovo } from '../../lib/api/nuovo'
+import { caricaBozzaChat, salvaBozzaChat, salvaPreventivoNuovo, tokenNuovo } from '../../lib/api/nuovo'
 import { NuovoChatView } from '../../lib/components/nuovo/NuovoChatView'
 import { NuovoClienteBadge } from '../../lib/components/nuovo/NuovoClienteBadge'
 import { NuovoClienteModal } from '../../lib/components/nuovo/NuovoClienteModal'
 import { NuovoHeader } from '../../lib/components/nuovo/NuovoHeader'
-import { NuovoPagamentoModal } from '../../lib/components/nuovo/NuovoPagamentoModal'
 import { NuovoPreventivoView } from '../../lib/components/nuovo/NuovoPreventivoView'
 import { NuovoRecapView } from '../../lib/components/nuovo/NuovoRecapView'
 import { NuovoSceltaModalita } from '../../lib/components/nuovo/NuovoSceltaModalita'
 import { applicaRispostaChat, estraiNomeCliente, importoDaPreventivo } from '../../lib/features/nuovo/chat'
 import { parametriPDF } from '../../lib/features/nuovo/pdf'
-import { parsePreventivoTesto, trovaMetodoPagamentoDaNome } from '../../lib/builder/parsePreventivoText'
 import { risolviModifica } from '../../lib/features/modificaPreventivo/modificaSession'
 import { ClienteRilevato, ClienteSuggerito, DatiClienteNuovo, NuovoParams } from '../../lib/features/nuovo/types'
 import { Messaggio } from '../../lib/types'
@@ -40,9 +37,6 @@ export default function Nuovo() {
   const [preventivo, setPreventivo] = useState('')
   const [salvato, setSalvato] = useState(false)
   const [modalitaScelta, setModalitaScelta] = useState(true)
-  const [metodiPagamento, setMetodiPagamento] = useState<MetodoPagamento[]>([])
-  const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<MetodoPagamento | null>(null)
-  const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
 
   const [clienteIdAttivo, setClienteIdAttivo] = useState('')
   const [clienteRilevato, setClienteRilevato] = useState<ClienteRilevato | null>(null)
@@ -59,23 +53,14 @@ export default function Nuovo() {
   useEffect(() => {
     trackEvento('chat_aperta', 'chat')
     tokenNuovo().then(setToken)
-    caricaMetodiPagamento()
   }, [])
-
-  async function caricaMetodiPagamento() {
-    const data = await caricaMetodiPagamentoNuovo()
-    const metodi = data as MetodoPagamento[]
-    setMetodiPagamento(metodi)
-    const predefinito = metodi.find(m => m.predefinito)
-    if (predefinito && !inModifica) setMetodoPagamentoSelezionato(predefinito)
-  }
 
   function pdfParams(testo: string) {
     return parametriPDF({
       testo,
       versionePadreId: modifica?.versionePadreId || params.versione_padre_id || '',
       clienteId: clienteIdAttivo || modifica?.clienteId || params.cliente_id || '',
-      metodoPagamento: metodoPagamentoSelezionato,
+      metodoPagamento: null,
     })
   }
 
@@ -109,13 +94,6 @@ export default function Nuovo() {
       content: `Ho caricato il tuo preventivo v${versionePrecedente}. Cosa vuoi modificare?\n\n${testoModifica}`
     }])
   }, [testoModifica, versionePrecedente])
-
-  useEffect(() => {
-    if (!testoModifica || metodiPagamento.length === 0) return
-    const parsed = parsePreventivoTesto(testoModifica)
-    const trovato = trovaMetodoPagamentoDaNome(metodiPagamento, parsed.pagamentoNome)
-    if (trovato) setMetodoPagamentoSelezionato(trovato)
-  }, [testoModifica, metodiPagamento])
 
   useEffect(() => {
     if (!params.trascrizione || !inModifica || trascrizioneModificaInviata.current) return
@@ -305,8 +283,6 @@ export default function Nuovo() {
         <NuovoRecapView
           recap={recap}
           loading={loading}
-          metodoPagamento={metodoPagamentoSelezionato}
-          onApriPagamento={() => setMostraModalPagamento(true)}
           onGeneraPreventivo={generaDaRecap}
           onModifica={() => { setRecap(''); setInput('') }}
         />
@@ -314,9 +290,7 @@ export default function Nuovo() {
         <NuovoPreventivoView
           preventivo={preventivo}
           salvato={salvato}
-          metodoPagamento={metodoPagamentoSelezionato}
           onSalva={salva}
-          onApriPagamento={() => setMostraModalPagamento(true)}
           onGeneraPdf={() => vaiAnteprimaPdf(preventivo)}
         />
       ) : (
@@ -336,14 +310,6 @@ export default function Nuovo() {
           onRimuovi={() => { setClienteRilevato(null); setClienteIdAttivo('') }}
         />
       )}
-
-      <NuovoPagamentoModal
-        visible={mostraModalPagamento}
-        metodiPagamento={metodiPagamento}
-        metodoPagamentoSelezionato={metodoPagamentoSelezionato}
-        onClose={() => setMostraModalPagamento(false)}
-        onSelect={setMetodoPagamentoSelezionato}
-      />
 
       <NuovoClienteModal
         visible={mostraModalCliente}

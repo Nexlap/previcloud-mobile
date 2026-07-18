@@ -1,5 +1,5 @@
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { ClientePreventivo, MetodoPagamento } from '../../api/preventivoPdf'
+import { ClientePreventivo } from '../../api/preventivoPdf'
 import { AppIcon } from '../icons/AppIcon'
 
 type ClienteProps = {
@@ -19,24 +19,6 @@ export function PreventivoPdfClienteButton({ cliente, onPressCliente }: ClienteP
       </View>
       <Text style={styles.clienteBtnArrow}>{'\u203A'}</Text>
     </TouchableOpacity>
-  )
-}
-
-type PagamentoProps = {
-  metodo: MetodoPagamento
-}
-
-export function PreventivoPdfPagamentoInfo({ metodo }: PagamentoProps) {
-  return (
-    <View style={styles.pagamentoInfo}>
-      <AppIcon name="credit-card" size={20} color="#6B7280" />
-      <View style={styles.clienteBtnBody}>
-        <Text style={styles.clienteBtnLabel}>Pagamento</Text>
-        <Text style={styles.clienteBtnVal}>
-          {metodo.tipo === 'stripe' ? 'Online con carta' : metodo.nome}
-        </Text>
-      </View>
-    </View>
   )
 }
 
@@ -74,12 +56,10 @@ export function PreventivoPdfFooter({ versionePadreId, generando, testoVuoto, on
 
 const styles = StyleSheet.create({
   clienteBtn: { backgroundColor: '#fff', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#0D1B2A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
-  clienteBtnIcon: { fontSize: 20 },
   clienteBtnBody: { flex: 1 },
   clienteBtnLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   clienteBtnVal: { fontSize: 14, color: '#0D1B2A', marginTop: 2 },
   clienteBtnArrow: { fontSize: 20, color: '#9CA3AF' },
-  pagamentoInfo: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E7EB', gap: 12 },
   versionBox: { backgroundColor: '#EBF3FF', borderRadius: 12, padding: 12 },
   versionText: { fontSize: 13, color: '#1E40ED', lineHeight: 18 },
   generateBtn: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, alignItems: 'center' as const },

@@ -7,14 +7,12 @@ import { generaPDF as generaPDFApi, generaPDFFile, salvaPDF as salvaPDFApi, crea
 import {
   PreventivoPdfClienteButton,
   PreventivoPdfFooter,
-  PreventivoPdfPagamentoInfo,
 } from '../../lib/components/preventivoPdf/PreventivoPdfActions'
 import { PreventivoPdfHeader } from '../../lib/components/preventivoPdf/PreventivoPdfHeader'
-import {
-  PreventivoPdfClienteModal,
-  PreventivoPdfPagamentoModal,
-} from '../../lib/components/preventivoPdf/PreventivoPdfModals'
+import { PreventivoPdfClienteModal } from '../../lib/components/preventivoPdf/PreventivoPdfModals'
 import { BuilderPagamentoRateCard } from '../../lib/components/builder/BuilderPagamentoRateCard'
+import { PagamentoCard } from '../../lib/components/builder/PagamentoCard'
+import { MetodoPagamentoModal } from '../../lib/components/builder/MetodoPagamentoModal'
 import {
   PreventivoPdfAbbonamentoCard,
   PreventivoPdfTariffaToggle,
@@ -43,6 +41,7 @@ import {
 import { statoAccount } from '../../lib/api/stripeConnect'
 import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo'
 import { trackEvento } from '../../lib/api/track'
+import { richiestaRecensioneSeOpportuno } from '../../lib/storeReview'
 import { errorMessage } from '../../lib/utils/errors'
 import { supabase } from '../../lib/supabase'
 import { resetBuilderState } from './builder'
@@ -105,6 +104,7 @@ export default function PreventivoPDF() {
   const [caricandoPreview, setCaricandoPreview] = useState(false)
   const [metodiPagamento, setMetodiPagamento] = useState<MetodoPagamento[]>([])
   const [metodoPagamentoSelezionato, setMetodoPagamentoSelezionato] = useState<MetodoPagamento | null>(null)
+  const [metodoPagamentoNessuno, setMetodoPagamentoNessuno] = useState(false)
   const [stripeChargesEnabled, setStripeChargesEnabled] = useState(false)
   const [mostraModalPagamento, setMostraModalPagamento] = useState(false)
   const [abbonamentoAttivo, setAbbonamentoAttivo] = useState(false)
@@ -187,7 +187,7 @@ export default function PreventivoPDF() {
     if (!token || !testo) return
     if (previewTimeout.current) clearTimeout(previewTimeout.current)
     previewTimeout.current = setTimeout(() => aggiornaPreview(), 300)
-  }, [template, token, testo, clienteSelezionato, nascondiPrezzi, metodoPagamentoSelezionato, abbonamentoAttivo, abImporto, abGiorno, abMeseInizio, abVisibileNelPDF, pagamentoRateAttivo, rateNumero, rateGiornoScadenza, rateMeseInizio, rateVisibileNelPDF, importo_totale])
+  }, [template, token, testo, clienteSelezionato, nascondiPrezzi, metodoPagamentoSelezionato, metodoPagamentoNessuno, abbonamentoAttivo, abImporto, abGiorno, abMeseInizio, abVisibileNelPDF, pagamentoRateAttivo, rateNumero, rateGiornoScadenza, rateMeseInizio, rateVisibileNelPDF, importo_totale])
 
   function onChangeAbbonamentoAttivo(v: boolean) {
     if (!v) {
@@ -227,7 +227,7 @@ export default function PreventivoPDF() {
       rateNumero: parseInt(rateNumero, 10) || 0,
       rateGiornoScadenza: parseInt(rateGiornoScadenza, 10) || 0,
       rateMeseInizio: parseInt(rateMeseInizio, 10) || 0,
-      metodoPagamento: metodoPagamentoSelezionato,
+      metodoPagamento: metodoPagamentoNessuno ? null : metodoPagamentoSelezionato,
       token,
       creaLinkPagamento,
     })
@@ -277,8 +277,10 @@ export default function PreventivoPDF() {
     setMetodiPagamento(data)
     if (metodo_pagamento_nessuno === '1') {
       setMetodoPagamentoSelezionato(null)
+      setMetodoPagamentoNessuno(true)
       return
     }
+    setMetodoPagamentoNessuno(false)
     const metodoDaParam = metodo_pagamento_id ? data.find(m => m.id === metodo_pagamento_id) : null
     const predefinito = data.find(m => m.predefinito)
     if (metodoDaParam || predefinito) setMetodoPagamentoSelezionato(metodoDaParam || predefinito || null)
@@ -382,7 +384,7 @@ export default function PreventivoPDF() {
       return
     }
 
-    if (metodoPagamentoSelezionato?.tipo === 'stripe') {
+    if (metodoPagamentoSelezionato?.tipo === 'stripe' && !metodoPagamentoNessuno) {
       const { payment_url } = await creaLinkPagamento(idSalvato, 'Preventivo', token)
       testoFinale = testoFinale.replace('[PAGAMENTO_ONLINE]', payment_url)
       data = await generaPDFFile({
@@ -456,6 +458,7 @@ export default function PreventivoPDF() {
         segnaInviatoDisponibile: true,
       },
     })
+    void richiestaRecensioneSeOpportuno()
   }
 
   function chiudiModalPdfSuccesso() {
@@ -524,14 +527,18 @@ export default function PreventivoPDF() {
             onChangeMeseInizio={setRateMeseInizio}
             onChangeVisibileNelPDF={setRateVisibileNelPDF}
           />
+          <PagamentoCard
+            metodiPagamento={metodiPagamento}
+            metodoPagamentoSelezionato={metodoPagamentoSelezionato}
+            metodoPagamentoNessuno={metodoPagamentoNessuno}
+            onOpen={() => setMostraModalPagamento(true)}
+            onConfigura={() => router.push('/screens/pagamenti')}
+          />
         </View>
         <PreventivoPdfClienteButton
           cliente={clienteSelezionato}
           onPressCliente={() => setMostraModalCliente(true)}
         />
-        {metodoPagamentoSelezionato ? (
-          <PreventivoPdfPagamentoInfo metodo={metodoPagamentoSelezionato} />
-        ) : null}
         <PreventivoPdfFooter
           versionePadreId={versione_padre_id}
           generando={generando}
@@ -541,13 +548,21 @@ export default function PreventivoPDF() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      <PreventivoPdfPagamentoModal
+      <MetodoPagamentoModal
         visible={mostraModalPagamento}
         metodiPagamento={metodiPagamento}
-        metodoSelezionato={metodoPagamentoSelezionato}
+        metodoPagamentoSelezionato={metodoPagamentoSelezionato}
+        metodoPagamentoNessuno={metodoPagamentoNessuno}
         stripeChargesEnabled={stripeChargesEnabled}
         onClose={() => setMostraModalPagamento(false)}
-        onSelect={setMetodoPagamentoSelezionato}
+        onSelect={(metodo) => {
+          setMetodoPagamentoSelezionato(metodo)
+          setMetodoPagamentoNessuno(false)
+        }}
+        onSelectNessuno={() => {
+          setMetodoPagamentoSelezionato(null)
+          setMetodoPagamentoNessuno(true)
+        }}
       />
 
       <PreventivoPdfClienteModal

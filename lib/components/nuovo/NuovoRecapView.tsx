@@ -1,15 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native'
-import { MetodoPagamento } from '../../api/preventivoPdf'
 import { AppIcon } from '../icons/AppIcon'
-import { NuovoPagamentoCard } from './NuovoPagamentoCard'
 import { nuovoStyles as styles } from './nuovoStyles'
 
 type Props = {
   recap: string
   loading: boolean
-  metodoPagamento: MetodoPagamento | null
-  onApriPagamento: () => void
   onGeneraPreventivo: () => void
   onModifica: () => void
 }
@@ -17,8 +13,6 @@ type Props = {
 export function NuovoRecapView({
   recap,
   loading,
-  metodoPagamento,
-  onApriPagamento,
   onGeneraPreventivo,
   onModifica,
 }: Props) {
@@ -33,7 +27,6 @@ export function NuovoRecapView({
           <Text style={styles.recapHeaderSub}>Conferma o modifica prima di generare</Text>
         </View>
         <Text style={styles.recapText}>{recap}</Text>
-        <NuovoPagamentoCard metodoPagamento={metodoPagamento} onPress={onApriPagamento} />
         <View style={styles.recapActions}>
           <TouchableOpacity style={[styles.recapConfirmBtn, { flexDirection: 'row', justifyContent: 'center', gap: 8 }]} onPress={onGeneraPreventivo}>
             {loading

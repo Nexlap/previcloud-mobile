@@ -1,82 +1,5 @@
-import { router } from 'expo-router'
-import { FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { ClientePreventivo, MetodoPagamento } from '../../api/preventivoPdf'
-
-type PagamentoModalProps = {
-  visible: boolean
-  metodiPagamento: MetodoPagamento[]
-  metodoSelezionato: MetodoPagamento | null
-  stripeChargesEnabled?: boolean
-  onClose: () => void
-  onSelect: (metodo: MetodoPagamento | null) => void
-}
-
-export function PreventivoPdfPagamentoModal({
-  visible,
-  metodiPagamento,
-  metodoSelezionato,
-  stripeChargesEnabled = false,
-  onClose,
-  onSelect,
-}: PagamentoModalProps) {
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Metodo di pagamento</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.modalClose}>x</Text>
-          </TouchableOpacity>
-        </View>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 8 }}>
-          <TouchableOpacity
-            style={[styles.clienteItem, !metodoSelezionato && styles.clienteItemActive]}
-            onPress={() => { onSelect(null); onClose() }}
-          >
-            <Text style={{ fontSize: 13, color: '#6B7280' }}>NO</Text>
-            <Text style={[styles.clienteItemNome, { flex: 1 }]}>Nessun metodo</Text>
-            {!metodoSelezionato && <Text style={{ color: '#0B7A6D', fontSize: 13, fontWeight: '700' }}>OK</Text>}
-          </TouchableOpacity>
-          {metodiPagamento.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingTop: 40 }}>
-              <Text style={{ fontSize: 14, color: '#9CA3AF' }}>Nessun metodo configurato</Text>
-              <TouchableOpacity onPress={() => { onClose(); router.push('/screens/pagamenti') }} style={{ marginTop: 8 }}>
-                <Text style={{ fontSize: 14, color: '#0B7A6D', fontWeight: '600' }}>Configura nelle impostazioni</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            metodiPagamento.map(m => {
-              const stripeDisabilitato = m.tipo === 'stripe' && !stripeChargesEnabled
-              return (
-              <TouchableOpacity
-                key={m.id}
-                style={[
-                  styles.clienteItem,
-                  metodoSelezionato?.id === m.id && styles.clienteItemActive,
-                  stripeDisabilitato && styles.clienteItemDisabled,
-                ]}
-                onPress={() => { if (!stripeDisabilitato) { onSelect(m); onClose() } }}
-                disabled={stripeDisabilitato}
-              >
-                <Text style={{ fontSize: 12, color: '#6B7280', width: 44 }}>{m.tipo.toUpperCase().slice(0, 4)}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.clienteItemNome}>{m.nome}</Text>
-                  {m.tipo === 'bonifico' && m.dati?.iban && <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{m.dati.iban}</Text>}
-                  {m.tipo === 'paypal' && m.dati?.email && <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{m.dati.email}</Text>}
-                  {stripeDisabilitato && (
-                    <Text style={styles.stripeDisabled}>Completa la verifica Stripe in Impostazioni</Text>
-                  )}
-                </View>
-                {metodoSelezionato?.id === m.id && !stripeDisabilitato && <Text style={{ color: '#0B7A6D', fontSize: 13, fontWeight: '700' }}>OK</Text>}
-              </TouchableOpacity>
-              )
-            })
-          )}
-        </ScrollView>
-      </View>
-    </Modal>
-  )
-}
+import { FlatList, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ClientePreventivo } from '../../api/preventivoPdf'
 
 type ClienteModalProps = {
   visible: boolean
@@ -190,8 +113,6 @@ const styles = StyleSheet.create({
   modalEmptyLink: { fontSize: 14, color: '#0B7A6D', marginTop: 8, fontWeight: '600' },
   clienteItem: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB' },
   clienteItemActive: { borderColor: '#0E9F8E', backgroundColor: '#F0FDF4' },
-  clienteItemDisabled: { opacity: 0.55 },
-  stripeDisabled: { fontSize: 11, color: '#B45309', marginTop: 4, fontWeight: '600' },
   clienteItemAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#0D1B2A', justifyContent: 'center', alignItems: 'center' },
   clienteItemAvatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   clienteItemNome: { flex: 1, fontSize: 14, fontWeight: '500', color: '#0D1B2A' },
