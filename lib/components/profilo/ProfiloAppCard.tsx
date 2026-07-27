@@ -1,7 +1,10 @@
+import Constants from 'expo-constants'
 import { Linking, Text, TouchableOpacity, View } from 'react-native'
-import { APP_VERSION, WEB_PRIVACY_URL, WEB_TERMINI_URL } from '../../features/profilo/constants'
+import { WEB_PRIVACY_URL, WEB_TERMINI_URL } from '../../features/profilo/constants'
 import { AppIcon } from '../icons/AppIcon'
 import { profiloStyles as styles } from './profiloStyles'
+
+const APP_VERSION = Constants.expoConfig?.version ?? '—'
 
 export function ProfiloAppCard() {
   return (

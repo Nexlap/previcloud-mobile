@@ -3,7 +3,7 @@ import * as LocalAuthentication from 'expo-local-authentication'
 import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
 import * as WebBrowser from 'expo-web-browser'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
@@ -28,6 +28,7 @@ export default function Login() {
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
   const [accettaTermini, setAccettaTermini] = useState(false)
   const [errorePassword, setErrorePassword] = useState<string | null>(null)
+  const autoPromptTentato = useRef(false)
 
   useEffect(() => {
     async function checkBiometrico() {
@@ -41,6 +42,14 @@ export default function Login() {
     }
     checkBiometrico()
   }, [])
+
+  useEffect(() => {
+    if (biometricoAttivato && !autoPromptTentato.current) {
+      autoPromptTentato.current = true
+      loginBiometrico()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biometricoAttivato])
 
   async function redirectAfterSignIn(userIdFromSignIn?: string | null) {
     const userId = userIdFromSignIn ?? await currentUserId()
@@ -172,10 +181,30 @@ export default function Login() {
           ) : null}
 
           {biometricoAttivato && (
-            <TouchableOpacity style={styles.biometricoBtn} onPress={loginBiometrico} accessibilityRole="button">
-              <MaterialCommunityIcons name="shield-lock" size={22} color="#0B7A6D" />
-              <Text style={styles.biometricoBtnText}>Accedi con Face ID o impronta digitale</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.biometricoBtn}
+                onPress={loginBiometrico}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel="Accedi con Face ID o impronta digitale"
+              >
+                <View style={styles.biometricoIconBadge}>
+                  <MaterialCommunityIcons name="fingerprint" size={22} color="#fff" />
+                </View>
+                <View style={styles.biometricoTextWrap}>
+                  <Text style={styles.biometricoBtnTitle}>Accesso rapido</Text>
+                  <Text style={styles.biometricoBtnSubtitle}>Face ID o impronta digitale</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={22} color="#0E9F8E" />
+              </TouchableOpacity>
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>oppure</Text>
+                <View style={styles.dividerLine} />
+              </View>
+            </>
           )}
 
           <View style={styles.inputWrap}>
@@ -290,6 +319,29 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   invitoText: { marginTop: 16, fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 19 },
   invitoLink: { color: '#0B7A6D', fontWeight: '600' },
-  biometricoBtn: { flexDirection: 'row', alignItems: 'center' as const, justifyContent: 'center', backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, borderWidth: 1.5, borderColor: '#0E9F8E', gap: 10, marginBottom: 16 },
-  biometricoBtnText: { fontSize: 15, color: '#0B7A6D', fontWeight: '600' as const },
+  biometricoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center' as const,
+    backgroundColor: '#F7F8FA',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    gap: 12,
+    marginBottom: 16,
+  },
+  biometricoIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#0E9F8E',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  biometricoTextWrap: { flex: 1 },
+  biometricoBtnTitle: { fontSize: 15, color: '#0D1B2A', fontWeight: '600' as const },
+  biometricoBtnSubtitle: { fontSize: 13, color: '#6B7280', marginTop: 1 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center' as const, gap: 10, marginBottom: 16 },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#E5E7EB' },
+  dividerText: { fontSize: 12, color: '#9CA3AF', fontWeight: '600' as const },
 })

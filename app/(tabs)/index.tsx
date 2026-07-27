@@ -13,20 +13,11 @@ import { formatImportoEuroVisuale, formatImportoDb } from 'previcloud-shared'
 import { PreventivoStatoBadge } from '../../lib/components/preventivo/PreventivoStatoBadge'
 import { NotificheBell } from '../../lib/components/firma/NotificheBell'
 import { ProfileMenuButton } from '../../lib/components/ProfileMenuButton'
-import { AppIcon, type AppIconName } from '../../lib/components/icons/AppIcon'
+import { AppIcon } from '../../lib/components/icons/AppIcon'
 import { useScreenTheme } from '../../lib/hooks/useScreenTheme'
-
-type QuickItem = { icon: AppIconName; label: string; path: string }
 
 const BANNER_PRODOTTI_KEY = 'banner_prodotti_chiuso'
 const PRODOTTI_DIGITALI_URL = 'https://previcloud.it/dashboard/prodotti'
-
-const QUICK_ITEMS: QuickItem[] = [
-  { icon: 'users', label: 'Clienti', path: '/(tabs)/clienti' },
-  { icon: 'file-text', label: 'Builder', path: '/screens/builder' },
-  { icon: 'mic', label: 'Registra', path: '/screens/registra' },
-  { icon: 'settings', label: 'Impostazioni', path: '/screens/settings' },
-]
 
 export default function Home() {
   const { colors, s } = useScreenTheme()
@@ -179,12 +170,10 @@ export default function Home() {
         {bannerProdottiChiuso === false ? (
           <View style={styles.prodottiBannerWrap}>
             <TouchableOpacity
-              style={[styles.prodottiBanner, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              style={[styles.prodottiBanner, { backgroundColor: colors.surface }]}
               onPress={apriProdottiDigitali}
               activeOpacity={0.85}
             >
-              <View style={styles.prodottiBannerGradientTeal} pointerEvents="none" />
-              <View style={[styles.prodottiBannerGradientFade, { backgroundColor: colors.surface }]} pointerEvents="none" />
               <View style={styles.prodottiBannerInner}>
                 <AppIcon name="shopping-bag" size={26} color="#0B7A6D" />
                 <View style={styles.prodottiBannerText}>
@@ -270,22 +259,6 @@ export default function Home() {
           )}
         </View>
 
-        <Text style={s.title}>Accesso rapido</Text>
-        <View style={styles.quickGrid}>
-          {QUICK_ITEMS.map(item => (
-            <TouchableOpacity key={item.path} style={s.quickCard} onPress={() => router.push(item.path as never)} activeOpacity={0.7}>
-              <AppIcon name={item.icon} size={22} color={colors.icon} />
-              <Text
-                style={[styles.quickLabel, { color: colors.textMuted }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.85}
-              >
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
       </ScrollView>
     </View>
   )
@@ -311,24 +284,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderLeftWidth: 3,
     borderLeftColor: '#0E9F8E',
-    borderWidth: 1,
+    borderWidth: 1.5,
+    borderColor: 'rgba(14, 159, 142, 0.35)',
     shadowColor: '#0D1B2A',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
-  },
-  prodottiBannerGradientTeal: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(14, 159, 142, 0.1)',
-  },
-  prodottiBannerGradientFade: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: '35%',
-    right: 0,
-    opacity: 0.92,
   },
   prodottiBannerInner: {
     flexDirection: 'row',
@@ -358,6 +320,4 @@ const styles = StyleSheet.create({
   prevData: { fontSize: 11, marginTop: 2 },
   prevRight: { alignItems: 'flex-end', gap: 4 },
   prevImporto: { fontSize: 14, fontWeight: '600' },
-  quickGrid: { flexDirection: 'row', gap: 10 },
-  quickLabel: { fontSize: 11, fontWeight: '500', textAlign: 'center', width: '100%' },
 })

@@ -7,8 +7,6 @@ export const PROFILO_COLORS = {
   muted: '#9CA3AF',
 } as const
 
-export const APP_VERSION = '0.4.0'
-
 export const WEB_BASE_URL = 'https://previcloud.it'
 export const WEB_PRODOTTI_URL = `${WEB_BASE_URL}/dashboard/prodotti`
 export const WEB_TERMINI_URL = `${WEB_BASE_URL}/termini`
