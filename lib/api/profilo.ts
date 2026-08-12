@@ -25,11 +25,16 @@ export async function caricaProfiloUtente() {
 
   const { data } = await supabase
     .from('profiles')
-    .select('nome_azienda')
+    .select('nome_azienda, plan, trial_ends_at')
     .eq('id', user.id)
     .single()
 
-  return { email: user.email || '', nomeAzienda: data?.nome_azienda || '' }
+  return {
+    email: user.email || '',
+    nomeAzienda: data?.nome_azienda || '',
+    plan: data?.plan || null,
+    trialEndsAt: data?.trial_ends_at || null,
+  }
 }
 
 export async function caricaStatoBiometrico() {

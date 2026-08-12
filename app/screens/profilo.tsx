@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View
 } from 'react-native'
 import { attivaBiometrico, aggiornaPasswordAccount, biometriaConfigurata, caricaProfiloUtente, caricaStatoBiometrico, confermaConBiometria, disattivaBiometrico, eliminaAccount, logoutAccount, verificaPasswordAccount } from '../../lib/api/profilo'
+import { AbbonamentoCard } from '../../lib/components/profilo/AbbonamentoCard'
 import { ProfiloAppCard } from '../../lib/components/profilo/ProfiloAppCard'
 import { ProfiloAvatarCard } from '../../lib/components/profilo/ProfiloAvatarCard'
 import { ProfiloCambiaPasswordModal } from '../../lib/components/profilo/ProfiloCambiaPasswordModal'
@@ -20,6 +21,8 @@ import { errorMessage } from '../../lib/utils/errors'
 export default function Profilo() {
   const [nomeAzienda, setNomeAzienda] = useState('')
   const [email, setEmail] = useState('')
+  const [plan, setPlan] = useState<string | null>(null)
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
   const [notifiche, setNotifiche] = useState(true)
@@ -43,6 +46,8 @@ export default function Profilo() {
     if (!profilo) return
     setEmail(profilo.email)
     if (profilo.nomeAzienda) setNomeAzienda(profilo.nomeAzienda)
+    setPlan(profilo.plan)
+    setTrialEndsAt(profilo.trialEndsAt)
     const biometrico = await caricaStatoBiometrico()
     setBiometricoDisponibile(biometrico.disponibile)
     setBiometricoAttivato(biometrico.attivato)
@@ -247,6 +252,8 @@ export default function Profilo() {
           email={email}
           onEditSettings={() => router.push('/screens/settings')}
         />
+
+        <AbbonamentoCard plan={plan} trialEndsAt={trialEndsAt} />
 
         <ProfiloSicurezzaCard
           biometricoDisponibile={biometricoDisponibile}

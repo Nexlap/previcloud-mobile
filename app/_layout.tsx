@@ -2,12 +2,15 @@ import { router, Stack } from 'expo-router'
 import * as Notifications from 'expo-notifications'
 import { useEffect, useRef, useState } from 'react'
 import { Animated, StyleSheet, Text, View } from 'react-native'
+import { isTrialScaduto } from 'previcloud-shared'
 import 'react-native-url-polyfill/auto'
 import { currentUserId, onSignedOut, resolvePostAuthRoute } from '../lib/api/auth'
 import { registraPushToken } from '../lib/api/pushNotifications'
 import { controllaVersioneMinima } from '../lib/api/versione'
 import { AggiornamentoObbligatorioModal } from '../lib/components/AggiornamentoObbligatorioModal'
+import { TrialScadutoModal } from '../lib/components/TrialScadutoModal'
 import { purgeCestinoScaduto } from '../lib/cestino'
+import { supabase } from '../lib/supabase'
 import { ThemeProvider, useTheme } from '../lib/theme/ThemeContext'
 import { ThemedStatusBar } from '../lib/theme/ThemedStatusBar'
 import { NotificheProvider } from '../lib/hooks/useNotifiche'
@@ -41,6 +44,7 @@ export default function RootLayout() {
   const [aggiornaObbligatorio, setAggiornaObbligatorio] = useState(false)
   const [versioneInstallata, setVersioneInstallata] = useState<string>()
   const [versioneMinima, setVersioneMinima] = useState<string>()
+  const [trialScaduto, setTrialScaduto] = useState(false)
   const [splashDone, setSplashDone] = useState(false)
   const fadeAnim = useRef(new Animated.Value(0)).current
   const scaleAnim = useRef(new Animated.Value(0.8)).current
@@ -104,6 +108,14 @@ export default function RootLayout() {
           setAggiornaObbligatorio(true)
         }
       })
+      const { data: profiloTrial } = await supabase
+        .from('profiles')
+        .select('plan, trial_ends_at')
+        .eq('id', userId)
+        .single()
+      if (isTrialScaduto(profiloTrial?.plan, profiloTrial?.trial_ends_at)) {
+        setTrialScaduto(true)
+      }
     }
     trackSessione()
     void purgeCestinoScaduto()
@@ -122,6 +134,7 @@ export default function RootLayout() {
         versioneInstallata={versioneInstallata}
         versioneMinima={versioneMinima}
       />
+      <TrialScadutoModal visibile={trialScaduto} />
     <ThemeProvider>
       <NotificheProvider>
         <ThemedStatusBar />
