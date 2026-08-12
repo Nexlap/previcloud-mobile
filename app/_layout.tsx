@@ -9,6 +9,7 @@ import { registraPushToken } from '../lib/api/pushNotifications'
 import { controllaVersioneMinima } from '../lib/api/versione'
 import { AggiornamentoObbligatorioModal } from '../lib/components/AggiornamentoObbligatorioModal'
 import { TrialScadutoModal } from '../lib/components/TrialScadutoModal'
+import { pulisciBozzaBuilderLegacy } from '../lib/builder/draft'
 import { purgeCestinoScaduto } from '../lib/cestino'
 import { supabase } from '../lib/supabase'
 import { ThemeProvider, useTheme } from '../lib/theme/ThemeContext'
@@ -119,6 +120,7 @@ export default function RootLayout() {
     }
     trackSessione()
     void purgeCestinoScaduto()
+    void pulisciBozzaBuilderLegacy()
     await redirectBasedOnProfile(userId)
   }
 

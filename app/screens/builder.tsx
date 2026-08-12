@@ -4,6 +4,7 @@ import {
   Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { currentUserId } from '../../lib/api/auth';
 import { creaServizioListino } from '../../lib/api/servizi';
 import { Cliente, ProfiloFiscale, Servizio, VocePreventivo } from '../../lib/types';
 import { eventBus } from '../../lib/eventBus';
@@ -107,6 +108,7 @@ export default function Builder() {
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [pagamentoImportato, setPagamentoImportato] = useState('')
   const [datiBuilderPronti, setDatiBuilderPronti] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
@@ -125,6 +127,7 @@ export default function Builder() {
 
   useEffect(() => {
     trackEvento('schermata_aperta', 'builder')
+    void currentUserId().then(setUserId)
     caricaServizi()
     caricaProfiloFiscale()
     caricaClienti()
@@ -211,10 +214,10 @@ export default function Builder() {
   }, [])
 
   useEffect(() => {
-    if (inModifica || bozzaGestitaRef.current || !datiBuilderPronti) return
+    if (inModifica || bozzaGestitaRef.current || !datiBuilderPronti || !userId) return
 
     void (async () => {
-      const draft = await caricaBozzaBuilder()
+      const draft = await caricaBozzaBuilder(userId)
       if (!draft || bozzaBuilderVuota(draft)) {
         bozzaGestitaRef.current = true
         return
@@ -246,7 +249,7 @@ export default function Builder() {
         { cancelable: false },
       )
     })()
-  }, [inModifica, datiBuilderPronti])
+  }, [inModifica, datiBuilderPronti, userId])
 
   useEffect(() => {
     if (inModifica || clienteBozzaVerificatoRef.current || clienti.length === 0) return
@@ -266,15 +269,16 @@ export default function Builder() {
   }, [clienti.length, inModifica, clienteSelezionato?.id])
 
   useEffect(() => {
-    if (inModifica || bloccoSalvataggioBozzaRef.current) return
+    if (inModifica || bloccoSalvataggioBozzaRef.current || !userId) return
 
     const timeout = setTimeout(() => {
-      void salvaBozzaBuilder(snapshotBozzaBuilder())
+      void salvaBozzaBuilder(userId, snapshotBozzaBuilder())
     }, 800)
 
     return () => clearTimeout(timeout)
   }, [
     inModifica,
+    userId,
     voci,
     nomeCliente,
     noteExtra,
@@ -473,7 +477,8 @@ export default function Builder() {
     setRateVisibileNelPDF(true)
     setMetodoPagamentoSelezionato(null)
     setMetodoPagamentoNessuno(false)
-    void cancellaBozzaBuilder().finally(() => {
+    const cancella = userId ? cancellaBozzaBuilder(userId) : Promise.resolve()
+    void cancella.finally(() => {
       bloccoSalvataggioBozzaRef.current = false
     })
   }

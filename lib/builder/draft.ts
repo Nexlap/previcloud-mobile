@@ -3,7 +3,11 @@ import { supabase } from '../supabase'
 import { builderState } from './state'
 import type { BuilderMemoryState } from './types'
 
-export const BUILDER_DRAFT_KEY = 'previcloud-builder-draft'
+const BUILDER_DRAFT_KEY_LEGACY = 'previcloud-builder-draft'
+
+export function buildDraftKey(userId: string): string {
+  return `previcloud-builder-draft:${userId}`
+}
 
 export type BuilderDraft = BuilderMemoryState & {
   clienteSelezionatoId: string
@@ -82,35 +86,45 @@ export function applicaBozzaABuilderState(draft: BuilderDraft) {
   builderState.scontoValore = draft.scontoValore ?? ''
 }
 
-export async function caricaBozzaBuilder(): Promise<BuilderDraft | null> {
+export async function caricaBozzaBuilder(userId: string): Promise<BuilderDraft | null> {
+  const key = buildDraftKey(userId)
   try {
-    const raw = await AsyncStorage.getItem(BUILDER_DRAFT_KEY)
+    const raw = await AsyncStorage.getItem(key)
     if (!raw) return null
     return JSON.parse(raw) as BuilderDraft
   } catch (e) {
     console.error('[builderDraft] JSON corrotto:', e)
-    await AsyncStorage.removeItem(BUILDER_DRAFT_KEY)
+    await AsyncStorage.removeItem(key)
     return null
   }
 }
 
-export async function salvaBozzaBuilder(draft: BuilderDraft): Promise<void> {
+export async function salvaBozzaBuilder(userId: string, draft: BuilderDraft): Promise<void> {
   if (bozzaBuilderVuota(draft)) {
-    await cancellaBozzaBuilder()
+    await cancellaBozzaBuilder(userId)
     return
   }
   try {
-    await AsyncStorage.setItem(BUILDER_DRAFT_KEY, JSON.stringify(withTimestamp(draft)))
+    await AsyncStorage.setItem(buildDraftKey(userId), JSON.stringify(withTimestamp(draft)))
   } catch (e) {
     console.error('[builderDraft] Salvataggio fallito:', e)
   }
 }
 
-export async function cancellaBozzaBuilder(): Promise<void> {
+export async function cancellaBozzaBuilder(userId: string): Promise<void> {
   try {
-    await AsyncStorage.removeItem(BUILDER_DRAFT_KEY)
+    await AsyncStorage.removeItem(buildDraftKey(userId))
   } catch (e) {
     console.error('[builderDraft] Cancellazione fallita:', e)
+  }
+}
+
+/** Rimuove la chiave bozza pre-userId (una tantum). */
+export async function pulisciBozzaBuilderLegacy(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(BUILDER_DRAFT_KEY_LEGACY)
+  } catch {
+    // silenzioso
   }
 }
 

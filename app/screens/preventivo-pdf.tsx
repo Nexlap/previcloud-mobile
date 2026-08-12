@@ -41,6 +41,7 @@ import {
 import { statoAccount } from '../../lib/api/stripeConnect'
 import { confermaPagamentoEsclusivo } from '../../lib/utils/confermaPagamentoEsclusivo'
 import { trackEvento } from '../../lib/api/track'
+import { currentUserId } from '../../lib/api/auth'
 import { richiestaRecensioneSeOpportuno } from '../../lib/storeReview'
 import { errorMessage } from '../../lib/utils/errors'
 import { supabase } from '../../lib/supabase'
@@ -171,9 +172,11 @@ export default function PreventivoPDF() {
     builderState.nascondiPrezzi = nascondiPrezzi
     const timeout = setTimeout(() => {
       void (async () => {
-        const draft = await caricaBozzaBuilder()
+        const userId = await currentUserId()
+        if (!userId) return
+        const draft = await caricaBozzaBuilder(userId)
         if (!draft || bozzaBuilderVuota(draft)) return
-        await salvaBozzaBuilder({ ...draft, nascondiPrezzi })
+        await salvaBozzaBuilder(userId, { ...draft, nascondiPrezzi })
       })()
     }, 800)
     return () => clearTimeout(timeout)
@@ -413,7 +416,8 @@ export default function PreventivoPDF() {
     }
 
     resetBuilderState()
-    void cancellaBozzaBuilder()
+    const userId = await currentUserId()
+    if (userId) void cancellaBozzaBuilder(userId)
     eventBus.emit('reset-builder')
 
     if (abbonamentoAttivo && clienteSelezionato) {

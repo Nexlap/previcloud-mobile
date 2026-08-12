@@ -1,6 +1,7 @@
 import { Platform } from 'react-native'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
+import { BACKEND_URL } from '../constants'
 import { mergeMessaggiCliente, type MessaggiClienteTemplates } from 'previcloud-shared'
 import { invalidaCacheMessaggiCliente } from '../messaggiCliente'
 
@@ -83,6 +84,23 @@ export async function inviaSegnalazioneSettings(segnalazione: SegnalazioneSettin
     piattaforma: Platform.OS,
     screenshot_url: screenshot_url ?? null,
   })
+
+  if (!error) {
+    fetch(`${BACKEND_URL}/api/segnalazione-notifica`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+      },
+      body: JSON.stringify({
+        titolo: segnalazione.titolo.trim(),
+        descrizione: segnalazione.descrizione.trim(),
+        tipo: segnalazione.tipo,
+        schermata: segnalazione.schermata.trim() || null,
+        piattaforma: Platform.OS,
+      }),
+    }).catch((e) => console.error('Notifica email segnalazione fallita:', e))
+  }
 
   return { error, user }
 }
