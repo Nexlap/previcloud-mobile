@@ -4,6 +4,7 @@ export default {
   expo: {
     name: "PreviCloud",
     slug: "previcloud-mobile",
+    owner: "danieleglamax",
     version: "1.0.0",
     orientation: "portrait",
     scheme: "previcloud",
@@ -23,6 +24,7 @@ export default {
     },
     android: {
       package: "it.previcloud.app",
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       softwareKeyboardLayoutMode: "resize",
       adaptiveIcon: {
         foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -59,14 +61,14 @@ export default {
   "@react-native-community/datetimepicker"
     ],
 updates: {
-  url: "https://u.expo.dev/a842ab0e-24f7-41b4-b93a-6b97a75b9621"
+  url: "https://u.expo.dev/317d7a20-8484-4976-a566-d30f289f7a1c"
 },
 runtimeVersion: {
   policy: "appVersion"
 },
 extra: {
   eas: {
-    projectId: "a842ab0e-24f7-41b4-b93a-6b97a75b9621"
+    projectId: "317d7a20-8484-4976-a566-d30f289f7a1c"
   },
   supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
   supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
