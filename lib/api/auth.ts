@@ -44,7 +44,7 @@ export async function currentUserId() {
 export async function hasCompletedProfile(userId: string) {
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('nome_azienda')
+    .select('onboarding_completato')
     .eq('id', userId)
     .single()
   // PGRST116 (nessuna riga trovata) è legittimo per un utente nuovo; qualsiasi altro
@@ -53,26 +53,44 @@ export async function hasCompletedProfile(userId: string) {
   if (error && error.code !== 'PGRST116') {
     throw new Error(error.message)
   }
-  return Boolean(profile?.nome_azienda?.trim())
+  return Boolean(profile?.onboarding_completato)
 }
 
-export type PostAuthRoute = '/(tabs)' | '/onboarding'
+export async function hasAcceptedTermini(userId: string) {
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('termini_accettati')
+    .eq('id', userId)
+    .single()
+  if (error && error.code !== 'PGRST116') {
+    throw new Error(error.message)
+  }
+  return Boolean(profile?.termini_accettati)
+}
+
+export type PostAuthRoute = '/(tabs)' | '/onboarding' | '/(auth)/termini-richiesti'
+
+async function resolvePostAuthRouteOnce(userId: string): Promise<PostAuthRoute> {
+  // Gate termini: prima di onboarding/tabs, così vale per cold start, password e biometria.
+  const terminiOk = await hasAcceptedTermini(userId)
+  if (!terminiOk) return '/(auth)/termini-richiesti'
+
+  const profiloCompleto = await hasCompletedProfile(userId)
+  return profiloCompleto ? '/(tabs)' : '/onboarding'
+}
 
 export async function resolvePostAuthRoute(userId: string): Promise<PostAuthRoute> {
   try {
-    const profiloCompleto = await hasCompletedProfile(userId)
-    return profiloCompleto ? '/(tabs)' : '/onboarding'
+    return await resolvePostAuthRouteOnce(userId)
   } catch (err: unknown) {
     console.error('[auth] resolvePostAuthRoute: primo tentativo fallito, riprovo', err)
     try {
-      const profiloCompleto = await hasCompletedProfile(userId)
-      return profiloCompleto ? '/(tabs)' : '/onboarding'
+      return await resolvePostAuthRouteOnce(userId)
     } catch (err2: unknown) {
-      // Fetch fallita anche al secondo tentativo: mai instradare a /onboarding per un
-      // errore di rete, un utente esistente perderebbe il profilo di vista. /(tabs) è
-      // il fallback sicuro, l'errore resta comunque loggato per essere investigato.
+      // Fail-closed sui termini: senza verifica non instradiamo a /(tabs), altrimenti
+      // un errore di rete potrebbe bypassare termini_accettati=false.
       console.error('[auth] resolvePostAuthRoute: fallito anche il retry', err2)
-      return '/(tabs)'
+      return '/(auth)/termini-richiesti'
     }
   }
 }

@@ -76,6 +76,7 @@ export async function completaOnboarding({
     categoria,
     template_preferito: templateScelto,
     firma_nome: firmaNome.trim(),
+    onboarding_completato: true,
   })
 
   if (servizi.length > 0) {

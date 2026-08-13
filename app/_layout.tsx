@@ -8,6 +8,7 @@ import { currentUserId, onSignedOut, resolvePostAuthRoute } from '../lib/api/aut
 import { registraPushToken } from '../lib/api/pushNotifications'
 import { controllaVersioneMinima } from '../lib/api/versione'
 import { AggiornamentoObbligatorioModal } from '../lib/components/AggiornamentoObbligatorioModal'
+import { TerminiNonAccettatiModal } from '../lib/components/TerminiNonAccettatiModal'
 import { TrialScadutoModal } from '../lib/components/TrialScadutoModal'
 import { pulisciBozzaBuilderLegacy } from '../lib/builder/draft'
 import { purgeCestinoScaduto } from '../lib/cestino'
@@ -46,10 +47,14 @@ export default function RootLayout() {
   const [versioneInstallata, setVersioneInstallata] = useState<string>()
   const [versioneMinima, setVersioneMinima] = useState<string>()
   const [trialScaduto, setTrialScaduto] = useState(false)
+  const [terminiNonAccettati, setTerminiNonAccettati] = useState(false)
   const [splashDone, setSplashDone] = useState(false)
   const fadeAnim = useRef(new Animated.Value(0)).current
   const scaleAnim = useRef(new Animated.Value(0.8)).current
   const splashOpacity = useRef(new Animated.Value(1)).current
+  const pendingUserIdRef = useRef<string | null>(null)
+  const pendingProfiloRef = useRef<{ plan: string | null; trial_ends_at: string | null } | null>(null)
+  const bootstrapInCorsoRef = useRef(false)
 
   useEffect(() => {
     // Animazione entrata
@@ -66,12 +71,27 @@ export default function RootLayout() {
   }
 
   useEffect(() => {
-    checkSession()
+    void checkSession()
 
     const unsubscribe = onSignedOut(() => {
+      setTerminiNonAccettati(false)
+      setTrialScaduto(false)
+      pendingUserIdRef.current = null
+      pendingProfiloRef.current = null
       router.replace('/(auth)/login')
     })
-    return unsubscribe
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // Dopo login da schermata auth, checkSession iniziale non riesegue: ripeti il gate termini.
+      if (event === 'SIGNED_IN') {
+        void checkSession()
+      }
+    })
+
+    return () => {
+      unsubscribe()
+      subscription.unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
@@ -97,31 +117,83 @@ export default function RootLayout() {
     }
   }, [])
 
-  async function checkSession() {
-    const userId = await currentUserId()
-    if (!userId) { completaSplash(); router.replace('/(auth)/login'); return }
-    if (userId) {
-      registraPushToken(userId)
-      controllaVersioneMinima().then((risultato) => {
-        if (!risultato.ok) {
-          setVersioneInstallata(risultato.installata)
-          setVersioneMinima(risultato.minima)
-          setAggiornaObbligatorio(true)
-        }
-      })
+  async function proseguiDopoTermini(
+    userId: string,
+    profilo?: { plan: string | null; trial_ends_at: string | null } | null,
+  ) {
+    registraPushToken(userId)
+    controllaVersioneMinima().then((risultato) => {
+      if (!risultato.ok) {
+        setVersioneInstallata(risultato.installata)
+        setVersioneMinima(risultato.minima)
+        setAggiornaObbligatorio(true)
+      }
+    })
+
+    let plan = profilo?.plan ?? null
+    let trialEndsAt = profilo?.trial_ends_at ?? null
+    if (!profilo) {
       const { data: profiloTrial } = await supabase
         .from('profiles')
         .select('plan, trial_ends_at')
         .eq('id', userId)
         .single()
-      if (isTrialScaduto(profiloTrial?.plan, profiloTrial?.trial_ends_at)) {
-        setTrialScaduto(true)
-      }
+      plan = profiloTrial?.plan ?? null
+      trialEndsAt = profiloTrial?.trial_ends_at ?? null
     }
+    if (isTrialScaduto(plan, trialEndsAt)) {
+      setTrialScaduto(true)
+    }
+
     trackSessione()
     void purgeCestinoScaduto()
     void pulisciBozzaBuilderLegacy()
     await redirectBasedOnProfile(userId)
+  }
+
+  async function checkSession() {
+    if (bootstrapInCorsoRef.current) return
+    bootstrapInCorsoRef.current = true
+    try {
+      const userId = await currentUserId()
+      if (!userId) {
+        completaSplash()
+        router.replace('/(auth)/login')
+        return
+      }
+
+      pendingUserIdRef.current = userId
+
+      // Gate termini: prima di onboarding, trial e redirect verso home.
+      const { data: profilo } = await supabase
+        .from('profiles')
+        .select('termini_accettati, plan, trial_ends_at')
+        .eq('id', userId)
+        .single()
+
+      if (profilo && !profilo.termini_accettati) {
+        pendingProfiloRef.current = {
+          plan: profilo.plan ?? null,
+          trial_ends_at: profilo.trial_ends_at ?? null,
+        }
+        setTerminiNonAccettati(true)
+        completaSplash()
+        return
+      }
+
+      await proseguiDopoTermini(userId, profilo
+        ? { plan: profilo.plan ?? null, trial_ends_at: profilo.trial_ends_at ?? null }
+        : null)
+    } finally {
+      bootstrapInCorsoRef.current = false
+    }
+  }
+
+  function handleTerminiAccettati() {
+    setTerminiNonAccettati(false)
+    const userId = pendingUserIdRef.current
+    if (!userId) return
+    void proseguiDopoTermini(userId, pendingProfiloRef.current)
   }
 
   async function redirectBasedOnProfile(userId: string) {
@@ -131,12 +203,16 @@ export default function RootLayout() {
 
   return (
     <>
+      <TerminiNonAccettatiModal
+        visibile={terminiNonAccettati}
+        onAccettati={handleTerminiAccettati}
+      />
       <AggiornamentoObbligatorioModal
-        visibile={aggiornaObbligatorio}
+        visibile={aggiornaObbligatorio && !terminiNonAccettati}
         versioneInstallata={versioneInstallata}
         versioneMinima={versioneMinima}
       />
-      <TrialScadutoModal visibile={trialScaduto} />
+      <TrialScadutoModal visibile={trialScaduto && !terminiNonAccettati} />
     <ThemeProvider>
       <NotificheProvider>
         <ThemedStatusBar />
