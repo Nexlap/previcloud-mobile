@@ -8,7 +8,7 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
-import { currentUserId, resetPassword, resolvePostAuthRoute, signInWithEmail, signUpWithEmail } from '../../lib/api/auth'
+import { currentUserId, hasAcceptedTermini, resetPassword, resolvePostAuthRoute, signInWithEmail, signUpWithEmail } from '../../lib/api/auth'
 import { supabase } from '../../lib/supabase'
 import { WEB_BASE_URL, WEB_TERMINI_URL } from '../../lib/features/profilo/constants'
 import { errorMessage } from '../../lib/utils/errors'
@@ -44,10 +44,22 @@ export default function Login() {
   }, [])
 
   useEffect(() => {
-    if (biometricoAttivato && !autoPromptTentato.current) {
-      autoPromptTentato.current = true
-      loginBiometrico()
-    }
+    if (!biometricoAttivato || autoPromptTentato.current) return
+    autoPromptTentato.current = true
+
+    void (async () => {
+      // Race con _layout/index: login può montare con sessione già (o appena) valida.
+      // Face ID solo se termini già accettati; altrimenti niente prompt → blocco termini.
+      const userId = await currentUserId()
+      if (userId) {
+        const terminiOk = await hasAcceptedTermini(userId)
+        if (!terminiOk) {
+          router.replace(await resolvePostAuthRoute(userId))
+          return
+        }
+      }
+      await loginBiometrico()
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [biometricoAttivato])
 
