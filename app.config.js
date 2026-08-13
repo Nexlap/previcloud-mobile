@@ -24,6 +24,7 @@ export default {
     },
     android: {
       package: "it.previcloud.app",
+      versionCode: 1,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       softwareKeyboardLayoutMode: "resize",
       adaptiveIcon: {
