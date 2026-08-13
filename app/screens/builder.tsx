@@ -583,18 +583,18 @@ export default function Builder() {
   }
 
   const totale = calcolaTotale()
-  const totaleTrasferte = calcolaTotaleTrasferte(trasferte)
   const totaleBase = calcolaTotaleVoci(voci) + calcolaTotaleTrasferte(trasferte)
-  const totaleConIva = includiIva ? (totale + totaleTrasferte) * 1.22 : (totale + totaleTrasferte)
+  const totaleConIva = includiIva ? totaleBase * 1.22 : totaleBase
   const importoSconto = (() => {
     if (!scontoAttivo || !scontoValore) return 0
     const val = parseImportoEuro(scontoValore) ?? NaN
     if (isNaN(val) || val <= 0) return 0
     return scontoTipo === 'percentuale'
-      ? totaleConIva * (val / 100)
-      : Math.min(val, totaleConIva)
+      ? totaleBase * (val / 100)
+      : Math.min(val, totaleBase)
   })()
-  const totaleConSconto = Math.max(0, totaleConIva - importoSconto)
+  const totaleNetto = Math.max(0, totaleBase - importoSconto)
+  const totaleConSconto = includiIva ? totaleNetto * 1.22 : totaleNetto
   const f = calcolaFiscale()
   const fmt = formatImportoEuroVisuale
 

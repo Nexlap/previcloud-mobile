@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 import { Platform } from 'react-native'
+import { BACKEND_URL } from '../constants'
 import { supabase } from '../supabase'
 
 // iOS disabilitato fino ad Apple Developer Program
@@ -23,14 +24,27 @@ export async function registraPushToken(userId: string): Promise<void> {
     if (statoFinale !== 'granted') return
 
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: 'a842ab0e-24f7-41b4-b93a-6b97a75b9621'
+      projectId: '317d7a20-8484-4976-a566-d30f289f7a1c'
     })
     const token = tokenData.data
 
-    await supabase
-      .from('profiles')
-      .update({ expo_push_token: token })
-      .eq('id', userId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const accessToken = session?.access_token
+    if (!accessToken) return
+
+    const res = await fetch(`${BACKEND_URL}/api/registra-push-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ token }),
+    })
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || `Registrazione push fallita (${res.status})`)
+    }
   } catch (error) {
     // Non bloccare il flusso se le push falliscono
     console.error('Push token registration failed:', error)

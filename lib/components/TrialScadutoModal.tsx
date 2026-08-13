@@ -13,7 +13,7 @@ export function TrialScadutoModal({ visibile }: Props) {
         </Text>
         <Text
           style={styles.link}
-          onPress={() => Linking.openURL('mailto:previ_cloud@proton.me')}
+          onPress={() => Linking.openURL('mailto:info@previcloud.it')}
         >
           Contatta il supporto
         </Text>

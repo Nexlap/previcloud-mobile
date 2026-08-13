@@ -2,6 +2,7 @@ import * as LocalAuthentication from 'expo-local-authentication'
 import * as SecureStore from 'expo-secure-store'
 import { BACKEND_URL } from '../constants'
 import { supabase } from '../supabase'
+import { rimuoviPushToken } from './pushNotifications'
 
 const BIOMETRIA_ATTIVA_KEY = 'biometria_attiva'
 const LEGACY_BIOMETRIA_KEY = 'biometrico_attivato'
@@ -82,6 +83,20 @@ export async function aggiornaPasswordAccount(nuovaPassword: string) {
 export async function logoutAccount() {
   await SecureStore.deleteItemAsync(BIOMETRIA_ATTIVA_KEY)
   await pulisciCredenzialiLegacy()
+
+  // Invalida il push token prima di chiudere la sessione (isolamento multi-account sullo stesso device).
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+    if (userId) {
+      await rimuoviPushToken(userId)
+    }
+  } catch (err) {
+    if (__DEV__) {
+      console.warn('[logout] rimuoviPushToken fallito, proseguo con signOut:', err)
+    }
+  }
+
   return supabase.auth.signOut()
 }
 

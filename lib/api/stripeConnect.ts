@@ -1,4 +1,3 @@
-import * as Linking from 'expo-linking'
 import { BACKEND_URL } from '../constants'
 import { sessionToken } from './settings'
 
@@ -10,11 +9,6 @@ export type StripeAccountStato = {
 }
 
 const STRIPE_ONBOARDING_WEB_CALLBACK = 'https://previcloud.it/stripe-callback'
-
-/** Deep link in-app (deve coincidere con la rotta app/stripe-callback.tsx). */
-export function stripeCallbackUrl(): string {
-  return Linking.createURL('stripe-callback')
-}
 
 async function authFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await sessionToken()
