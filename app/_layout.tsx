@@ -13,6 +13,7 @@ import { TrialScadutoModal } from '../lib/components/TrialScadutoModal'
 import { pulisciBozzaBuilderLegacy } from '../lib/builder/draft'
 import { purgeCestinoScaduto } from '../lib/cestino'
 import { supabase } from '../lib/supabase'
+import { pulisciBiometriaLegacyKeys } from '../lib/api/profilo'
 import { ThemeProvider, useTheme } from '../lib/theme/ThemeContext'
 import { ThemedStatusBar } from '../lib/theme/ThemedStatusBar'
 import { NotificheProvider } from '../lib/hooks/useNotifiche'
@@ -71,6 +72,7 @@ export default function RootLayout() {
   }
 
   useEffect(() => {
+    void pulisciBiometriaLegacyKeys()
     void checkSession()
 
     const unsubscribe = onSignedOut(() => {
@@ -148,6 +150,7 @@ export default function RootLayout() {
     trackSessione()
     void purgeCestinoScaduto()
     void pulisciBozzaBuilderLegacy()
+    void pulisciBiometriaLegacyKeys()
     await redirectBasedOnProfile(userId)
   }
 

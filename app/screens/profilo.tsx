@@ -25,6 +25,7 @@ export default function Profilo() {
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
+  const [biometricoAbilitabile, setBiometricoAbilitabile] = useState(true)
   const [notifiche, setNotifiche] = useState(true)
   const [eliminandoAccount, setEliminandoAccount] = useState(false)
   const [modalPasswordElimina, setModalPasswordElimina] = useState(false)
@@ -48,6 +49,7 @@ export default function Profilo() {
     if (profilo.nomeAzienda) setNomeAzienda(profilo.nomeAzienda)
     setPlan(profilo.plan)
     setTrialEndsAt(profilo.trialEndsAt)
+    setBiometricoAbilitabile(profilo.onboardingCompletato && profilo.terminiAccettati)
     const biometrico = await caricaStatoBiometrico()
     setBiometricoDisponibile(biometrico.disponibile)
     setBiometricoAttivato(biometrico.attivato)
@@ -55,6 +57,13 @@ export default function Profilo() {
 
   async function toggleBiometrico(val: boolean) {
     if (val) {
+      if (!biometricoAbilitabile) {
+        Alert.alert(
+          'Non disponibile',
+          'Completa onboarding e accetta i Termini di Servizio prima di attivare l\'accesso biometrico.',
+        )
+        return
+      }
       const success = await attivaBiometrico('Conferma per attivare')
       if (success) setBiometricoAttivato(true)
     } else {
@@ -258,6 +267,7 @@ export default function Profilo() {
         <ProfiloSicurezzaCard
           biometricoDisponibile={biometricoDisponibile}
           biometricoAttivato={biometricoAttivato}
+          biometricoAbilitabile={biometricoAbilitabile}
           onToggleBiometrico={toggleBiometrico}
           onCambiaPassword={apriModalCambiaPassword}
         />

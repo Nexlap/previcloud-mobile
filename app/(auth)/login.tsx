@@ -1,7 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import * as LocalAuthentication from 'expo-local-authentication'
 import { router } from 'expo-router'
-import * as SecureStore from 'expo-secure-store'
 import * as WebBrowser from 'expo-web-browser'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -9,6 +8,13 @@ import {
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View
 } from 'react-native'
 import { currentUserId, hasAcceptedTermini, resetPassword, resolvePostAuthRoute, signInWithEmail, signUpWithEmail } from '../../lib/api/auth'
+import {
+  abilitaBiometriaPerUser,
+  disabilitaBiometriaPerUser,
+  getUltimoUserIdBiometria,
+  isBiometriaAttivaPerUser,
+  setUltimoUserIdBiometria,
+} from '../../lib/api/profilo'
 import { supabase } from '../../lib/supabase'
 import { WEB_BASE_URL, WEB_TERMINI_URL } from '../../lib/features/profilo/constants'
 import { errorMessage } from '../../lib/utils/errors'
@@ -26,6 +32,7 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false)
   const [biometricoDisponibile, setBiometricoDisponibile] = useState(false)
   const [biometricoAttivato, setBiometricoAttivato] = useState(false)
+  const [ultimoUserIdBiometria, setUltimoUserIdBiometriaState] = useState<string | null>(null)
   const [accettaTermini, setAccettaTermini] = useState(false)
   const [errorePassword, setErrorePassword] = useState<string | null>(null)
   const autoPromptTentato = useRef(false)
@@ -35,10 +42,13 @@ export default function Login() {
       const disponibile = await LocalAuthentication.hasHardwareAsync()
       const enrollato = await LocalAuthentication.isEnrolledAsync()
       setBiometricoDisponibile(disponibile && enrollato)
-      const attivato =
-        (await SecureStore.getItemAsync('biometria_attiva')) ??
-        (await SecureStore.getItemAsync('biometrico_attivato'))
-      if (attivato === 'true') setBiometricoAttivato(true)
+
+      // Solo biometria scoped all'ultimo utente che ha fatto login su questo device.
+      const ultimoUserId = await getUltimoUserIdBiometria()
+      setUltimoUserIdBiometriaState(ultimoUserId)
+      if (ultimoUserId && await isBiometriaAttivaPerUser(ultimoUserId)) {
+        setBiometricoAttivato(true)
+      }
     }
     checkBiometrico()
   }, [])
@@ -48,8 +58,13 @@ export default function Login() {
     autoPromptTentato.current = true
 
     void (async () => {
-      // Race con _layout/index: login può montare con sessione già (o appena) valida.
-      // Face ID solo se termini già accettati; altrimenti niente prompt → blocco termini.
+      const ultimoUserId = ultimoUserIdBiometria ?? await getUltimoUserIdBiometria()
+      if (!ultimoUserId || !(await isBiometriaAttivaPerUser(ultimoUserId))) {
+        setBiometricoAttivato(false)
+        return
+      }
+
+      // Sessione già valida: niente Face ID se termini non accettati.
       const userId = await currentUserId()
       if (userId) {
         const terminiOk = await hasAcceptedTermini(userId)
@@ -58,7 +73,7 @@ export default function Login() {
           return
         }
       }
-      await loginBiometrico()
+      await loginBiometrico(ultimoUserId)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [biometricoAttivato])
@@ -66,6 +81,7 @@ export default function Login() {
   async function redirectAfterSignIn(userIdFromSignIn?: string | null) {
     const userId = userIdFromSignIn ?? await currentUserId()
     if (!userId) return
+    await setUltimoUserIdBiometria(userId)
     router.replace(await resolvePostAuthRoute(userId))
   }
 
@@ -94,7 +110,13 @@ export default function Login() {
         Alert.alert('Errore', 'Email o password non corretti.')
       } else {
         const userId = data.user?.id
-        if (biometricoDisponibile && !biometricoAttivato) {
+        if (!userId) {
+          setLoading(false)
+          return
+        }
+        await setUltimoUserIdBiometria(userId)
+        const biometriaGiaAttiva = await isBiometriaAttivaPerUser(userId)
+        if (biometricoDisponibile && !biometriaGiaAttiva) {
           Alert.alert(
             'Accesso rapido',
             'Vuoi usare Face ID o l\'impronta digitale per i prossimi accessi?',
@@ -102,10 +124,9 @@ export default function Login() {
               { text: 'No', onPress: () => redirectAfterSignIn(userId) },
               {
                 text: 'Sì', onPress: async () => {
-                  await SecureStore.setItemAsync('biometria_attiva', 'true')
-                  await SecureStore.deleteItemAsync('biometrico_attivato')
-                  await SecureStore.deleteItemAsync('saved_email')
-                  await SecureStore.deleteItemAsync('saved_password')
+                  await abilitaBiometriaPerUser(userId)
+                  setUltimoUserIdBiometriaState(userId)
+                  autoPromptTentato.current = true
                   setBiometricoAttivato(true)
                   redirectAfterSignIn(userId)
                 }
@@ -113,6 +134,10 @@ export default function Login() {
             ]
           )
         } else {
+          if (biometriaGiaAttiva) {
+            autoPromptTentato.current = true
+            setBiometricoAttivato(true)
+          }
           redirectAfterSignIn(userId)
         }
       }
@@ -120,7 +145,7 @@ export default function Login() {
     setLoading(false)
   }
 
-  async function loginBiometrico() {
+  async function loginBiometrico(userIdHint?: string | null) {
     setLoading(true)
     try {
       const result = await LocalAuthentication.authenticateAsync({
@@ -132,8 +157,8 @@ export default function Login() {
         const { data, error } = await supabase.auth.refreshSession()
         if (error || !data.session) {
           Alert.alert('Errore', 'Sessione scaduta. Accedi con email e password.')
-          await SecureStore.deleteItemAsync('biometria_attiva')
-          await SecureStore.deleteItemAsync('biometrico_attivato')
+          const userId = userIdHint ?? ultimoUserIdBiometria ?? await getUltimoUserIdBiometria()
+          if (userId) await disabilitaBiometriaPerUser(userId)
           setBiometricoAttivato(false)
         } else {
           await redirectAfterSignIn(data.session.user?.id)
@@ -196,7 +221,7 @@ export default function Login() {
             <>
               <TouchableOpacity
                 style={styles.biometricoBtn}
-                onPress={loginBiometrico}
+                onPress={() => void loginBiometrico(ultimoUserIdBiometria)}
                 activeOpacity={0.75}
                 accessibilityRole="button"
                 accessibilityLabel="Accedi con Face ID o impronta digitale"
@@ -224,6 +249,9 @@ export default function Login() {
             <TextInput style={styles.input} value={email} onChangeText={setEmail}
               placeholder="es. mario@gmail.com" placeholderTextColor="#9CA3AF"
               keyboardType="email-address" autoCapitalize="none"
+              autoComplete="off"
+              textContentType="none"
+              importantForAutofill="no"
               accessibilityLabel="Email" />
           </View>
           <View style={styles.inputWrap}>
@@ -234,6 +262,9 @@ export default function Login() {
                 if (errorePassword) setErrorePassword(null)
               }}
                 placeholder="Minimo 6 caratteri" placeholderTextColor="#9CA3AF" secureTextEntry={!mostraPassword}
+                autoComplete="off"
+                textContentType="oneTimeCode"
+                importantForAutofill="no"
                 accessibilityLabel="Password" />
               <TouchableOpacity
                 style={styles.passwordToggle}

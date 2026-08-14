@@ -6,6 +6,7 @@ import { profiloStyles as styles } from './profiloStyles'
 type Props = {
   biometricoDisponibile: boolean
   biometricoAttivato: boolean
+  biometricoAbilitabile?: boolean
   onToggleBiometrico: (value: boolean) => void
   onCambiaPassword: () => void
 }
@@ -13,6 +14,7 @@ type Props = {
 export function ProfiloSicurezzaCard({
   biometricoDisponibile,
   biometricoAttivato,
+  biometricoAbilitabile = true,
   onToggleBiometrico,
   onCambiaPassword,
 }: Props) {
@@ -24,11 +26,16 @@ export function ProfiloSicurezzaCard({
         <View style={[styles.settingRow, { marginTop: 4 }]}>
           <View style={{ flex: 1 }}>
             <Text style={styles.settingLabel}>Accesso biometrico</Text>
-            <Text style={styles.settingDesc}>Impronta digitale o Face ID</Text>
+            <Text style={styles.settingDesc}>
+              {biometricoAbilitabile
+                ? 'Impronta digitale o Face ID'
+                : 'Completa onboarding e termini per attivarlo'}
+            </Text>
           </View>
           <Switch
             value={biometricoAttivato}
             onValueChange={onToggleBiometrico}
+            disabled={!biometricoAbilitabile && !biometricoAttivato}
             trackColor={{ false: C.border, true: C.teal }}
             thumbColor="#fff"
           />
